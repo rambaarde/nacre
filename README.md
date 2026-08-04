@@ -48,6 +48,20 @@ memory: ~/acme-context · you are in: ims-fe
 no logs yet · next: varve-publish at the end of this session
 ```
 
+## Read it
+
+```bash
+varve serve            # the portal, from your own clone. No login.
+varve search 419       # same search the portal uses, same ranking
+```
+
+Three ways in — project, person, time — over one store. The project page is
+ordered by urgency of not knowing: handoff, then what was **decided against**,
+then open risks, then the log.
+
+Agents read the same files through the two skills, so both doors show the same
+bytes and neither gets a privileged interface.
+
 Every command also works as **`vrv`**. Node 20+, zero runtime dependencies;
 prefix with `npx` to run without installing.
 
