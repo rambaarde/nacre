@@ -279,3 +279,23 @@ test("piped output carries no escape codes", async () => {
   const ESC = String.fromCharCode(27);
   assert.ok(!stdout.includes(ESC), "styling must never reach a pipe");
 });
+
+test("a public memory is refused, and the override is explicit", async () => {
+  // Offline-safe: a non-https remote cannot be probed, so the check returns
+  // null and init proceeds. That is the important default — "unknown" must
+  // never read as "public", or the guard fires on people it should not.
+  await withHome(async (home: string) => {
+    const local = await initStore({ store: "file:///tmp/nowhere.git", who: "alice" });
+    assert.ok(local.created, "an unprobeable remote must not block init");
+  });
+
+  // And the override reaches the operation rather than being swallowed.
+  await withHome(async () => {
+    const forced = await initStore({
+      store: "https://github.com/rambaarde/acme-context.git",
+      who: "alice",
+      allowPublic: true,
+    });
+    assert.ok(forced.created, "--i-know-its-public must skip the probe entirely");
+  });
+});

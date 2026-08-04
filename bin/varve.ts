@@ -33,6 +33,7 @@ const OPTIONS = {
   agents: { type: "string" },
   force: { type: "boolean" },
   "no-skills": { type: "boolean" },
+  "i-know-its-public": { type: "boolean" },
   plain: { type: "boolean" },
   port: { type: "string" },
   all: { type: "boolean" },
@@ -62,6 +63,7 @@ Adding repos to an existing project is the same command again:
   --all                search every project, not just this one
   --port <n>           portal port       (default: 4173)
   --no-skills          skip installing the skills
+  --i-know-its-public  allow a memory anyone can read (it cannot be undone)
   --plain              plain output, as when piped
 
 Reading and writing memory happen through the skills, not this binary.`;
@@ -185,7 +187,10 @@ async function main() {
 
     if (command === "init") {
       if (!arg && !memoryPath) fail("missing argument: varve init <git-url>");
-      const r = await initStore({ store: arg, storePath: memoryPath, who: o.who, force: o.force });
+      const r = await initStore({
+        store: arg, storePath: memoryPath, who: o.who, force: o.force,
+        allowPublic: o["i-know-its-public"],
+      });
       if (!isTTY()) {
         return r.created
           ? out(
