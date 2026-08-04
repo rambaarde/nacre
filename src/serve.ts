@@ -80,6 +80,11 @@ form.q{display:flex;gap:.5rem;font-family:var(--mono);font-size:.8rem;margin:0 0
 form.q input[type=search]{flex:1;min-width:0;background:var(--paper2);border:1px solid var(--rule);
 color:var(--ink);padding:.35rem .6rem;font:inherit}
 form.q button{background:none;border:1px solid var(--rule);color:var(--soft);padding:.35rem .7rem;font:inherit;cursor:pointer}
+.tabs{display:flex;gap:1.2rem;font-family:var(--mono);font-size:.76rem;
+margin:0 0 1.4rem;border-bottom:1px solid var(--rule);padding-bottom:.45rem}
+.tabs a{color:var(--faint);text-decoration:none;padding-bottom:.45rem;margin-bottom:-.5rem}
+.tabs a:hover{color:var(--ink)}
+.tabs a.on{color:var(--ink);font-weight:700;border-bottom:2px solid var(--ink)}
 .log,.note{max-width:38rem}
 .note h1,.note h2{font-size:1.02rem;margin:1.3rem 0 .3rem;font-family:var(--mono);
 letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:600}
@@ -106,15 +111,7 @@ function rail(idx: Index, active: Active = {}): string {
       }<span class="n">${n}</span></li>`)
       .join("")}</ul>`;
   };
-  const project = active.project
-    ? `<h4>${escape(active.project)}</h4><ul>
-        <li class="${active.section !== "standards" ? "on" : ""}">${link(`/p/${encodeURIComponent(active.project)}`, "overview")}</li>
-        <li class="${active.section === "standards" ? "on" : ""}">${link(`/s/${encodeURIComponent(active.project)}`, "standards")}</li>
-      </ul>`
-    : "";
-
   return `<nav class="rail">
-    ${project}
     <h4>Company</h4>
     <ul>
       <li class="${active.company === "_company" ? "on" : ""}">${link("/c/_company", "context")}</li>
@@ -132,6 +129,15 @@ const shell = (memory: string, clone: string, idx: Index, active: Active, title:
     <span class="right">${escape(tilde(memory))} · pulled ${escape(clone)}</span>
   </div>
   <div class="cols">${rail(idx, active)}<div class="pane">${inner}</div></div>`);
+
+/** Project-scoped nav. On the page, not the rail — so moving between people and
+ *  projects never reflows the sidebar. */
+const tabs = (project: string, on: "overview" | "standards", hasStandards: boolean): string =>
+  `<nav class="tabs">
+    <a class="${on === "overview" ? "on" : ""}" href="/p/${encodeURIComponent(project)}">overview</a>
+    ${hasStandards ? `<a class="${on === "standards" ? "on" : ""}" href="/s/${encodeURIComponent(project)}">standards</a>` : ""}
+    <a href="/search?project=${encodeURIComponent(project)}">search</a>
+  </nav>`;
 
 const searchForm = (q = "", scope = ""): string => `<form class="q" method="get" action="/search">
   <input type="search" name="q" value="${escape(q)}" placeholder="search…" autofocus>
@@ -154,9 +160,8 @@ function renderProject(v: ProjectView): string {
   return `<h1>${escape(v.title)}</h1>
   <p class="sub">repos[${v.repos.length}] ${escape(v.repos.join(", ") || "none linked")}${
     v.teams.length ? ` · teams[${v.teams.length}] ${escape(v.teams.join(", "))}` : ""
-  } · ${v.count} log${v.count === 1 ? "" : "s"}${
-    v.hasStandards ? ` · ${link(`/s/${encodeURIComponent(v.project)}`, "standards")}` : ""
-  }</p>
+  } · ${v.count} log${v.count === 1 ? "" : "s"}</p>
+  ${tabs(v.project, "overview", v.hasStandards)}
   ${searchForm("", v.project)}
   ${v.handoff ? `<div class="bh"><span>Handoff</span><span class="cnt">${
     escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")
@@ -205,6 +210,11 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
         res.end(html);
       };
 
+      if (url.pathname === "/favicon.ico") {
+        res.writeHead(204, { "cache-control": "max-age=86400" });
+        return res.end();
+      }
+
       const project = url.pathname.match(/^\/p\/(.+)$/);
       if (project) {
         const name = decodeURIComponent(project[1] as string);
@@ -249,9 +259,10 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
           return send(shell(memory, clone, idx, { project: name }, name,
             `<p class="empty">${escape(name)} has no standards of its own — the company standards apply</p>`), 404);
         }
-        return send(shell(memory, clone, idx, { project: name, section: "standards" }, `${name} standards`,
+        return send(shell(memory, clone, idx, { project: name }, `${name} standards`,
           `<h1>${escape(name)} — standards</h1>
            <p class="sub">${escape(name)}/_standards.md · loaded with this project only</p>
+           ${tabs(name, "standards", true)}
            <div class="log">${markdown(text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").replace(/<!--[\s\S]*?-->/g, ""))}</div>`));
       }
 
