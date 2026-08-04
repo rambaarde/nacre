@@ -20,6 +20,18 @@ to it. Building a CLI and a portal before knowing that would be building on an
 assumption. So the smallest possible version ships first, and the rest waits on
 what it shows.
 
+## Install
+
+```bash
+npx varve init --project <slug> --store <git-url> --create-store
+```
+
+Installs the skills, binds the repo, scaffolds the store. Node 20+, zero runtime
+dependencies.
+
+Everyone after the first person runs nothing at all — they clone a repo that
+already carries `.varve.yml`, and their next session starts warm.
+
 ## The idea
 
 Your agent remembers. Your team doesn't.

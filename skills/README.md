@@ -14,24 +14,22 @@ and ever publishes back to it. Nothing here assumes the answer is yes.
 ## Install
 
 ```bash
-cp -r skills/varve-load skills/varve-publish ~/.claude/skills/
+npx varve init --project atlas --store git@github.com:acme/company-context.git
 ```
 
-In each code repo that belongs to the project, commit a `.varve.yml`:
+That installs both skills, writes `.varve.yml` into the repo, and — with
+`--create-store` — scaffolds a new store from the template. Add `--yes` to run
+headless; every prompt has a flag, and it never blocks waiting for input.
+
+`.varve.yml` is two lines and **committed, not gitignored**:
 
 ```yaml
 project: atlas
 store: git@github.com:acme/company-context.git
 ```
 
-Two lines, **committed, not gitignored**. The `store` line is what lets a
-teammate clone the repo and start warm without setting varve up at all.
-
-Clone the store once:
-
-```bash
-git clone git@github.com:acme/company-context.git ~/company-context
-```
+The `store` line is what lets a teammate clone the repo and start warm without
+running `init` at all.
 
 ## The store
 
