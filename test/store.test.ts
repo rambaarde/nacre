@@ -243,13 +243,13 @@ test("add inherits the memory it resolved, even with two on the machine", async 
   // a repo being linked for the first time has no binding, so the answer `add`
   // already had was discarded and resolution failed outright.
   await withHome(async (home: string) => {
-    const bound = join(home, "ims-fe");
+    const bound = join(home, "atlas-web");
     const fresh = join(home, "acme-billing");
     for (const d of [bound, fresh]) await mkdir(d, { recursive: true });
 
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
-    await addProject({ project: "ims", repos: [bound], who: "alice",
+    await addProject({ project: "atlas", repos: [bound], who: "alice",
       storePath: join(home, "acme-context") });
 
     process.chdir(bound);
