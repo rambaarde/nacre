@@ -17,7 +17,7 @@
 import {
   PKG_ROOT, AGENTS, exists, storePath, gitSlug, readRoster, addToRoster,
   listProjects, logStats, installSkills, resolveBinding, frontmatter,
-  storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable, ensureMemory,
+  storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable, ensureMemory, remoteHasCommits,
   gitIdentity,
   readFile, writeFile, mkdir, cp, basename, join, resolve,
 } from "./store.js";
@@ -44,22 +44,43 @@ export interface LinkResult {
 export async function initStore({ store, storePath: pathFlag, who, force, allowPublic }: InitInput) {
   const dir = await resolveStoreDir(pathFlag, store);
 
+  // Two questions about the same remote — is it public, and does it already
+  // hold a memory — so they are asked at once rather than one after the other.
+  // Sequentially this was the slowest thing `init` did.
+  const [open, populated] = store
+    ? await Promise.all([
+        allowPublic ? Promise.resolve(null) : isPubliclyReadable(store),
+        force ? Promise.resolve(null) : remoteHasCommits(store),
+      ])
+    : [null, null];
+
   // Refuse before creating anything. A memory holds production reasoning, and
   // a public one cannot be made private after the fact — the history is already
   // out and already cloneable.
-  if (store && !allowPublic) {
-    const open = await isPubliclyReadable(store);
-    if (open === true) {
-      throw new Error(
-        `${store} is readable by anyone · a memory holds production reasoning ` +
-          "and git history cannot be un-published · make it private, or pass " +
-          "--i-know-its-public",
-      );
-    }
+  if (open === true) {
+    throw new Error(
+      `${store} is readable by anyone · a memory holds production reasoning ` +
+        "and git history cannot be un-published · make it private, or pass " +
+        "--i-know-its-public",
+    );
   }
+
   const already = await exists(join(dir, "_company.md"));
   if (already && !force) {
     return { dir, created: false, remote: await initGit(dir, store), projects: await listProjects(dir) };
+  }
+
+  // The memory is missing HERE, which is not the same as missing everywhere.
+  // Scaffolding without asking is how a company ends up with two memories on one
+  // URL: the second person to run `init` gets an empty store and a history that
+  // has nothing in common with the one their team is already writing to.
+  //
+  // `null` — offline, no access, no such repo — falls through to scaffolding on
+  // purpose. A remote nobody can reach is a remote nobody can diverge from.
+  if (store && populated === true) {
+    const got = await ensureMemory(dir, store);
+    if (!got.ok) throw new Error(`${store} already exists but could not be fetched · ${got.reason}`);
+    return { dir, created: false, cloned: true, remote: store, projects: await listProjects(dir) };
   }
 
   const author = who ?? (await gitSlug());

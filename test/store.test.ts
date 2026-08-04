@@ -344,6 +344,40 @@ test("a bound repo fetches its memory instead of asking for init", async () => {
   });
 });
 
+test("init joins an existing memory instead of starting a second one", async () => {
+  // Found by running the published package: `init` only checked whether a
+  // memory existed LOCALLY, so the second person to point it at the company URL
+  // got an empty scaffold and a history sharing no commit with their team's.
+  // Both would then claim the same remote.
+  await withHome(async (home: string) => {
+    const origin = join(home, "origin.git");
+    const seed = join(home, "seed");
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+
+    await mkdir(join(seed, "atlas"), { recursive: true });
+    await writeFile(join(seed, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await writeFile(join(seed, "atlas", "_project.md"), "---\nproject: atlas\nrepos: []\n---\n");
+    await git("git", ["init", "-q", seed]);
+    await git("git", ["-C", seed, "config", "user.email", "a@b.c"]);
+    await git("git", ["-C", seed, "config", "user.name", "alice"]);
+    await git("git", ["-C", seed, "add", "-A"]);
+    await git("git", ["-C", seed, "commit", "-qm", "the team's memory"]);
+    await git("git", ["clone", "-q", "--bare", seed, origin]);
+
+    const joined = await initStore({ store: origin, storePath: join(home, "mem"), who: "bob" });
+
+    assert.equal(joined.created, false, "must not create a second memory");
+    assert.equal("cloned" in joined && joined.cloned, true, "must fetch the one that exists");
+    assert.deepEqual(joined.projects, ["atlas"], "and arrive holding the team's projects");
+
+    // The decisive check: one shared history, not two unrelated roots.
+    const { stdout } = await git("git", ["-C", joined.dir, "log", "--format=%s"]);
+    assert.match(stdout, /the team's memory/, "history must be the team's, not a fresh root");
+  });
+});
+
 test("an unreachable memory explains itself rather than hanging", async () => {
   await withHome(async (home: string) => {
     const { ensureMemory } = await import("../src/store.js");
