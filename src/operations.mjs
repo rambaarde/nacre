@@ -17,13 +17,13 @@
 import {
   PKG_ROOT, AGENTS, exists, storePath, gitSlug, readRoster, addToRoster,
   listProjects, logStats, installSkills, resolveBinding, frontmatter,
-  storeRemote, initGit,
+  storeRemote, initGit, repoName, resolveStoreDir,
   readFile, writeFile, mkdir, cp, basename, join, resolve,
 } from "./store.mjs";
 
 /** Create the one centralised context store for a company. */
 export async function initStore({ store, storePath: pathFlag, who, force }) {
-  const dir = storePath(pathFlag);
+  const dir = await resolveStoreDir(pathFlag, store);
   const already = await exists(join(dir, "_company.md"));
   if (already && !force) {
     return { dir, created: false, remote: await initGit(dir, store), projects: await listProjects(dir) };
@@ -49,7 +49,7 @@ export async function initStore({ store, storePath: pathFlag, who, force }) {
 /** Add a project to the store. Optionally link repos in the same motion. */
 export async function addProject({ project, title, team, repos, storePath: pathFlag, store, who }) {
   if (!project) throw new Error("missing required argument: varve add <project>");
-  const dir = storePath(pathFlag);
+  const dir = await resolveStoreDir(pathFlag, store ?? (await resolveBinding())?.store);
   if (!(await exists(join(dir, "_company.md")))) {
     throw new Error(`no store at ${dir} · run: varve init --store <git-url>`);
   }
@@ -98,12 +98,12 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
   const name = basename(dir);
   if (!(await exists(dir))) throw new Error(`no such directory: ${dir}`);
 
-  const storeDir = storePath(pathFlag);
   let remote = store;
 
   // Resolve the store URL rather than demanding it: an already-bound sibling
   // knows it, and failing that the store's own git remote is the record.
   if (!remote) remote = (await resolveBinding(dir))?.store;
+  const storeDir = await resolveStoreDir(pathFlag, remote);
   if (!remote) remote = await storeRemote(storeDir);
   if (!remote) {
     throw new Error(
@@ -135,7 +135,7 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
 /** Live state for the bare `varve` command. Read-only, no side effects. */
 export async function status({ storePath: pathFlag } = {}) {
   const binding = await resolveBinding();
-  const dir = storePath(pathFlag);
+  const dir = await resolveStoreDir(pathFlag, binding?.store);
   const storeReady = await exists(join(dir, "_company.md"));
   const projects = await listProjects(dir);
 
