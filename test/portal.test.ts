@@ -13,7 +13,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseLog, readLogs, search, projectView, personView, index, unfilled } from "../src/portal.js";
+import { parseLog, readLogs, search, projectView, personView, index, unfilled, projectStandards } from "../src/portal.js";
 import { markdown, escape } from "../src/markdown.js";
 import { serve } from "../src/serve.js";
 
@@ -498,4 +498,31 @@ test("every shipped template reads as unwritten — company and standards too", 
       .trim();
     assert.equal(unfilled(body), "", `${rel} must read as unwritten until someone fills it in`);
   }
+});
+
+test("a project name is one directory name, never a path", async () => {
+  // The portal decodes URL parameters, and %2e%2e%2f survives Node's path
+  // normalisation to become ../ afterwards — so /s/%2e%2e%2foutside read a
+  // _standards.md from outside the memory entirely, and /p/ did the same with
+  // _project.md. Guarding the two routes would have left the next route to
+  // rediscover it, so the check lives where a name becomes a file.
+  const dir = await mkdtemp(join(tmpdir(), "varve-trav-"));
+  const outside = join(dir, "outside");
+  const memory = join(dir, "memory");
+  await mkdir(outside, { recursive: true });
+  await mkdir(join(memory, "atlas"), { recursive: true });
+  await writeFile(join(outside, "_standards.md"), "SHOULD NEVER BE SERVED\n");
+  await writeFile(join(outside, "_project.md"), "---\nproject: pwned\n---\nSHOULD NEVER BE SERVED\n");
+  await writeFile(join(memory, "atlas", "_project.md"), "---\nproject: atlas\nrepos: [a]\n---\n");
+
+  for (const evil of ["../outside", "..", ".", "../../etc", "a/b", "..\\outside", "atlas/../../outside"]) {
+    assert.equal(await projectStandards(memory, evil), null, `standards must refuse ${evil}`);
+    assert.equal(await projectView(memory, evil), null, `project view must refuse ${evil}`);
+    assert.deepEqual(await readLogs(memory, evil), [], `logs must refuse ${evil}`);
+  }
+
+  // and the legitimate name still works
+  assert.ok(await projectView(memory, "atlas"), "a real project still resolves");
+
+  await rm(dir, { recursive: true, force: true });
 });
