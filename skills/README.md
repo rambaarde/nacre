@@ -1,21 +1,26 @@
 # varve — skills
 
-Two skills and a git repo. That is the whole thing right now.
+Two skills and a git repo. Everything else is convenience around them.
 
 | | |
 |---|---|
 | **`varve-load`** | at session start, read what the team decided so your agent begins warm |
 | **`varve-publish`** | at session end, write one log — strip private blocks, scan for secrets, show it, push it |
 
-No CLI, no package, no portal. Those come later, and only if this part earns
-them: the open question is whether a second person actually reads a shared store
-and ever publishes back to it. Nothing here assumes the answer is yes.
+The CLI and portal now exist, but they only wire up and display what these two
+skills write — delete them and the memory is still readable Markdown in git.
+
+The open question they were waiting on is still open: whether a second person
+actually reads a shared memory and ever publishes back to it. Shipping a package
+did not answer that, and nothing here assumes the answer is yes.
 
 ## Install
 
 ```bash
-npx varve init git@github.com:acme/acme-context.git   # once, per company
-npx varve add ims ../ims-fe ../ims-be                 # once, per project
+npm i -g varve-cli                                # the package; the commands are varve and vrv
+
+varve init git@github.com:acme/acme-context.git   # once, per company
+varve add ims ../ims-fe ../ims-be                 # once, per project
 ```
 
 `add` installs both skills, writes `.varve.yml` into each repo, and records the
@@ -26,8 +31,8 @@ next.
 To read the memory as a person rather than through an agent:
 
 ```bash
-npx varve serve          # a portal over your own clone. No login, loopback only
-npx varve search <term>  # the same search, same ranking
+varve serve          # a portal over your own clone. No login, loopback only
+varve search <term>  # the same search, same ranking
 ```
 
 Every command also works as **`vrv`**. Inside a session, the skills answer to

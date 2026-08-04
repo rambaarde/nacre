@@ -17,13 +17,15 @@ the **product**, and above it the **company**.
 No vectors. No API key. No service to run. Markdown you can read in a pull request.
 
 ```sh
-npx varve init git@github.com:acme/acme-context.git
+npm i -g varve-cli
+varve init git@github.com:acme/acme-context.git
 ```
 
 **Working alone?** You want
 [create-ai-memory](https://github.com/rambaarde/create-ai-memory) instead —
 same idea, one person, no shared repo to set up.
 
+[![npm](https://img.shields.io/npm/v/varve-cli)](https://www.npmjs.com/package/varve-cli)
 ![tests](https://img.shields.io/badge/tests-44%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
@@ -98,12 +100,16 @@ Both doors, one store. Neither gets a privileged interface.
 
 ## Setup
 
-Two commands, run by whoever sets things up.
+Install once, then two commands, run by whoever sets things up.
 
 ```sh
+npm i -g varve-cli                                # the package; the commands are varve and vrv
+
 varve init git@github.com:acme/acme-context.git   # once, per company
 varve add ims ../ims-fe ../ims-be                 # once, per project
 ```
+
+Trying it without installing works too — `npx varve-cli init <git-url>`.
 
 Adding a repo later is the same command again:
 
