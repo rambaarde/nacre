@@ -150,6 +150,53 @@ export async function initGit(dir: string, remote?: string | null): Promise<stri
   return remote;
 }
 
+/**
+ * Is this remote readable without credentials?
+ *
+ * A memory holds production reasoning, unpatched-but-known issues, and the
+ * reasons behind decisions nobody wrote down elsewhere. Publishing that by
+ * accident is not recoverable — git history is permanent and already cloned.
+ *
+ * The check is a plain anonymous fetch with every credential path disabled:
+ * no terminal prompt, no askpass, no credential helper, no SSH agent. If the
+ * refs come back anyway, anyone can read it. SSH remotes are rewritten to HTTPS
+ * first, since an SSH probe would authenticate as the user and always succeed.
+ *
+ * Returns null when the answer cannot be established — offline, unknown host,
+ * a private mirror. Unknown must never read as "public", or the guard would
+ * fire on people it should not.
+ */
+export async function isPubliclyReadable(url: string): Promise<boolean | null> {
+  const https = url
+    .replace(/^git@([^:]+):/, "https://$1/")
+    .replace(/^ssh:\/\/git@/, "https://");
+  if (!https.startsWith("https://")) return null;
+
+  try {
+    await run("git", ["ls-remote", "--heads", https], {
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_ASKPASS: "",
+        SSH_ASKPASS: "",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_CONFIG_SYSTEM: "/dev/null",
+        GIT_SSH_COMMAND: "ssh -o BatchMode=yes",
+      },
+      timeout: 10_000,
+    });
+    return true;
+  } catch (error) {
+    const text = String((error as { stderr?: string })?.stderr ?? error);
+    // Authentication being demanded is the signal we want: the repo is there
+    // and it will not show itself to a stranger.
+    if (/Authentication failed|could not read Username|terminal prompts disabled|denied|403|401/i.test(text)) {
+      return false;
+    }
+    return null;
+  }
+}
+
 /** Author slug from git config. Wrong harmlessly; never blocks. */
 export async function gitSlug(): Promise<string> {
   try {

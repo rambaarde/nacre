@@ -17,12 +17,15 @@
 import {
   PKG_ROOT, AGENTS, exists, storePath, gitSlug, readRoster, addToRoster,
   listProjects, logStats, installSkills, resolveBinding, frontmatter,
-  storeRemote, initGit, repoName, resolveStoreDir,
+  storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable,
   readFile, writeFile, mkdir, cp, basename, join, resolve,
 } from "./store.js";
 import type { Binding } from "./store.js";
 
-export interface InitInput { store?: string; storePath?: string; who?: string; force?: boolean }
+export interface InitInput {
+  store?: string; storePath?: string; who?: string; force?: boolean;
+  allowPublic?: boolean;
+}
 export interface AddInput {
   project?: string; title?: string; team?: string; repos?: string[];
   storePath?: string; store?: string | null; who?: string;
@@ -37,8 +40,22 @@ export interface LinkResult {
 }
 
 /** Create the one centralised context store for a company. */
-export async function initStore({ store, storePath: pathFlag, who, force }: InitInput) {
+export async function initStore({ store, storePath: pathFlag, who, force, allowPublic }: InitInput) {
   const dir = await resolveStoreDir(pathFlag, store);
+
+  // Refuse before creating anything. A memory holds production reasoning, and
+  // a public one cannot be made private after the fact — the history is already
+  // out and already cloneable.
+  if (store && !allowPublic) {
+    const open = await isPubliclyReadable(store);
+    if (open === true) {
+      throw new Error(
+        `${store} is readable by anyone · a memory holds production reasoning ` +
+          "and git history cannot be un-published · make it private, or pass " +
+          "--i-know-its-public",
+      );
+    }
+  }
   const already = await exists(join(dir, "_company.md"));
   if (already && !force) {
     return { dir, created: false, remote: await initGit(dir, store), projects: await listProjects(dir) };
