@@ -77,9 +77,26 @@ export async function resolveBinding(start = process.cwd()) {
   }
 }
 
-/** Local store path: explicit flag → env → default. */
-export const storePath = (flag) =>
-  resolve(flag ?? process.env.VARVE_STORE ?? join(homedir(), "company-context"));
+/** The repo name from a git URL: git@host:acme/acme-context.git → acme-context */
+export function repoName(url) {
+  if (!url) return null;
+  const last = url.trim().replace(/\.git$/, "").split(/[/:]/).pop();
+  return last && /^[\w.-]+$/.test(last) ? last : null;
+}
+
+/**
+ * Local store path: explicit flag → env → derived from the store URL → default.
+ *
+ * Derived from the URL rather than hardcoded, because every company names its
+ * store repo differently and someone working for two of them would otherwise
+ * have both collide on one directory.
+ */
+export const storePath = (flag, url) =>
+  resolve(
+    flag ??
+      process.env.VARVE_STORE ??
+      join(homedir(), repoName(url) ?? "company-context"),
+  );
 
 /**
  * The store's own git remote is the record of where the store lives.
@@ -118,6 +135,47 @@ export async function gitSlug() {
   } catch {
     return "you";
   }
+}
+
+/**
+ * Find every store directly under the home directory.
+ *
+ * Used only when nothing else identifies a store. Discovery is not guessing:
+ * finding exactly one is unambiguous, and finding several is reported rather
+ * than resolved, because picking one silently is how a contractor's notes end
+ * up in the wrong company's store.
+ */
+export async function discoverStores() {
+  const home = homedir();
+  let entries;
+  try {
+    entries = await readdir(home, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found = [];
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith(".")) continue;
+    if (await exists(join(home, e.name, "_company.md"))) found.push(join(home, e.name));
+  }
+  return found.sort();
+}
+
+/** Resolve which store to use: flag → env → store URL → discovery. */
+export async function resolveStoreDir(flag, url) {
+  if (flag) return resolve(flag);
+  if (process.env.VARVE_STORE) return resolve(process.env.VARVE_STORE);
+  if (repoName(url)) return join(homedir(), repoName(url));
+
+  const found = await discoverStores();
+  if (found.length === 1) return found[0];
+  if (found.length > 1) {
+    throw new Error(
+      `several stores found: ${found.map((f) => basename(f)).join(", ")} · ` +
+        "pass --store-path <dir> — picking one silently could write into the wrong company's store",
+    );
+  }
+  return join(homedir(), "company-context");
 }
 
 export async function readRoster(store, project) {
