@@ -51,7 +51,7 @@ export async function addProject({ project, title, team, repos, storePath: pathF
   if (!project) throw new Error("missing required argument: varve add <project>");
   const dir = await resolveStoreDir(pathFlag, store ?? (await resolveBinding())?.store);
   if (!(await exists(join(dir, "_company.md")))) {
-    throw new Error(`no store at ${dir} · run: varve init --store <git-url>`);
+    throw new Error(`no memory at ${dir} · run: varve init <git-url>`);
   }
 
   const author = who ?? (await gitSlug());
@@ -73,9 +73,14 @@ export async function addProject({ project, title, team, repos, storePath: pathF
     await mkdir(join(projectDir, teamName, author), { recursive: true });
   }
 
+  const remote = store ?? (await storeRemote(dir));
   const linked = [];
   for (const repo of repos ?? []) {
-    linked.push(await linkRepo({ repo, project, storePath: pathFlag, store, skipRoster: true }));
+    // Pass the resolved memory down. A repo being linked for the first time has
+    // no binding of its own, so letting linkRepo re-derive would discard the
+    // answer add already had — and fail outright when more than one memory
+    // exists on the machine.
+    linked.push(await linkRepo({ repo, project, storePath: dir, store: remote, skipRoster: true }));
   }
   const roster = linked.length
     ? await addToRoster(dir, project, linked.map((l) => l.name))
