@@ -167,6 +167,28 @@ export async function initGit(dir: string, remote?: string | null): Promise<stri
  * fire on people it should not.
  */
 /**
+ * Is there work here that no remote has seen — uncommitted files, or commits on
+ * no remote-tracking branch?
+ *
+ * `varve add` used to end with "teammates then need nothing", which is true of
+ * `.varve.yml` and false of everything else until the memory itself is pushed.
+ * A teammate cloning a wired repo before that gets a binding pointing at an
+ * empty remote.
+ */
+export async function memoryNeedsPush(dir: string): Promise<boolean> {
+  try {
+    const { stdout: dirty } = await run("git", ["-C", dir, "status", "--porcelain"]);
+    if (dirty.trim()) return true;
+    const { stdout: ahead } = await run("git", [
+      "-C", dir, "log", "--branches", "--not", "--remotes", "--oneline",
+    ]);
+    return ahead.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Does this remote already hold a history? Asked with the caller's own
  * credentials, unlike `isPubliclyReadable`, which deliberately strips them.
  *

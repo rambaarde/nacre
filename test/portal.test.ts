@@ -13,7 +13,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseLog, readLogs, search, projectView, personView, index } from "../src/portal.js";
+import { parseLog, readLogs, search, projectView, personView, index, unfilled } from "../src/portal.js";
 import { markdown, escape } from "../src/markdown.js";
 import { serve } from "../src/serve.js";
 
@@ -206,7 +206,7 @@ test("the CLI and the portal rank a query identically", async () => {
   const cliOrder = stdout.split("\n").filter((l: string) => /^\d{4}-|^,/.test(l))
     .map((l: string) => l.split(",").slice(0, 3).join(","));
   const engineOrder = engine.slice(0, cliOrder.length)
-    .map((h) => [h.date, h.who, h.repo].join(","));
+    .map((h) => [h.date, h.who, h.project].join(","));
   assert.deepEqual(cliOrder, engineOrder, "ranking is the engine's job, truncation the adapter's");
   await rm(dir, { recursive: true, force: true });
 });
@@ -233,7 +233,7 @@ test("varve search and varve serve work as commands, not just as functions", asy
   const bin = new URL("../bin/varve.js", import.meta.url).pathname;
 
   const { stdout } = await run(process.execPath, [bin, "search", "cache", "--all", "--memory", dir]);
-  assert.match(stdout, /^hits\[\d+\]\{date,who,repo,line\}:/m, "AXI shape on stdout");
+  assert.match(stdout, /^hits\[\d+\]\{date,who,project,line\}:/m, "AXI shape on stdout");
   assert.match(stdout, /help\[\]:/, "every result ends in a next step");
 
   const empty = await run(process.execPath, [bin, "search", "zzzznothing", "--all", "--memory", dir]);
@@ -426,4 +426,32 @@ test("the auto block never stands in for what a person wrote", async () => {
   assert.doesNotMatch(p.summary, /b057180|Auto Session Log/,
     "machine output must stay out of the human summary");
   assert.ok(p.auto.some((a) => /b057180/.test(a)), "but it is still captured and readable");
+});
+
+test("an unfilled project template is an empty state, not thirty lines of brackets", async () => {
+  // The template ships as prompts. Rendered verbatim it was thirty lines of
+  // [What problem this product solves] above the logs — labelled "curated",
+  // answering nothing, and pushing the actual sessions below the fold.
+  const { readFile } = await import("node:fs/promises");
+  const raw = await readFile(
+    join(import.meta.dirname, "..", "..", "store-template", "PROJECT-TEMPLATE", "_project.md"),
+    "utf8",
+  );
+  const body = raw
+    .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .trim();
+
+  assert.equal(unfilled(body), "", "the shipped template must read as unwritten");
+
+  // Half-written keeps what was written, and only that — including dropping the
+  // headings whose every line is still a prompt.
+  const half = body.replace(
+    "* **Purpose:** [What problem this product solves]",
+    "* **Purpose:** Keep stock counts truthful across warehouses.",
+  );
+  const kept = unfilled(half);
+  assert.match(kept, /Keep stock counts truthful/, "written lines survive");
+  assert.doesNotMatch(kept, /\[What problem/, "prompts do not");
+  assert.doesNotMatch(kept, /Architecture at a Glance/, "nor headings with nothing under them");
 });

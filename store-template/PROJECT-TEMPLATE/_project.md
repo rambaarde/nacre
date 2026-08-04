@@ -20,9 +20,12 @@ status: active
 * **System Shape:** [How the repos divide the work]
 * **Durability Rules:** [Backward compatibility, migrations, API stability]
 
-# The Seam
+# Between the Repos
 
-What breaks when the repos disagree. The knowledge no single repository owns.
+<!-- What breaks when these repos disagree — the knowledge no single repository
+     owns, and the reason this project is the unit rather than any one codebase.
+     Written as a comment so the portal shows this section only once someone has
+     actually filled it in. -->
 
 * **[Contract or ordering]:** [What must happen first, and why]
 

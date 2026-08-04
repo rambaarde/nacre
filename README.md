@@ -139,10 +139,16 @@ varve serve            # the portal, from your own clone. No login.
 varve search 419       # the same search the portal uses, same ranking
 ```
 
-Three ways in — **project · person · time** — over one store. The project page is
-ordered by urgency of not knowing: the handoff, then what was **decided
-against**, then open risks, then the log. A reader who stops after the first
-block has already had the value.
+Three ways in — **project · person · time** — over one store. The project page
+leads with the **handoff**: the next step from the most recent session that named
+one. A reader who stops there already knows where the team left off.
+
+Under it sits the curated project note, then every session in order. Decisions,
+risks and what was **decided against** stay inside the logs they were made in,
+dated and attributed. They are deliberately not collected onto the project page:
+after a hundred sessions such a list is neither current nor historical, and
+capping it silently drops the entry that mattered. An index is a cache, never a
+source.
 
 Decided-against entries are never struck through. Strikethrough reads as
 *deleted*; these are live constraints, and they are the class of knowledge
