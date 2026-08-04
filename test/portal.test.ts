@@ -455,3 +455,19 @@ test("an unfilled project template is an empty state, not thirty lines of bracke
   assert.doesNotMatch(kept, /\[What problem/, "prompts do not");
   assert.doesNotMatch(kept, /Architecture at a Glance/, "nor headings with nothing under them");
 });
+
+test("a scaffolded profile reads as unwritten too, not just the project note", async () => {
+  // The placeholder rule was applied to the project note and not to profiles,
+  // so a person's own page showed "Role: [One line]" under a heading marked
+  // "curated". Same rule, both places.
+  const { readFile } = await import("node:fs/promises");
+  const raw = await readFile(
+    join(import.meta.dirname, "..", "..", "store-template", "_team", "_your-slug", "_profile.md"),
+    "utf8",
+  );
+  const body = raw
+    .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .trim();
+  assert.equal(unfilled(body), "", "the shipped profile template must read as unwritten");
+});
