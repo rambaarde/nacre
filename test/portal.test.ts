@@ -119,7 +119,12 @@ test("a superseding log replaces the one it supersedes", async () => {
     "the superseded log drops out of the live view");
   assert.ok(v.logs.some((l) => l.against.some((a) => /Corrected/.test(a))),
     "and the superseding one carries the correction");
-  assert.equal(v.count, 3, "but both files remain — nothing is overwritten");
+  // `count` describes what is listed; `superseded` says how many are hidden.
+  // Together they still prove nothing was overwritten, and unlike a single
+  // total they do not print "3 logs" above two rows.
+  assert.equal(v.superseded, 1, "the correction is reported, not silently hidden");
+  assert.equal(v.count + v.superseded, 3, "both files remain — nothing is overwritten");
+  assert.equal(v.count, v.logs.length, "the count must describe what is listed");
   await rm(dir, { recursive: true, force: true });
 });
 
