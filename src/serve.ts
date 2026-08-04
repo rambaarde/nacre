@@ -168,8 +168,15 @@ function renderProject(v: ProjectView): string {
   ${v.handoff ? `<div class="bh"><span>Handoff</span><span class="cnt">${
     escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")
   }</span></div><hr class="thin"><div class="block">${markdown(v.handoff)}</div>` : ""}
-  ${v.note ? `<div class="bh"><span>Project note</span><span class="cnt">curated</span></div>
-  <hr class="thin"><div class="block note">${markdown(v.note)}</div>` : ""}
+  ${v.note
+      ? `<div class="bh"><span>Project note</span><span class="cnt">curated</span></div>
+  <hr class="thin"><div class="block note">${markdown(v.note)}</div>`
+      // Naming the file beats hiding the section: the reader learns the note is
+      // a file someone can write, not a feature that is missing.
+      : `<div class="bh"><span>Project note</span><span class="cnt">not written</span></div>
+  <hr class="thin"><div class="block note"><p class="empty">Nobody has written one yet — it lives in <code>${
+    escape(v.project)
+  }/_project.md</code>. The logs below are still the record either way.</p></div>`}
   <div class="bh"><span>Recent</span><span class="cnt">${v.count} logs</span></div>
   <hr class="thin">${logRows(v.logs)}`;
 }

@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
-import { resolveStoreDir, resolveBinding, ensureMemory } from "../src/store.js";
+import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush } from "../src/store.js";
 import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 
@@ -62,6 +62,7 @@ Adding repos to an existing project is the same command again:
   --agents <a,b>       claude,opencode   (default: claude)
   --all                search every project, not just this one
   --port <n>           portal port       (default: 4173)
+  --open               open the portal in your browser
   --no-skills          skip installing the skills
   --i-know-its-public  allow a memory anyone can read (it cannot be undone)
   --plain              plain output, as when piped
@@ -256,13 +257,21 @@ async function main() {
       });
       if (!o["no-skills"] && r.linked.length) await installSkills(agents);
       const fresh = r.linked.filter((l) => l.wrote).map((l) => l.name);
+      // "teammates then need nothing" is true of .varve.yml and false of the
+      // memory, which no remote has seen yet. Promising the first while the
+      // second sits unpushed is how someone clones a wired repo and finds an
+      // empty store behind it.
+      const needsPush = await memoryNeedsPush(r.dir);
       if (!isTTY()) {
         return out(
           `ok: ${r.project} ${r.created ? "added" : "already present"} · ${r.dir}/${r.project}`,
           `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
-          fresh.length
-            ? `next: commit .varve.yml in ${fresh.join(", ")} — teammates then need nothing`
-            : `next: varve add ${r.project} <repo-dir>`,
+          needsPush
+            ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .varve.yml in ${fresh.join(", ")}` : ""}`
+            : fresh.length
+              ? `next: commit .varve.yml in ${fresh.join(", ")} — teammates then need nothing`
+              : `next: varve add ${r.project} <repo-dir>`,
+          needsPush ? "help[]: until the memory is pushed, a teammate's clone finds nothing behind it" : null,
         );
       }
       return say(blank(),
@@ -271,9 +280,12 @@ async function main() {
         row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.grey(x))).join("  ") || c.grey("none linked")),
         row("team", c.grey(r.team)),
         blank(),
-        fresh.length
-          ? next(`commit ${c.bold(".varve.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
-          : next(`varve ${c.bold("add")} ${r.project} <repo-dir>`),
+        needsPush
+          ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .varve.yml in ${fresh.join(", ")}`) : ""}`)
+          : fresh.length
+            ? next(`commit ${c.bold(".varve.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
+            : next(`varve ${c.bold("add")} ${r.project} <repo-dir>`),
+        needsPush ? `  ${c.grey("until the memory is pushed, a teammate's clone finds nothing behind it")}` : null,
         blank());
     }
 
@@ -286,12 +298,24 @@ async function main() {
       const port = o.port === undefined ? 4173 : Number(o.port);
       if (Number.isNaN(port)) fail(`--port must be a number, got: ${o.port}`, 2);
       const { url } = await serve({ memory, port });
+      // Declared in the options table from the first version and never read, so
+      // `--open` silently did nothing. Failing to open is not failing to serve:
+      // the URL is printed either way.
+      if (o.open) {
+        const opener = process.platform === "darwin" ? "open"
+          : process.platform === "win32" ? "explorer" : "xdg-open";
+        const { spawn } = await import("node:child_process");
+        try { spawn(opener, [url], { stdio: "ignore", detached: true }).unref(); } catch { /* the URL is above */ }
+      }
       if (isTTY()) {
         say(blank(), ok(`portal on ${c.bold(url)}`),
           row("memory", c.grey(tilde(memory))),
-          blank(), `  ${c.grey("read-only · loopback only · ctrl-c to stop")}`, blank());
+          blank(),
+          `  ${c.grey("read-only · loopback only · this stays running until you press ctrl-c")}`,
+          blank());
       } else {
-        out(`ok: serving ${url}`, `memory: ${memory}`, "help[]: ctrl-c to stop");
+        out(`ok: serving ${url}`, `memory: ${memory}`,
+          "help[]: stays running until ctrl-c · --open launches your browser");
       }
       return new Promise(() => {}); // hold the process open
     }
@@ -307,12 +331,22 @@ async function main() {
         return out(`no hits for "${term}"${binding?.project && !o.all ? ` in ${binding.project}` : ""}`,
           "help[]: varve search <term> --all");
       }
-      // Ranking is the engine's; truncation is this adapter's. The portal shows
-      // every hit, the CLI cuts to its ceiling — same order either way.
-      const shown = hits.slice(0, 12);
-      out(`hits[${hits.length}]{date,who,repo,line}:`,
-        ...shown.map((h) => `${h.date},${h.who},${h.repo},${h.line.slice(0, 90)}`),
-        hits.length > shown.length ? `(truncated, ${hits.length} total — use varve serve)` : null,
+      // Ranking is the engine's; truncation is this adapter's. Breadth beats depth inside a token ceiling. One thorough log can match
+      // six times and crowd out every other session that mentioned the same
+      // thing — the opposite of what "what did the team decide" needs. The
+      // portal still shows every line; this ceiling is the CLI's alone.
+      const perLog = new Map<string, number>();
+      const spread = hits.filter((h) => {
+        const n = (perLog.get(h.id) ?? 0) + 1;
+        perLog.set(h.id, n);
+        return n <= 2;
+      });
+      const shown = spread.slice(0, 12);
+      out(`hits[${hits.length}]{date,who,project,line}:`,
+        ...shown.map((h) => `${h.date},${h.who},${h.project},${h.line.slice(0, 90)}`),
+        hits.length > shown.length
+          ? `(showing ${shown.length} of ${hits.length}, at most 2 per session — varve serve for all)`
+          : null,
         "help[]: varve serve · varve search <term> --all");
       return;
     }
