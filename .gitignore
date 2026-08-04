@@ -1,18 +1,16 @@
-# Internal strategy docs — LOCAL ONLY, never published.
-# This repository is the consumer-facing front for developers and companies
-# using varve. The founder thesis contains competitive teardowns, pricing, the
-# open-core boundary, and candid risk assessments. None of it belongs in a
-# public repo. Keep product docs for users in a separate directory (see below).
-docs/
 
 # Local drafts — session logs captured automatically, before a human publishes.
 # Never committed: this is the privacy boundary (thesis §6.3).
 _drafts/
 **/_drafts/
 
-# Personal Claude Code settings — bypassPermissions is a local trust decision
+# Personal Claude Code settings — permission modes are a local trust decision
 # for this machine, not something to hand every contributor who clones the repo.
-# Shared, reviewable settings belong in .claude/settings.json instead.
+# Both files are ignored: settings.json was carrying defaultMode
+# "bypassPermissions", which is exactly the thing this rule exists to keep out
+# of a public repo. If genuinely shared, reviewable settings are ever needed,
+# add a narrowly-scoped file and un-ignore that one deliberately.
+.claude/settings.json
 .claude/settings.local.json
 
 # OS / editor noise
@@ -31,3 +29,7 @@ build/
 .env
 .env.*
 !.env.example
+
+# Build output. npx runs the published dist; the repo holds source only.
+dist/
+node_modules/

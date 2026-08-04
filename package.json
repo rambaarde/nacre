@@ -1,0 +1,55 @@
+{
+  "name": "varve-cli",
+  "version": "0.2.1",
+  "description": "One context memory for a whole company — every project, every repo. Plain Markdown in git; agents and people read the same files.",
+  "keywords": [
+    "ai-memory",
+    "agent-memory",
+    "team-memory",
+    "context",
+    "claude",
+    "claude-code",
+    "markdown",
+    "git",
+    "monorepo",
+    "cross-repo"
+  ],
+  "homepage": "https://github.com/rambaarde/varve#readme",
+  "bugs": {
+    "url": "https://github.com/rambaarde/varve/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambaarde/varve.git"
+  },
+  "license": "Apache-2.0",
+  "author": "rambaarde",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "varve": "dist/bin/varve.js",
+    "vrv": "dist/bin/varve.js"
+  },
+  "files": [
+    "dist/bin",
+    "dist/src",
+    "!dist/**/*.map",
+    "!dist/**/*.d.ts",
+    "skills",
+    "store-template",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
+  "types": "dist/src/operations.d.ts"
+}

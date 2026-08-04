@@ -1,0 +1,92 @@
+# Tests that only run on someone's laptop are half a test suite: the suite
+# shipped broken once already (`node --test test/` resolved the directory as a
+# module and ran nothing), and nothing would have caught it.
+#
+# There is an install step now, for TypeScript and @types/node. Those are dev
+# dependencies — the published package still ships zero runtime dependencies,
+# and the second job below enforces exactly that rather than trusting the
+# distinction to be remembered.
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  no-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assert zero RUNTIME dependencies
+        # The install story is the product's answer to a competitor's heavy
+        # setup. A dependency added quietly would take that answer away.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            // devDependencies are fine — they never reach an installing user.
+            // `dependencies` is what `npm i -g varve-cli` would have to download.
+            const deps = Object.keys(pkg.dependencies ?? {});
+            if (deps.length) {
+              console.error("runtime dependencies present:", deps.join(", "));
+              process.exit(1);
+            }
+            console.log("ok: zero runtime dependencies");
+          '
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+        # `npm pack` reports the files that exist on disk, so an unbuilt dist/
+        # would make the assertion below fail for the wrong reason. This is the
+        # same build `prepublishOnly` runs at publish time.
+      - run: npm run build
+
+      - name: assert the TARBALL is right, not just files[]
+        # This used to check `files.includes("dist")` — a string standing in for
+        # "the CLI ships". It passed while the tarball carried the compiled test
+        # suite and source maps pointing at .ts files that were never published.
+        # A proxy cannot catch that; only the artifact can. So ask npm what it
+        # would actually upload, and assert on those bytes.
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e '
+            const [meta] = require("/tmp/pack.json");
+            const files = meta.files.map((f) => f.path);
+            const fail = (msg) => { console.error(msg); process.exitCode = 1; };
+
+            // Someone installing varve-cli gets nothing without this.
+            for (const required of [
+              "dist/bin/varve.js",
+              "skills/varve-load/SKILL.md",
+              "skills/varve-publish/SKILL.md",
+              "store-template/_company.md",
+              "README.md",
+            ]) if (!files.includes(required)) fail("missing from tarball: " + required);
+
+            // Tests, maps and declarations are weight a user never asked for;
+            // the maps additionally reference sources that are not shipped.
+            const junk = files.filter((f) => /(^|\/)test\/|\.map$|\.d\.ts$/.test(f));
+            if (junk.length) fail("must not publish: " + junk.join(", "));
+
+            console.log(`ok: ${meta.entryCount} files, ${(meta.size / 1024).toFixed(1)}kb packed`);
+          '
