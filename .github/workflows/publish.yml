@@ -1,0 +1,122 @@
+# Publish to npm when a version lands on main.
+#
+# There is deliberately no NPM_TOKEN. This uses npm Trusted Publishing: GitHub
+# mints a short-lived OIDC token for this exact workflow in this exact repo, and
+# npm verifies it. Nothing long-lived exists to leak, rotate, or paste into a
+# chat window — and npm is restricting the bypass-2FA tokens that were the only
+# other way to publish unattended.
+#
+# One-time setup on npmjs.com, which cannot be done from here:
+#   varve-cli → Settings → Trusted Publisher → GitHub Actions
+#   repository: rambaarde/varve   workflow: publish.yml
+#
+# The version in package.json is the trigger. A merge that does not change it
+# publishes nothing and passes — most merges to main are not releases, and a
+# release pipeline that fails on ordinary merges gets ignored.
+name: publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to push the version tag
+      id-token: write # to mint the OIDC token npm verifies
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Trusted Publishing needs npm >= 11.5.1; the bundled one may be older.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      # The gate is the same suite the ci workflow runs. Publishing something
+      # that was never tested on the merge commit is how a green PR ships a red
+      # package.
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: is this version already published?
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION is already on the registry — nothing to publish"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Assert the artifact, not package.json's claims about it. This is the
+      # same check ci.yml runs, repeated here because this is the last moment
+      # before bytes reach a stranger.
+      - name: assert the tarball before it leaves
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e '
+            const [meta] = require("/tmp/pack.json");
+            const files = meta.files.map((f) => f.path);
+            const fail = (m) => { console.error(m); process.exitCode = 1; };
+            for (const required of [
+              "dist/bin/varve.js",
+              "skills/varve-load/SKILL.md",
+              "skills/varve-publish/SKILL.md",
+              "store-template/_company.md",
+              "README.md",
+            ]) if (!files.includes(required)) fail("missing from tarball: " + required);
+            const junk = files.filter((f) => /(^|\/)test\/|\.map$|\.d\.ts$/.test(f));
+            if (junk.length) fail("must not publish: " + junk.join(", "));
+            console.log(`ok: ${meta.entryCount} files, ${(meta.size / 1024).toFixed(1)}kb`);
+          '
+
+      - name: publish
+        if: steps.check.outputs.publish == 'true'
+        run: npm publish --provenance --access public
+
+      # A tag makes a published version findable in history. The repo had none
+      # for its first twelve releases, so "which commit is 0.2.7" was
+      # unanswerable.
+      - name: tag the release
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          git tag "v${{ steps.check.outputs.version }}"
+          git push origin "v${{ steps.check.outputs.version }}"
+
+      - name: verify it is actually installable
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          NAME='${{ steps.check.outputs.name }}'
+          VERSION='${{ steps.check.outputs.version }}'
+          for i in 1 2 3 4 5 6; do
+            npm view "$NAME@$VERSION" version >/dev/null 2>&1 && break
+            echo "waiting for the registry to serve $VERSION ($i)"; sleep 10
+          done
+          WORK=$(mktemp -d)
+          cd "$WORK"
+          npm init -y >/dev/null
+          npm install "$NAME@$VERSION" --prefer-online
+          # `--version` shipped broken once while working perfectly in the repo,
+          # because bin/ and dist/bin/ are different layouts. Run the installed
+          # binary, which is the only place that bug could ever appear.
+          GOT=$(./node_modules/.bin/varve --version)
+          [ "$GOT" = "$VERSION" ] || { echo "installed binary reports $GOT, expected $VERSION"; exit 1; }
+          ./node_modules/.bin/vrv --version >/dev/null
+          echo "ok: $NAME@$VERSION installs and runs"
