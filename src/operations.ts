@@ -17,7 +17,7 @@
 import {
   PKG_ROOT, AGENTS, exists, storePath, gitSlug, readRoster, addToRoster,
   listProjects, logStats, installSkills, resolveBinding, frontmatter,
-  storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable,
+  storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable, ensureMemory,
   readFile, writeFile, mkdir, cp, basename, join, resolve,
 } from "./store.js";
 import type { Binding } from "./store.js";
@@ -177,7 +177,7 @@ export interface LogStats { count: number; newest: string | null; who: string | 
  * present once there is one.
  */
 export type Status =
-  | { state: "no-store"; store: string; projects: string[] }
+  | { state: "no-store"; store: string; projects: string[]; reason?: string }
   | { state: "no-binding"; store: string; projects: string[] }
   | { state: "unknown-project"; store: string; projects: string[]; binding: BoundBinding }
   | {
@@ -192,10 +192,13 @@ export type BoundBinding = Binding & { project: string };
 export async function status({ storePath: pathFlag }: { storePath?: string } = {}): Promise<Status> {
   const binding = await resolveBinding();
   const dir = await resolveStoreDir(pathFlag, binding?.store);
-  const storeReady = await exists(join(dir, "_company.md"));
-  const projects = await listProjects(dir);
 
-  if (!storeReady) return { state: "no-store", store: dir, projects };
+  // A bound repo knows where its memory lives, so fetch it rather than telling
+  // someone to create a second one.
+  const ready = await ensureMemory(dir, binding?.store);
+  if (!ready.ok) return { state: "no-store", store: dir, projects: [], reason: ready.reason };
+
+  const projects = await listProjects(dir);
   if (!binding?.project) return { state: "no-binding", store: dir, projects };
 
   const bound = binding as BoundBinding;
