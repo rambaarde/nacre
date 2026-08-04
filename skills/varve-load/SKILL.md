@@ -55,13 +55,24 @@ Stop as soon as the budget is spent. The order is urgency of not knowing, not
 recency:
 
 1. `_company.md` and `_standards.md` — company-wide, always loaded
-2. `{project}/_standards.md` if it exists — this project's own rules. Where the
+2. `{project}/_project.md` — the roster and the curated note. This is the only
+   place the repo list exists, so the `repos[n]` field in the report below comes
+   from here and nowhere else. It is also what the portal leads with for a
+   person, and an agent that never reads it is reading a different store than its
+   teammates are.
+3. `{project}/_standards.md` if it exists — this project's own rules. Where the
    two disagree the project's are the specific ones and win; say so rather than
    silently picking. A stack rule belongs here, not at company level, so that a
    project on a different stack never pays for it.
-3. every `## Decided against` block in the newest ~15 logs for this project
-4. open risks and unresolved items
-5. the newest few log summaries, any team, any person
+4. every `## Decided against` block in the newest ~15 logs for this project
+5. open risks and unresolved items
+6. the newest few log summaries, any team, any person
+
+**Skip unfilled template lines.** `_project.md` and `_profile.md` ship as prompts
+— `* **Decided Against:** [Rejected options that must not be re-opened]`. A line
+whose value is a bracketed placeholder is not content, and loading one puts an
+invented constraint into the brief as though the team had agreed it. Drop any
+line ending in `[…]`, and drop a heading left with nothing under it.
 
 Never read another project's tree. An agent working on `atlas` must not load
 `beacon` — that is a relevance rule before it is a token one.
