@@ -184,8 +184,13 @@ function renderProject(v: ProjectView): string {
 function renderPerson(v: PersonView): string {
   return `<h1>${escape(v.who)}</h1>
   <p class="sub">projects[${v.projects.length}] ${escape(v.projects.join(", ") || "none")} · ${v.count} log${v.count === 1 ? "" : "s"}</p>
-  ${v.profile ? `<div class="bh"><span>Profile</span><span class="cnt">curated</span></div>
-  <hr class="thin"><div class="block note">${markdown(v.profile)}</div>` : ""}
+  ${v.profile
+      ? `<div class="bh"><span>Profile</span><span class="cnt">curated</span></div>
+  <hr class="thin"><div class="block note">${markdown(v.profile)}</div>`
+      : `<div class="bh"><span>Profile</span><span class="cnt">not written</span></div>
+  <hr class="thin"><div class="block note"><p class="empty">Not written yet — it lives in <code>_team/_${
+    escape(v.who)
+  }/_profile.md</code>. The logs below are the record either way.</p></div>`}
   <div class="bh"><span>Logs</span><span class="cnt">${v.count}</span></div>
   <hr class="thin">${logRows(v.logs, true)}`;
 }
