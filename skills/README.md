@@ -14,13 +14,14 @@ and ever publishes back to it. Nothing here assumes the answer is yes.
 ## Install
 
 ```bash
-npx varve init --store git@github.com:acme/company-context.git   # once, per company
-npx varve add atlas --repos ../atlas-web,../atlas-api            # once, per project
+npx varve init git@github.com:acme/acme-context.git   # once, per company
+npx varve add ims ../ims-fe ../ims-be                 # once, per project
 ```
 
-`add` and `link` install both skills, write `.varve.yml` into each repo, and
-record the repos in the project roster. Run `varve` with no arguments at any
-point to see where you are and what applies next.
+`add` installs both skills, writes `.varve.yml` into each repo, and records the
+repos in the project roster. Adding a repo later is the same command again. Run
+`varve` with no arguments at any point to see where you are and what applies
+next.
 
 Every command also works as **`vrv`**. Inside a session, the skills answer to
 `vrv load` and `vrv publish` as well as their full names.
@@ -29,15 +30,16 @@ Every command also works as **`vrv`**. Inside a session, the skills answer to
 
 ```yaml
 project: atlas
-store: git@github.com:acme/company-context.git
+memory: git@github.com:acme/acme-context.git
 ```
 
-The `store` line is what lets a teammate clone the repo and start warm without
-running `init` at all.
+The `memory` line is what lets a teammate clone the repo and start warm
+without running anything at all.
 
 ## The store
 
-One private git repo for the whole company. Start from `store-template/`.
+One private git repo for the whole company — each names it their own way
+(`acme-context`, `atlas-memory`). Start from `store-template/`.
 
 ```
 _company.md · _standards.md          the only always-loaded files. Keep short

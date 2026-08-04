@@ -69,7 +69,8 @@ export async function resolveBinding(start = process.cwd()) {
     const file = join(dir, ".varve.yml");
     if (await exists(file)) {
       const fm = frontmatter(`---\n${await readFile(file, "utf8")}\n---`);
-      return { file, dir, project: fm.project, store: fm.store };
+      // `store:` accepted as the former spelling of `memory:`.
+      return { file, dir, project: fm.project, store: fm.memory ?? fm.store };
     }
     const parent = dirname(dir);
     if (parent === dir) return null;
@@ -85,7 +86,7 @@ export function repoName(url) {
 }
 
 /**
- * Local store path: explicit flag → env → derived from the store URL → default.
+ * Local memory path: explicit flag → env → derived from the memory URL → default.
  *
  * Derived from the URL rather than hardcoded, because every company names its
  * store repo differently and someone working for two of them would otherwise
@@ -171,8 +172,8 @@ export async function resolveStoreDir(flag, url) {
   if (found.length === 1) return found[0];
   if (found.length > 1) {
     throw new Error(
-      `several stores found: ${found.map((f) => basename(f)).join(", ")} · ` +
-        "pass --store-path <dir> — picking one silently could write into the wrong company's store",
+      `several memories found: ${found.map((f) => basename(f)).join(", ")} · ` +
+        "pass --memory-path <dir> — picking one silently could write into the wrong company's memory",
     );
   }
   return join(homedir(), "company-context");

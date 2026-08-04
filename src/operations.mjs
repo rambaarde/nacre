@@ -124,7 +124,7 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
       );
     }
   } else {
-    await writeFile(file, `project: ${project}\nstore: ${remote}\n`);
+    await writeFile(file, `project: ${project}\nmemory: ${remote}\n`);
     wrote = true;
   }
 

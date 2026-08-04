@@ -1,6 +1,6 @@
 {
   "name": "varve",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "One git-backed memory store for a whole company. Agents read plain markdown; humans read the same files.",
   "type": "module",
   "bin": {
@@ -32,6 +32,6 @@
     "git"
   ],
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   }
 }
