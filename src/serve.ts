@@ -20,7 +20,7 @@ import { basename, join } from "node:path";
 import { exists } from "./store.js";
 import { markdown, escape } from "./markdown.js";
 import { tilde } from "./render.js";
-import { index, projectView, personView, search, age, readLogs, projectStandards } from "./portal.js";
+import { index, projectView, personView, search, age, readLogs, projectStandards, unfilled } from "./portal.js";
 import type { Hit, Log } from "./portal.js";
 
 type Index = Awaited<ReturnType<typeof index>>;
@@ -177,7 +177,7 @@ function renderProject(v: ProjectView): string {
   <hr class="thin"><div class="block note"><p class="empty">Nobody has written one yet — it lives in <code>${
     escape(v.project)
   }/_project.md</code>. The logs below are still the record either way.</p></div>`}
-  <div class="bh"><span>Recent</span><span class="cnt">${v.count} logs</span></div>
+  <div class="bh"><span>Recent</span><span class="cnt">${v.count} log${v.count === 1 ? "" : "s"}</span></div>
   <hr class="thin">${logRows(v.logs)}`;
 }
 
@@ -289,11 +289,23 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
         if (!(await exists(path))) {
           return send(shell(memory, clone, idx, {}, name, `<p class="empty">no ${name}.md in this memory</p>`), 404);
         }
-        const text = await readFile(path, "utf8");
         const title = name === "_company" ? "Company context" : "Engineering standards";
+        // The same pipeline the project note and profile already use. This route
+        // stripped only the LEADING frontmatter block, so authoring comments
+        // rendered as visible prose and the shipped template's prompts read as
+        // company facts — on the one page that is loaded into every brief.
+        const body = unfilled(
+          (await readFile(path, "utf8"))
+            .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+            .replace(/<!--[\s\S]*?-->/g, "")
+            .trim(),
+        );
         return send(shell(memory, clone, idx, { company: name }, title, `<h1>${escape(title)}</h1>
           <p class="sub">${escape(name)}.md · loaded into every brief, in every project</p>
-          <div class="log">${markdown(text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""))}</div>`));
+          <div class="log">${body
+            ? markdown(body)
+            : `<p class="empty">Not written yet — it lives in <code>${escape(name)}.md</code> at the root of the memory.</p>`
+          }</div>`));
       }
 
       if (url.pathname === "/search") {
@@ -315,7 +327,7 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
           <p class="sub">projects[${names.length}] · ${idx.total} log${idx.total === 1 ? "" : "s"}</p>
           ${searchForm()}
           ${names.length
-            ? `<div class="scroll"><table>${names.map((n) => `<tr><td>${link(`/p/${encodeURIComponent(n)}`, n)}</td><td class="d">${idx.projects[n]} logs</td></tr>`).join("")}</table></div>`
+            ? `<div class="scroll"><table>${names.map((n) => `<tr><td>${link(`/p/${encodeURIComponent(n)}`, n)}</td><td class="d">${idx.projects[n]} log${idx.projects[n] === 1 ? "" : "s"}</td></tr>`).join("")}</table></div>`
             : '<p class="empty">no projects yet — run varve add &lt;project&gt; &lt;repo-dir&gt;</p>'}`));
       }
 

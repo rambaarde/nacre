@@ -471,3 +471,26 @@ test("a scaffolded profile reads as unwritten too, not just the project note", a
     .trim();
   assert.equal(unfilled(body), "", "the shipped profile template must read as unwritten");
 });
+
+test("every shipped template reads as unwritten — company and standards too", async () => {
+  // The placeholder rule landed in three places across three releases: project
+  // notes (0.2.4), profiles (0.2.6), and finally the company page — the one
+  // document loaded into every brief, in every project. This asserts all four
+  // shipped templates at once so the fourth omission cannot happen quietly.
+  const { readFile } = await import("node:fs/promises");
+  const root = join(import.meta.dirname, "..", "..", "store-template");
+  const templates = [
+    "_company.md",
+    "_standards.md",
+    join("_team", "_your-slug", "_profile.md"),
+    join("PROJECT-TEMPLATE", "_project.md"),
+    join("PROJECT-TEMPLATE", "_standards.md"),
+  ];
+  for (const rel of templates) {
+    const body = (await readFile(join(root, rel), "utf8"))
+      .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .trim();
+    assert.equal(unfilled(body), "", `${rel} must read as unwritten until someone fills it in`);
+  }
+});

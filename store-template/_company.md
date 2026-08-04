@@ -12,7 +12,9 @@ company: [Insert Company Name]
 
 # Shared Infrastructure
 
-Facts owned by more than one project and by no repository. This is why the file exists.
+<!-- Facts owned by more than one project and by no repository. This is why the
+     file exists. Written as a comment so the section appears only once someone
+     has filled it in. -->
 
 * **[Resource]:** [Which projects share it, and what that constrains]
 * **Standing exceptions:** [Things that look wrong and are deliberate — with the reason]
