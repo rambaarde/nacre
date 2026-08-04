@@ -95,9 +95,14 @@ jobs:
             console.log(`ok: ${meta.entryCount} files, ${(meta.size / 1024).toFixed(1)}kb`);
           '
 
+      # Provenance requires a PUBLIC source repository — npm rejects the bundle
+      # with 422 otherwise, after signing it, so the failure arrives late and
+      # reads like an auth problem when it is not. Trusted publishing itself
+      # works either way; this only controls the attestation, and it switches
+      # itself on if the repo ever becomes public.
       - name: publish
         if: steps.check.outputs.publish == 'true'
-        run: npm publish --provenance --access public
+        run: npm publish --access public ${{ github.event.repository.private && ' ' || '--provenance' }}
 
       # A tag makes a published version findable in history. The repo had none
       # for its first twelve releases, so "which commit is 0.2.7" was
