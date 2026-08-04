@@ -18,8 +18,9 @@ import { initStore, addProject, status, installSkills } from "../src/operations.
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const OPTIONS = {
-  "memory-path": { type: "string" },
-  "store-path": { type: "string" }, // former spelling
+  memory: { type: "string" },
+  "memory-path": { type: "string" }, // accepted spellings
+  "store-path": { type: "string" },
   title: { type: "string" },
   team: { type: "string" },
   who: { type: "string" },
@@ -41,7 +42,7 @@ const USAGE = `varve — one git-backed memory for a whole company
 Adding repos to an existing project is the same command again:
   varve add ims ../ims-worker
 
-  --memory-path <dir>  local clone path  (default: from the repo name)
+  --memory <name|dir>  which memory, when you have more than one
   --team <name>        team folder       (default: devs)
   --title <name>       display name
   --who <slug>         author slug       (default: from git config)
@@ -63,7 +64,7 @@ function renderStatus(s) {
   if (s.state === "no-store") {
     return out(
       `no memory at ${s.store}`,
-      "next: varve init --store <git-url>",
+      "next: varve init <git-url>",
       "help[]: varve --help",
     );
   }
@@ -112,7 +113,7 @@ async function main() {
   }
   if (o.help || command === "help") return console.log(USAGE);
 
-  const memoryPath = o["memory-path"] ?? o["store-path"];
+  const memoryPath = o.memory ?? o["memory-path"] ?? o["store-path"];
   const agents = (o.agents ?? "claude").split(",").map((a) => a.trim()).filter(Boolean);
 
   try {

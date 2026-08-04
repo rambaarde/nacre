@@ -164,7 +164,14 @@ export async function discoverStores() {
 
 /** Resolve which store to use: flag → env → store URL → discovery. */
 export async function resolveStoreDir(flag, url) {
-  if (flag) return resolve(flag);
+  if (flag) {
+    // A bare name means "the memory called that", not a directory under cwd.
+    if (!flag.includes("/") && !flag.startsWith(".")) {
+      const named = join(homedir(), flag);
+      if (await exists(join(named, "_company.md"))) return named;
+    }
+    return resolve(flag);
+  }
   if (process.env.VARVE_STORE) return resolve(process.env.VARVE_STORE);
   if (repoName(url)) return join(homedir(), repoName(url));
 
@@ -173,7 +180,7 @@ export async function resolveStoreDir(flag, url) {
   if (found.length > 1) {
     throw new Error(
       `several memories found: ${found.map((f) => basename(f)).join(", ")} · ` +
-        "pass --memory-path <dir> — picking one silently could write into the wrong company's memory",
+        "pass --memory <name> — picking one silently could write into the wrong company's memory",
     );
   }
   return join(homedir(), "company-context");

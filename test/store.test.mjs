@@ -231,3 +231,37 @@ test("the npm test script actually runs the suite", async () => {
   assert.match(pkg.scripts.test, /\.test\.mjs|--test\s*$/,
     "the test script must resolve to files, not a bare directory");
 });
+
+test("add inherits the memory it resolved, even with two on the machine", async () => {
+  // The link step used to re-derive the memory from the repo being linked — but
+  // a repo being linked for the first time has no binding, so the answer `add`
+  // already had was discarded and resolution failed outright.
+  await withHome(async (home) => {
+    const bound = join(home, "ims-fe");
+    const fresh = join(home, "acme-billing");
+    for (const d of [bound, fresh]) await mkdir(d, { recursive: true });
+
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
+    await addProject({ project: "ims", repos: [bound], who: "alice",
+      storePath: join(home, "acme-context") });
+
+    process.chdir(bound);
+    const r = await addProject({ project: "billing", repos: [fresh], who: "alice" });
+    assert.equal(r.dir, join(home, "acme-context"), "resolved from the repo you are standing in");
+    assert.deepEqual(r.roster.repos, ["acme-billing"]);
+  });
+});
+
+test("--memory accepts a name, not only a path", async () => {
+  await withHome(async (home) => {
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
+    const loose = join(home, "loose");
+    await mkdir(loose, { recursive: true });
+    process.chdir(loose);
+    // A bare name resolved against cwd used to produce a nonexistent directory.
+    const r = await addProject({ project: "ops", storePath: "beta-memory", who: "alice" });
+    assert.equal(r.dir, join(home, "beta-memory"));
+  });
+});
