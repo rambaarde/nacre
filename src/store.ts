@@ -228,6 +228,18 @@ export async function ensureMemory(dir: string, remote?: string | null): Promise
   return { ok: false, reason: `${remote} does not look like a varve memory (no _company.md)` };
 }
 
+/** Name and email from git config. Absent is fine; it is a profile, not a form. */
+export async function gitIdentity(): Promise<{ name?: string; email?: string }> {
+  const read = async (key: string) => {
+    try {
+      return (await run("git", ["config", key])).stdout.trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  return { name: await read("user.name"), email: await read("user.email") };
+}
+
 /** Author slug from git config. Wrong harmlessly; never blocks. */
 export async function gitSlug(): Promise<string> {
   try {

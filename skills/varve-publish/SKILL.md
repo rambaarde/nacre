@@ -92,6 +92,47 @@ own.
 
 `## Heading` form is read too, so a log written either way parses.
 
+### The auto block
+
+Below the human's notes, append what git already knows. Same shape the source
+vault has used for a hundred days — it is not an invention, and it is not worth
+redesigning:
+
+```markdown
+## Auto Session Log
+_Auto-generated 2026-08-04 22:36:21._
+
+* **Repos:** atlas-api, atlas-web
+* **Branch:** main
+* **Commits this session:**
+- b057180 feat(api): rename the rate-limit headers
+- 9006bfe test(api): cover the old header path
+* **Uncommitted at publish:**
+- M src/limits.ts
+```
+
+Collect it with one call per touched repo:
+
+```bash
+git -C <repo> log --since="<session start>" --format="%h %s"
+git -C <repo> status --short
+```
+
+**Three rules, and the third is the one that matters:**
+
+1. **Short SHAs and subjects only.** The prose above already says what happened;
+   these are pointers, not a second copy of it. Never paste a diff.
+2. **Timeout it, and treat failure as empty.** A repo on a slow mount or with a
+   pathological history must not stall a publish. No commits recorded is a
+   missing line; a hung publish is a person who stops publishing.
+3. **This block is machine output and stays below the human's notes.** It is
+   never the summary, never a substitute for saying what was decided, and a
+   session with commits but nothing worth writing is still a no-op.
+
+Cost, measured: ~10–30 ms per repo, 68 ms for three, against a 200 ms write
+budget. It is on the write path, once per session — no read gets slower, because
+no read touches git.
+
 **`repos:` is derived from the paths this session actually touched** — the git
 roots of the files you read and edited, deduplicated. **Never from the working
 directory.** A single `repo_root` scalar makes cross-repo sessions invisible in

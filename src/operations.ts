@@ -18,6 +18,7 @@ import {
   PKG_ROOT, AGENTS, exists, storePath, gitSlug, readRoster, addToRoster,
   listProjects, logStats, installSkills, resolveBinding, frontmatter,
   storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable, ensureMemory,
+  gitIdentity,
   readFile, writeFile, mkdir, cp, basename, join, resolve,
 } from "./store.js";
 import type { Binding } from "./store.js";
@@ -70,6 +71,19 @@ export async function initStore({ store, storePath: pathFlag, who, force, allowP
     join(dir, "_team", `_${author}`),
     { recursive: true },
   );
+  // Fill what git already knows. A profile that opens with [INSERT NAME] reads
+  // as a form nobody filled in, and a form nobody filled in stays that way.
+  const profile = join(dir, "_team", `_${author}`, "_profile.md");
+  if (await exists(profile)) {
+    const identity = await gitIdentity();
+    let text = await readFile(profile, "utf8");
+    text = text
+      .replace(/^who:.*$/m, `who: ${author}`)
+      .replace(/^name:.*$/m, `name: ${identity.name ?? author}`)
+      .replace(/^email:.*$/m, `email: ${identity.email ?? ""}`)
+      .replace(/^# \[Insert Name\]$/m, `# ${identity.name ?? author}`);
+    await writeFile(profile, text);
+  }
   await writeFile(
     join(dir, ".gitignore"),
     "# Never leaves the machine.\n**/_drafts/\n.DS_Store\n",
