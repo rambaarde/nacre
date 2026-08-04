@@ -257,12 +257,6 @@ export async function projectView(memory: string, project: string) {
     teams: Array.isArray(roster.fm.teams) ? roster.fm.teams.filter((t: string) => !t.startsWith("Insert")) : [],
     handoff: live.find((l) => l.next)?.next ?? "",
     handoffBy: live.find((l) => l.next) ?? null,
-    // Only the newest few. These are per-session entries: useful as "what has
-    // just been ruled out", useless as an ever-growing list. The durable ones
-    // belong in the project note above, put there by a person.
-    against: live.slice(0, 4).flatMap((l) => l.against.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
-    risks: live.slice(0, 4).flatMap((l) => l.risks.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
-    againstTotal: live.reduce((n, l) => n + l.against.length, 0),
     logs: live,
     count: logs.length,
     hasStandards: await exists(join(memory, project, "_standards.md")),
@@ -272,11 +266,17 @@ export async function projectView(memory: string, project: string) {
 /** The person axis: what one teammate has decided, across every project. */
 export async function personView(memory: string, who: string) {
   const logs = (await readLogs(memory)).filter((l) => l.who === who);
+  const file = join(memory, "_team", `_${who}`, "_profile.md");
+  const profile = (await exists(file))
+    ? (await readFile(file, "utf8"))
+        .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+        .replace(/<!--[\s\S]*?-->/g, "")
+        .trim()
+    : "";
   return {
     who,
+    profile,
     projects: [...new Set(logs.map((l) => l.project))].sort(),
-    against: logs.flatMap((l) => l.against.map((what) => ({ what, project: l.project, date: l.date, id: l.id }))),
-    decisions: logs.flatMap((l) => l.decisions.map((what) => ({ what, project: l.project, date: l.date, id: l.id }))),
     logs,
     count: logs.length,
   };

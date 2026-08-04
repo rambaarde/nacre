@@ -163,22 +163,6 @@ function renderProject(v: ProjectView): string {
   }</span></div><hr class="thin"><div class="block">${markdown(v.handoff)}</div>` : ""}
   ${v.note ? `<div class="bh"><span>Project note</span><span class="cnt">curated</span></div>
   <hr class="thin"><div class="block note">${markdown(v.note)}</div>` : ""}
-  <div class="bh"><span style="color:var(--declined)">Recently decided against</span><span class="cnt">${
-    v.againstTotal > v.against.length ? `${v.against.length} of ${v.againstTotal}` : v.against.length
-  }</span></div>
-  <hr class="dbl">
-  <div class="block">${v.against.length
-    ? v.against.map((a) => `<div class="item"><div class="what">${escape(a.what)}</div>
-        <div class="by">${escape(a.who)} · ${escape(a.date)}</div></div>`).join("")
-    : '<p class="empty">nothing recorded yet</p>'}
-    ${v.againstTotal > v.against.length
-      ? `<p class="empty">the durable ones belong in the project note · ${link(`/search?q=&project=${encodeURIComponent(v.project)}`, "search the rest")}</p>`
-      : ""}</div>
-  <div class="bh"><span style="color:var(--risk)">Open risks</span><span class="cnt">${v.risks.length}</span></div>
-  <hr class="thin">
-  <div class="block">${v.risks.length
-    ? v.risks.map((r) => `<div class="risk">${escape(r.what)} <span style="color:var(--faint)">${escape(r.who)} · ${escape(r.date)}</span></div>`).join("")
-    : '<p class="empty">none</p>'}</div>
   <div class="bh"><span>Recent</span><span class="cnt">${v.count} logs</span></div>
   <hr class="thin">${logRows(v.logs)}`;
 }
@@ -186,16 +170,8 @@ function renderProject(v: ProjectView): string {
 function renderPerson(v: PersonView): string {
   return `<h1>${escape(v.who)}</h1>
   <p class="sub">projects[${v.projects.length}] ${escape(v.projects.join(", ") || "none")} · ${v.count} log${v.count === 1 ? "" : "s"}</p>
-  ${v.decisions.length ? `<div class="bh"><span>Decisions</span><span class="cnt">${v.decisions.length}</span></div>
-  <hr class="thin">
-  <div class="block">${v.decisions.map((d) => `<div class="decision"><div class="what">${escape(d.what)}</div>
-    <div class="by">${escape(d.project)} · ${escape(d.date)}</div></div>`).join("")}</div>` : ""}
-  <div class="bh"><span style="color:var(--declined)">Decided against</span><span class="cnt">${v.against.length}</span></div>
-  <hr class="dbl">
-  <div class="block">${v.against.length
-    ? v.against.map((a) => `<div class="item"><div class="what">${escape(a.what)}</div>
-        <div class="by">${escape(a.project)} · ${escape(a.date)}</div></div>`).join("")
-    : '<p class="empty">nothing recorded yet</p>'}</div>
+  ${v.profile ? `<div class="bh"><span>Profile</span><span class="cnt">curated</span></div>
+  <hr class="thin"><div class="block note">${markdown(v.profile)}</div>` : ""}
   <div class="bh"><span>Logs</span><span class="cnt">${v.count}</span></div>
   <hr class="thin">${logRows(v.logs, true)}`;
 }
