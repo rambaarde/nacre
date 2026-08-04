@@ -83,13 +83,13 @@ address.
 ```
 acme-context/          ← all memory. One repo. Separate from your code.
   _company.md              facts owned by more than one project
-  ims/                     a project
+  atlas/                   a project
     _project.md              which repos and teams make it up
-    devs/ram/                one file per session, never overwritten
-  stashlify/
+    devs/dana/               one file per session, never overwritten
+  billing/                 another one
 
-ims-fe/.varve.yml      ← project: ims · memory: git@…/acme-context.git
-ims-be/.varve.yml      ← the same two lines
+atlas-web/.varve.yml      ← project: atlas · memory: git@…/acme-context.git
+atlas-api/.varve.yml      ← the same two lines
 ```
 
 **Agents** read it through two skills — one loads what the team decided at
@@ -103,10 +103,10 @@ Both doors, one store. Neither gets a privileged interface.
 Install once, then two commands, run by whoever sets things up.
 
 ```sh
-npm i -g varve-cli                                # the package; the commands are varve and vrv
+npm i -g varve-cli                              # the package; the commands are varve and vrv
 
-varve init git@github.com:acme/acme-context.git   # once, per company
-varve add ims ../ims-fe ../ims-be                 # once, per project
+varve init git@github.com:acme/acme-context.git  # once, per company
+varve add atlas ../atlas-web ../atlas-api        # once, per project
 ```
 
 Trying it without installing works too — `npx varve-cli init <git-url>`.
@@ -114,7 +114,7 @@ Trying it without installing works too — `npx varve-cli init <git-url>`.
 Adding a repo later is the same command again:
 
 ```sh
-varve add ims ../ims-worker
+varve add atlas ../atlas-worker
 ```
 
 **Everyone after that runs nothing.** They clone a repo that already carries
@@ -125,8 +125,8 @@ names the one command that applies next.
 
 ```
 $ varve
-project: ims · repos[3]: ims-be, ims-fe, ims-worker · logs: 47
-memory: ~/acme-context · you are in: ims-fe
+project: atlas · repos[3]: atlas-api, atlas-web, atlas-worker · logs: 47
+memory: ~/acme-context · you are in: atlas-web
 next: varve-load at session start · varve-publish at the end
 ```
 

@@ -53,7 +53,7 @@ const USAGE = `varve — one git-backed memory for a whole company
   also works as \`vrv\`
 
 Adding repos to an existing project is the same command again:
-  varve add ims ../ims-worker
+  varve add atlas ../atlas-worker
 
   --memory <name|dir>  which memory, when you have more than one
   --team <name>        team folder       (default: devs)
@@ -197,7 +197,18 @@ async function main() {
         store: arg, storePath: memoryPath, who: o.who, force: o.force,
         allowPublic: o["i-know-its-public"],
       });
+      // Cloned, not created — the company already had a memory at this URL, and
+      // saying "created" would describe the one thing that did not happen.
+      const cloned = "cloned" in r && r.cloned;
       if (!isTTY()) {
+        if (cloned) {
+          return out(
+            `ok: memory fetched · ${r.dir}`,
+            `projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"} · remote: ${r.remote ?? "not set"}`,
+            "next: varve add <project> <repo-dir>",
+            "help[]: this memory already existed — nothing was overwritten",
+          );
+        }
         return r.created
           ? out(
               `ok: memory created · ${r.dir}`,
@@ -209,6 +220,15 @@ async function main() {
               `ok: memory already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
               "next: varve add <project> <repo-dir>",
             );
+      }
+      if (cloned) {
+        return say(blank(), ok(`memory fetched  ${c.grey(tilde(r.dir))}`),
+          blank(),
+          row("projects", r.projects.join("  ") || c.grey("none yet")),
+          row("remote", r.remote ?? c.grey("not set")),
+          blank(),
+          `  ${c.grey("this memory already existed — nothing was overwritten")}`,
+          next(`varve ${c.bold("add")} <project> <repo-dir>`), blank());
       }
       if (!r.created) {
         return say(blank(), ok(`memory already at ${c.bold(tilde(r.dir))}`),

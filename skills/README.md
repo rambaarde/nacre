@@ -17,10 +17,10 @@ did not answer that, and nothing here assumes the answer is yes.
 ## Install
 
 ```bash
-npm i -g varve-cli                                # the package; the commands are varve and vrv
+npm i -g varve-cli                              # the package; the commands are varve and vrv
 
-varve init git@github.com:acme/acme-context.git   # once, per company
-varve add ims ../ims-fe ../ims-be                 # once, per project
+varve init git@github.com:acme/acme-context.git  # once, per company
+varve add atlas ../atlas-web ../atlas-api        # once, per project
 ```
 
 `add` installs both skills, writes `.varve.yml` into each repo, and records the
