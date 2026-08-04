@@ -1,0 +1,45 @@
+# Tests that only run on someone's laptop are half a test suite: the suite
+# shipped broken once already (`node --test test/` resolved the directory as a
+# module and ran nothing), and nothing would have caught it.
+#
+# No install step and no lockfile, because there are no dependencies. If this
+# workflow ever needs `npm ci`, that is the signal a dependency crept in.
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  no-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assert zero runtime dependencies
+        # The install story is the product's answer to a competitor's heavy
+        # setup. A dependency added quietly would take that answer away.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = Object.keys(pkg.dependencies ?? {});
+            if (deps.length) {
+              console.error("runtime dependencies present:", deps.join(", "));
+              process.exit(1);
+            }
+            console.log("ok: zero runtime dependencies");
+          '

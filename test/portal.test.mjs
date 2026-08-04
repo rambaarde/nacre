@@ -212,3 +212,55 @@ test("company-wide reads sort by time, not by project name", async () => {
   assert.equal(logs[0].who, "bob");
   await rm(dir, { recursive: true, force: true });
 });
+
+test("varve search and varve serve work as commands, not just as functions", async () => {
+  // Everything else exercises the operations directly. These two reach the user
+  // only through the CLI, so the wiring between them needs its own check.
+  const dir = await fixture();
+  const { execFile, spawn } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+
+  const { stdout } = await run(process.execPath, [bin, "search", "cache", "--all", "--memory", dir]);
+  assert.match(stdout, /^hits\[\d+\]\{date,who,repo,line\}:/m, "AXI shape on stdout");
+  assert.match(stdout, /help\[\]:/, "every result ends in a next step");
+
+  const empty = await run(process.execPath, [bin, "search", "zzzznothing", "--all", "--memory", dir]);
+  assert.match(empty.stdout, /no hits/, "an empty result must be explicit, never silent");
+
+  // serve holds the process open, so drive it as a child and stop it.
+  const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
+  try {
+    const line = await new Promise((resolve, reject) => {
+      child.stdout.once("data", (d) => resolve(String(d)));
+      child.once("error", reject);
+      setTimeout(() => reject(new Error("serve did not announce a url")), 8000);
+    });
+    assert.match(line, /ok: serving http:\/\/127\.0\.0\.1:\d+/);
+  } finally {
+    child.kill();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("--port 0 asks for any free port, and is not swallowed", async () => {
+  // `|| 4173` treated an explicit 0 as absent. Port 0 is the conventional way
+  // to ask the OS for a free port, and it is what a second instance needs.
+  const dir = await fixture();
+  const { spawn } = await import("node:child_process");
+  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+  const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
+  try {
+    const line = await new Promise((resolve, reject) => {
+      child.stdout.once("data", (d) => resolve(String(d)));
+      setTimeout(() => reject(new Error("no url")), 8000);
+    });
+    const port = Number(line.match(/:(\d+)/)[1]);
+    assert.notEqual(port, 4173, "an explicit 0 must not fall back to the default");
+    assert.ok(port > 0);
+  } finally {
+    child.kill();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
