@@ -22,10 +22,15 @@ export interface LogSections {
   decisions: string[];
   risks: string[];
   notes: string[];
+  /** The hook-written block: repo, branch, commits. Machine output, kept out
+   *  of the summary so it never stands in for what a person wrote. */
+  auto: string[];
   next: string;
 }
 
 export interface Log extends LogSections {
+  /** The body with the auto block removed, so the page renders notes then git. */
+  summaryOnly: string;
   project: string; team: string; who: string;
   file: string; id: string; path: string; rel: string;
   date: string; stamp: string; repos: string[]; supersedes: string | null;
@@ -52,6 +57,7 @@ const SECTION: Record<string, RegExp> = {
   risk: /^((open\s+)?risks?|constraints?(\s*\/\s*blockers?)?|blockers?)\b/i,
   next: /^next(\s+steps?)?\b/i,
   note: /^notes?(\s+for\s+future\s+ai)?\b/i,
+  auto: /^auto\s+session\s+log\b/i,
 };
 
 /** `## Decided against` → "decided against" */
@@ -80,12 +86,20 @@ export function parseLog(text: string): LogSections {
   const fm = frontmatter(text);
   const body = text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
   const sections: Record<string, string[]> = {
-    summary: [], against: [], decision: [], risk: [], next: [], note: [],
+    summary: [], against: [], decision: [], risk: [], next: [], note: [], auto: [],
   };
   let current: string | null = null;
   const rest: string[] = [];
 
   for (const line of body.split(/\r?\n/)) {
+    // The auto block is appended last and is terminal: its own bullets carry
+    // labels the human sections do not use, and letting them fall through would
+    // leak machine output back into the prose.
+    if (current === "auto") {
+      if (line.trim()) (sections.auto as string[]).push(line.trim());
+      continue;
+    }
+
     // A labelled bullet closes any open section and stands alone, so a list of
     // them under one heading parses the same as a run of headings.
     const bullet = asBullet(line);
@@ -135,6 +149,7 @@ export function parseLog(text: string): LogSections {
     decisions: clean(sections.decision as string[]),
     risks: clean(sections.risk as string[]),
     notes: clean(sections.note as string[]),
+    auto: clean(sections.auto as string[]),
     next: clean(sections.next as string[]).join(" "),
   };
 }
@@ -166,6 +181,7 @@ export async function readLogs(memory: string, project?: string): Promise<Log[]>
             // slug, so sorting by name would order company-wide reads
             // alphabetically by project and only look right inside one.
             stamp: name.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})/)?.[1] ?? name,
+            summaryOnly: parsed.body.split(/^#{1,6}\s*auto\s+session\s+log\b/im)[0]!.trim(),
             repos: Array.isArray(parsed.fm.repos) ? parsed.fm.repos : [],
             supersedes: (parsed.fm.supersedes as string) ?? null,
             ...parsed,

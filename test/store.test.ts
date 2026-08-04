@@ -352,3 +352,30 @@ test("an unreachable memory explains itself rather than hanging", async () => {
     assert.match((result as { reason: string }).reason, /could not clone/);
   });
 });
+
+test("a scaffolded profile is filled from git, not left as a form", async () => {
+  // "[INSERT NAME]" reads as a form nobody filled in, and a form nobody filled
+  // in stays that way. Everything git knows gets written; everything it cannot
+  // know stays a prompt, because that is the part worth a human.
+  await withHome(async (home: string) => {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+    await git("git", ["config", "--global", "user.name", "Ada Lovelace"]);
+    await git("git", ["config", "--global", "user.email", "ada@example.com"]);
+
+    const store = await initStore({ store: "file:///tmp/none.git", who: "ada" });
+    const text = await readFile(join(store.dir, "_team", "_ada", "_profile.md"), "utf8");
+
+    assert.match(text, /^name: Ada Lovelace$/m);
+    assert.match(text, /^email: ada@example\.com$/m);
+    assert.match(text, /^who: ada$/m);
+    assert.match(text, /^# Ada Lovelace$/m);
+    assert.doesNotMatch(text, /\[Insert Name\]/, "no placeholder git could have filled");
+
+    // What git cannot know stays a prompt — that is the point of the file.
+    assert.match(text, /\*\*Timezone:\*\* \[Insert\]/);
+    assert.match(text, /\*\*Ask me before:\*\*/);
+    assert.match(text, /^github:\s*$/m, "left blank rather than guessed from an API");
+  });
+});

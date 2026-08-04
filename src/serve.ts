@@ -86,6 +86,8 @@ margin:0 0 1.4rem;border-bottom:1px solid var(--rule);padding-bottom:.45rem}
 .tabs a:hover{color:var(--ink)}
 .tabs a.on{color:var(--ink);font-weight:700;border-bottom:2px solid var(--ink)}
 .log,.note{max-width:38rem}
+.auto{font-family:var(--mono);font-size:.76rem;color:var(--faint);max-width:38rem}
+.auto strong{color:var(--soft);font-weight:600}
 .note h1,.note h2{font-size:1.02rem;margin:1.3rem 0 .3rem;font-family:var(--mono);
 letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:600}
 .note li{margin:.15rem 0}
@@ -248,7 +250,9 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
         return send(shell(memory, clone, idx, { project: found.project, who: found.who }, found.id,
           `<h1>${escape(found.id)}</h1><p class="sub">${escape(found.who)} · ${escape(found.project)}${
             found.repos.length ? ` · repos[${found.repos.length}] ${escape(found.repos.join(", "))}` : ""
-          }</p><div class="log">${markdown(found.body)}</div>`));
+          }</p><div class="log">${markdown(found.summaryOnly)}</div>
+           ${found.auto.length ? `<div class="bh"><span>From git</span><span class="cnt">recorded at publish</span></div>
+             <hr class="thin"><div class="block auto">${markdown(found.auto.join("\n"))}</div>` : ""}`));
       }
 
       const projStd = url.pathname.match(/^\/s\/(.+)$/);

@@ -2,11 +2,16 @@
 type: varve-profile
 who: [Insert Slug]
 name: [Insert Name]
+email: [Insert Email]
+github:
 team: [Insert Team]
 projects: [Insert Projects]
 ---
 
-<!-- Identity is company-level; a person spans projects. Rename dir to your git slug. -->
+<!-- who, name and email are filled from `git config` when this is scaffolded.
+     Everything below is what git cannot know, and is the reason the file
+     exists — a teammate's agent reads this before handing you work. -->
+
 # [Insert Name]
 
 * **Role:** [One line]
@@ -14,8 +19,6 @@ projects: [Insert Projects]
 * **Timezone:** [Insert]
 
 # Working Preferences
-
-What a teammate's agent should know before handing you work.
 
 * **Ask me before:** [Things you want raised, not decided for you]
 * **Review style:** [How you prefer changes to arrive]
