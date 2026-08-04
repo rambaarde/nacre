@@ -250,7 +250,9 @@ async function main() {
       if (!(await exists(join(memory, "_company.md")))) {
         fail(`no memory at ${tilde(memory)} · run: varve init <git-url>`);
       }
-      const { url } = await serve({ memory, port: Number(o.port) || 4173 });
+      const port = o.port === undefined ? 4173 : Number(o.port);
+      if (Number.isNaN(port)) fail(`--port must be a number, got: ${o.port}`, 2);
+      const { url } = await serve({ memory, port });
       if (isTTY()) {
         say(blank(), ok(`portal on ${c.bold(url)}`),
           row("memory", c.grey(tilde(memory))),
