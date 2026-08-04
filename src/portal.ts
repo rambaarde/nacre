@@ -11,7 +11,7 @@
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { exists, frontmatter, readRoster, listProjects } from "./store.js";
+import { exists, frontmatter, readRoster, listProjects, isSafeName } from "./store.js";
 import type { Frontmatter } from "./store.js";
 
 export interface LogSections {
@@ -156,6 +156,7 @@ export function parseLog(text: string): LogSections {
 
 /** Every session log, newest first. `project` narrows; omitting it is company-wide. */
 export async function readLogs(memory: string, project?: string): Promise<Log[]> {
+  if (project && !isSafeName(project)) return [];
   const projects = project ? [project] : await listProjects(memory);
   const logs: Log[] = [];
 
@@ -250,6 +251,7 @@ export async function search(
 
 /** Does this project carry its own standards? */
 export async function projectStandards(memory: string, project: string): Promise<string | null> {
+  if (!isSafeName(project)) return null;
   const file = join(memory, project, "_standards.md");
   if (!(await exists(file))) return null;
   return readFile(file, "utf8");

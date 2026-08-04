@@ -104,7 +104,11 @@ export async function resolveBinding(start: string = process.cwd()): Promise<Bin
 export function repoName(url?: string | null): string | null {
   if (!url) return null;
   const last = url.trim().replace(/\.git$/, "").split(/[/:]/).pop();
-  return last && /^[\w.-]+$/.test(last) ? last : null;
+  // A remote path is allowed to contain spaces and non-Latin characters; only a
+  // name that is not a single directory name is unusable. `[\w.-]+` rejected
+  // `acme context.git` and silently fell back to the default directory, so two
+  // companies could land in one.
+  return last && isSafeName(last) && last !== "." && last !== ".." ? last : null;
 }
 
 /**
@@ -283,11 +287,40 @@ export async function gitIdentity(): Promise<{ name?: string; email?: string }> 
   return { name: await read("user.name"), email: await read("user.email") };
 }
 
+/**
+ * Turn a person's name into the directory their logs file under.
+ *
+ * This used to be `[^a-z0-9-] → "-"`, which is fine for `Dana Reyes` and
+ * ruinous otherwise: `李明`, `Дмитрий` and `محمد` each became `"-"`, so two
+ * colleagues with non-Latin names collided into one identity — and `José` came
+ * out as `jos-`. For a store whose point is that no teammate is left out, a
+ * name it cannot spell is the wrong thing to be lossy about.
+ *
+ * Diacritics are folded so `María` and `Maria` do not become two people, and
+ * every script's letters and digits are kept, because a directory name is
+ * allowed to be Unicode and the person's name is the honest slug.
+ */
+export function slugify(name: string): string {
+  return name
+    .normalize("NFKD")
+    // Fold diacritics off Latin letters only. Stripping them everywhere turned
+    // `Дмитрий` into `дмитрии` — the Cyrillic и-with-breve is a distinct letter,
+    // not an accent, and flattening it merges names that are not the same.
+    .replace(/(\p{Script=Latin})\p{M}+/gu, "$1")
+    // Recompose, so a mark that was deliberately kept rejoins its base instead
+    // of being left loose and swept into a hyphen by the rule below.
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    || "you";
+}
+
 /** Author slug from git config. Wrong harmlessly; never blocks. */
 export async function gitSlug(): Promise<string> {
   try {
     const { stdout } = await run("git", ["config", "user.name"]);
-    return stdout.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || "you";
+    return slugify(stdout.trim());
   } catch {
     return "you";
   }
@@ -344,7 +377,27 @@ export async function resolveStoreDir(flag?: string, url?: string | null): Promi
 
 export interface Roster { file: string; text: string; fm: Frontmatter; repos: string[] }
 
+/**
+ * A project or person name is ONE directory name inside the memory — never a
+ * path. Rejecting the rest here, at the only layer that turns a name into a
+ * file, protects every caller including ones not written yet.
+ *
+ * The portal decodes URL parameters, and `%2e%2e%2f` survives Node's path
+ * normalisation to become `../` afterwards, so `/s/%2e%2e%2foutside` read a
+ * file outside the memory. Guarding the two routes would have left the next
+ * route to rediscover it.
+ */
+export function isSafeName(name: string): boolean {
+  return name.length > 0
+    && name !== "."
+    && name !== ".."
+    && !name.includes("/")
+    && !name.includes("\\")
+    && !name.includes("\0");
+}
+
 export async function readRoster(store: string, project: string): Promise<Roster | null> {
+  if (!isSafeName(project)) return null;
   const file = join(store, project, "_project.md");
   if (!(await exists(file))) return null;
   const text = await readFile(file, "utf8");
@@ -377,6 +430,7 @@ export async function listProjects(store: string): Promise<string[]> {
 
 /** Count session logs for a project, and find the newest. */
 export async function logStats(store: string, project: string) {
+  if (!isSafeName(project)) return { count: 0, newest: null, who: "" };
   const root = join(store, project);
   if (!(await exists(root))) return { count: 0, newest: null, who: null };
   let count = 0;
