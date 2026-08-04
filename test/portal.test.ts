@@ -526,3 +526,41 @@ test("a project name is one directory name, never a path", async () => {
 
   await rm(dir, { recursive: true, force: true });
 });
+
+test("a search page stays readable when the memory is real-sized", async () => {
+  // Measured against a memory matching the author's actual vault — 280 logs,
+  // 1.9 MB, one 347 KB session. A common word matched 14,160 lines and the
+  // portal rendered every one: a 4.4 MB HTML page. The server was never the
+  // bottleneck at 116ms; the browser was.
+  //
+  // Breadth before depth, as the CLI already did: cap each session first, so one
+  // thorough log cannot crowd out every other session that discussed the same
+  // thing.
+  const dir = await mkdtemp(join(tmpdir(), "varve-scale-"));
+  await mkdir(join(dir, "ledger", "devs", "dana"), { recursive: true });
+  await writeFile(join(dir, "ledger", "_project.md"), "---\nproject: ledger\nrepos: [ledger-api]\n---\n");
+  for (let i = 0; i < 60; i++) {
+    const lines = Array.from({ length: 40 }, (_, k) => `* **Note ${k}:** the rollout touched both repos`).join("\n");
+    await writeFile(
+      join(dir, "ledger", "devs", "dana", `ledger-2025-01-01_${String(i).padStart(2, "0")}-00-00.md`),
+      `---\nproject: ledger\nwho: dana\ndate: 2025-01-01\n---\n\n# Session ${i}\n\n* **High-Level Summary:** rollout ${i}\n${lines}\n`,
+    );
+  }
+
+  const { serve } = await import("../src/serve.js");
+  const { server, url } = await serve({ memory: dir, port: 0 });
+  try {
+    const page = await fetch(`${url}/search?q=rollout&all=1`).then((r) => r.text());
+    const rows = (page.match(/<tr>/g) ?? []).length;
+
+    assert.ok(rows <= 200, `a search page must stay bounded, got ${rows} rows`);
+    assert.ok(page.length < 400_000, `page was ${(page.length / 1024).toFixed(0)}kb — too heavy to render`);
+    // Bounded is not the same as honest: a list that stops without saying so
+    // reads as the whole answer.
+    assert.match(page, /showing \d+ of \d+/, "it must say what it dropped");
+    assert.match(page, /per session/, "and why");
+  } finally {
+    server.close();
+  }
+  await rm(dir, { recursive: true, force: true });
+});
