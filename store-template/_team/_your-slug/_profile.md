@@ -1,4 +1,3 @@
-<!-- Identity is company-level; a person spans projects. Rename dir to your git slug. -->
 ---
 type: varve-profile
 who: [Insert Slug]
@@ -7,6 +6,7 @@ team: [Insert Team]
 projects: [Insert Projects]
 ---
 
+<!-- Identity is company-level; a person spans projects. Rename dir to your git slug. -->
 # [Insert Name]
 
 * **Role:** [One line]

@@ -1,8 +1,8 @@
-<!-- Always loaded, every brief, forever. Every line costs tokens in every session. -->
 ---
 type: varve-standards
 ---
 
+<!-- Always loaded, every brief, forever. Every line costs tokens in every session. -->
 # Engineering Standards
 
 Only rules you would otherwise repeat next week. Project-specific rules go in the project.

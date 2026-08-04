@@ -14,12 +14,13 @@ and ever publishes back to it. Nothing here assumes the answer is yes.
 ## Install
 
 ```bash
-npx varve init --project atlas --store git@github.com:acme/company-context.git
+npx varve init --store git@github.com:acme/company-context.git   # once, per company
+npx varve add atlas --repos ../atlas-web,../atlas-api            # once, per project
 ```
 
-That installs both skills, writes `.varve.yml` into the repo, and — with
-`--create-store` — scaffolds a new store from the template. Add `--yes` to run
-headless; every prompt has a flag, and it never blocks waiting for input.
+`add` and `link` install both skills, write `.varve.yml` into each repo, and
+record the repos in the project roster. Run `varve` with no arguments at any
+point to see where you are and what applies next.
 
 `.varve.yml` is two lines and **committed, not gitignored**:
 

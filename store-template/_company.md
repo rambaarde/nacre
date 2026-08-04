@@ -1,9 +1,9 @@
-<!-- Always loaded, every brief, every project. Keep it short. -->
 ---
 type: varve-company
 company: [Insert Company Name]
 ---
 
+<!-- Always loaded, every brief, every project. Keep it short. -->
 # Company Snapshot
 
 * **What we build:** [One line a new hire would understand]
