@@ -197,12 +197,41 @@ function renderPerson(v: PersonView): string {
   <hr class="thin">${logRows(v.logs, true)}`;
 }
 
+/** At most this many lines from any one session, then this many rows overall. */
+const PER_LOG = 3;
+const MAX_ROWS = 200;
+
 function renderSearch(q: string, hits: Hit[], scope: string, all: boolean): string {
+  // Rendering every hit was fine at three logs and produced a 4.4 MB page at
+  // three hundred — 14,160 rows, because a common word appears on many lines of
+  // every session. The server was never the bottleneck; the browser was.
+  //
+  // Breadth first, exactly as the CLI does it: cap each session before capping
+  // the total, so one thorough log cannot crowd out every other session that
+  // discussed the same thing.
+  const perLog = new Map<string, number>();
+  const spread = hits.filter((h) => {
+    const n = (perLog.get(h.id) ?? 0) + 1;
+    perLog.set(h.id, n);
+    return n <= PER_LOG;
+  });
+  const shown = spread.slice(0, MAX_ROWS);
+  const sessions = perLog.size;
+
   return `<h1>search</h1>
-  <p class="sub">${escape(q ? `“${q}”` : "")} · scope: ${escape(all ? "all projects" : scope || "all projects")} · ${hits.length} hit${hits.length === 1 ? "" : "s"}</p>
+  <p class="sub">${escape(q ? `“${q}”` : "")} · scope: ${escape(all ? "all projects" : scope || "all projects")} · ${hits.length} hit${hits.length === 1 ? "" : "s"}${
+    hits.length ? ` across ${sessions} session${sessions === 1 ? "" : "s"}` : ""
+  }</p>
   ${searchForm(q, scope)}
   ${hits.length
-    ? `<div class="scroll"><table>${hits.map((h) => `<tr>
+    ? `${shown.length < hits.length
+        // Never truncate silently: a list that stops without saying so reads as
+        // the whole answer.
+        ? `<p class="empty">showing ${shown.length} of ${hits.length} — at most ${PER_LOG} per session${
+            spread.length > MAX_ROWS ? `, first ${MAX_ROWS} sessions` : ""
+          }. Narrow the search, or open a session to read it whole.</p>`
+        : ""}
+      <div class="scroll"><table>${shown.map((h) => `<tr>
         <td class="d">${escape(h.date)}</td><td class="w">${escape(h.who)}</td>
         <td class="r">${escape(h.repo)}</td>
         <td>${h.against ? '<span style="color:var(--declined);font-weight:700">▌</span> ' : ""}${
