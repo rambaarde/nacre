@@ -13,17 +13,15 @@ import { parseArgs } from "node:util";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { initStore, addProject, linkRepo, status, installSkills } from "../src/operations.mjs";
+import { initStore, addProject, status, installSkills } from "../src/operations.mjs";
 
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const OPTIONS = {
-  store: { type: "string" },
-  "store-path": { type: "string" },
-  project: { type: "string" },
+  "memory-path": { type: "string" },
+  "store-path": { type: "string" }, // former spelling
   title: { type: "string" },
   team: { type: "string" },
-  repos: { type: "string" },
   who: { type: "string" },
   agents: { type: "string" },
   force: { type: "boolean" },
@@ -32,21 +30,22 @@ const OPTIONS = {
   version: { type: "boolean" },
 };
 
-const USAGE = `varve — one git-backed memory store for a whole company
+const USAGE = `varve — one git-backed memory for a whole company
 
-  every command also works as \`vrv\`
+  varve                          where am I, and what is next
+  varve init <git-url>           create the company memory     (once)
+  varve add  <project> [dir...]  add a project, and its repos  (as needed)
 
-  varve                              where am I, and what is next
-  varve init   --store <git-url>     create the company store      (once)
-  varve add    <project> [--repos]   add a project to the store    (per project)
-  varve link   [dir] --project <p>   bind one repo to a project    (per repo)
+  also works as \`vrv\`
 
-  --store-path <dir>   local store clone   (default: ~/company-context)
-  --repos <a,b>        repo paths to link while adding a project
-  --team <name>        team folder         (default: devs)
-  --title <name>       project display name
-  --who <slug>         author slug         (default: from git config)
-  --agents <a,b>       claude,opencode     (default: claude)
+Adding repos to an existing project is the same command again:
+  varve add ims ../ims-worker
+
+  --memory-path <dir>  local clone path  (default: from the repo name)
+  --team <name>        team folder       (default: devs)
+  --title <name>       display name
+  --who <slug>         author slug       (default: from git config)
+  --agents <a,b>       claude,opencode   (default: claude)
   --no-skills          skip installing the skills
 
 Reading and writing memory happen through the skills, not this binary.`;
@@ -63,18 +62,18 @@ function fail(message, code = 1) {
 function renderStatus(s) {
   if (s.state === "no-store") {
     return out(
-      `no store at ${s.store}`,
+      `no memory at ${s.store}`,
       "next: varve init --store <git-url>",
       "help[]: varve --help",
     );
   }
   if (s.state === "no-binding") {
     return out(
-      `store: ${s.store} · projects[${s.projects.length}]: ${s.projects.join(", ") || "none yet"}`,
+      `memory: ${s.store} · projects[${s.projects.length}]: ${s.projects.join(", ") || "none yet"}`,
       "this directory is not bound to a project",
       s.projects.length
-        ? `next: varve link --project <${s.projects.join("|")}>`
-        : "next: varve add <project> --repos .",
+        ? `next: varve add <${s.projects.join("|")}> .`
+        : "next: varve add <project> .",
       "help[]: varve --help",
     );
   }
@@ -89,11 +88,11 @@ function renderStatus(s) {
   out(
     `project: ${binding.project} · repos[${repos.length}]: ${repos.join(", ") || "none linked"} · ` +
       `logs: ${logs.count}${logs.newest ? ` · last: ${logs.newest.replace(/\.md$/, "")} (${logs.who})` : ""}`,
-    `store: ${s.store}${here ? ` · you are in: ${here}` : ""}`,
+    `memory: ${s.store}${here ? ` · you are in: ${here}` : ""}`,
     logs.count === 0
       ? "no logs yet · next: varve-publish at the end of this session"
       : "next: varve-load at the start of a session · varve-publish at the end",
-    skillsReady ? null : "warn: skills not installed · next: varve link --project " + binding.project,
+    skillsReady ? null : "warn: skills not installed · next: varve add " + binding.project + " .",
   );
 }
 
@@ -113,34 +112,37 @@ async function main() {
   }
   if (o.help || command === "help") return console.log(USAGE);
 
+  const memoryPath = o["memory-path"] ?? o["store-path"];
   const agents = (o.agents ?? "claude").split(",").map((a) => a.trim()).filter(Boolean);
-  const repos = o.repos?.split(",").map((r) => r.trim()).filter(Boolean);
 
   try {
     // Bare `varve` shows live state, never a usage dump.
-    if (!command) return renderStatus(await status({ storePath: o["store-path"] }));
+    if (!command) return renderStatus(await status({ storePath: memoryPath }));
 
     if (command === "init") {
-      if (!o.store && !o["store-path"]) fail("missing required flag: --store <git-url>");
-      const r = await initStore({ store: o.store, storePath: o["store-path"], who: o.who, force: o.force });
+      if (!arg && !memoryPath) fail("missing argument: varve init <git-url>");
+      const r = await initStore({ store: arg, storePath: memoryPath, who: o.who, force: o.force });
       if (!r.created) {
         return out(
-          `ok: store already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
-          "next: varve add <project> --repos <dir,dir>",
+          `ok: memory already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
+          "next: varve add <project> <repo-dir>",
         );
       }
       return out(
-        `ok: store created · ${r.dir}`,
+        `ok: memory created · ${r.dir}`,
         `files: _company.md, _standards.md, _team/_${r.who}/ · remote: ${r.remote ?? "not set"}`,
-        "next: varve add <project> --repos <dir,dir>",
+        "next: varve add <project> <repo-dir>",
         "help[]: commit and push the store, then keep the default branch protected",
       );
     }
 
     if (command === "add") {
+      if (!arg) fail("missing argument: varve add <project> [dir...]");
+      // Everything after the project name is a repo to link. Adding repos to an
+      // existing project is the same command again — no separate verb for it.
       const r = await addProject({
-        project: arg ?? o.project, title: o.title, team: o.team, repos,
-        storePath: o["store-path"], store: o.store, who: o.who,
+        project: arg, title: o.title, team: o.team, repos: positionals.slice(2),
+        storePath: memoryPath, who: o.who,
       });
       if (!o["no-skills"] && r.linked.length) await installSkills(agents);
       return out(
@@ -148,24 +150,10 @@ async function main() {
         `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
         r.linked.length
           ? `next: commit .varve.yml in ${r.linked.map((l) => l.name).join(", ")} — teammates then need nothing`
-          : `next: varve link <dir> --project ${r.project}`,
+          : `next: varve add ${r.project} <repo-dir>`,
       );
     }
 
-    if (command === "link") {
-      const r = await linkRepo({
-        repo: arg, project: o.project, store: o.store, storePath: o["store-path"],
-      });
-      if (!o["no-skills"]) await installSkills(agents);
-      return out(
-        `ok: ${r.name} linked to ${r.project}`,
-        `binding: ${r.wrote ? "written" : "already present"} · ` +
-          `roster[${r.roster.repos.length}]: ${r.roster.repos.join(", ")}`,
-        r.wrote
-          ? `next: commit ${r.name}/.varve.yml — a teammate who clones it starts warm`
-          : "next: varve-load at the start of a session",
-      );
-    }
 
     fail(`unknown command: ${command} · try: varve --help`, 2);
   } catch (error) {

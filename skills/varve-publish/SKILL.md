@@ -18,7 +18,7 @@ compose → strip private → secret scan → show → push
 
 ## 1. Resolve scope
 
-Walk up from the working directory for `.varve.yml` (`project`, `store`).
+Walk up from the working directory for `.varve.yml` (`project`, `memory`).
 `--project` overrides. **No binding → stop and say so.** Never guess the project,
 never fall back to a default store.
 

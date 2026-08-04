@@ -22,31 +22,34 @@ what it shows.
 
 ## Setup
 
-Three commands, done by different people at different times.
+Two commands, run by whoever sets things up.
 
 ```bash
-varve init --store git@github.com:acme/company-context.git   # once, per company
-varve add atlas --repos ../atlas-web,../atlas-api            # once, per project
-varve link ../atlas-worker --project atlas                   # once, per repo
+varve init git@github.com:acme/acme-context.git   # once, per company
+varve add ims ../ims-fe ../ims-be                 # once, per project
+```
+
+Adding a repo later is the same command again:
+
+```bash
+varve add ims ../ims-worker
 ```
 
 **Everyone after that runs nothing.** They clone a repo that already carries
 `.varve.yml`, and their next session starts warm.
 
-If you are unsure where you are, run `varve` with no arguments. It reports live
-state and names the one command that applies next.
+Unsure where you are? Run `varve` with no arguments — it reports live state and
+names the one command that applies next.
 
 ```
 $ varve
-project: atlas · repos[2]: atlas-api, atlas-web · logs: 0
-store: ~/company-context · you are in: atlas-web
+project: ims · repos[3]: ims-be, ims-fe, ims-worker · logs: 0
+memory: ~/acme-context · you are in: ims-fe
 no logs yet · next: varve-publish at the end of this session
 ```
 
-Every command also works as **`vrv`** — `vrv init`, `vrv add`, `vrv`.
-
-Node 20+, zero runtime dependencies. Prefix with `npx` to run without
-installing.
+Every command also works as **`vrv`**. Node 20+, zero runtime dependencies;
+prefix with `npx` to run without installing.
 
 ## The idea
 
@@ -57,7 +60,7 @@ hours with an agent discovering constraints, rejecting approaches, and shipping
 a fix. The code lands. The reasoning dies with the session. The next developer
 opens a new session cold and rediscovers it.
 
-varve is one git-backed memory store for a whole company — every project, every
+varve is one git-backed memory for a whole company — every project, every
 repository — with two doors onto the same files:
 
 - **Agents** read plain markdown directly, plus a token-bounded CLI.

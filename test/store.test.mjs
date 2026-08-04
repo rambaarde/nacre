@@ -90,14 +90,14 @@ test("resolveBinding walks up, and returns null rather than guessing", async () 
   });
 });
 
-test("init → add → link wires both records", async () => {
+test("init → add wires both records", async () => {
   await withHome(async (home) => {
     const repo = join(home, "atlas-web");
     await mkdir(repo, { recursive: true });
 
     const store = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     assert.ok(store.created);
-    assert.equal(store.dir, join(home, "acme-context"), "store path comes from the repo name");
+    assert.equal(store.dir, join(home, "acme-context"), "memory path comes from the repo name");
 
     await addProject({ project: "atlas", title: "Atlas", who: "alice" });
     assert.deepEqual(await listProjects(store.dir), ["atlas"]);
@@ -108,7 +108,7 @@ test("init → add → link wires both records", async () => {
     // Record one: the repo's own binding.
     const binding = await readFile(join(repo, ".varve.yml"), "utf8");
     assert.match(binding, /project: atlas/);
-    assert.match(binding, /store: git@github\.com:acme\/acme-context\.git/);
+    assert.match(binding, /memory: git@github\.com:acme\/acme-context\.git/);
 
     // Record two: the project roster. Updating only one would leave the
     // company-level answer silently wrong.
@@ -133,7 +133,7 @@ test("linking a second repo keeps the first — the erasure regression", async (
   });
 });
 
-test("linking the second repo needs no --store; it resolves", async () => {
+test("linking the second repo needs no URL; it resolves", async () => {
   await withHome(async (home) => {
     await mkdir(join(home, "atlas-api"), { recursive: true });
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
@@ -161,7 +161,7 @@ test("rebinding a repo to a different project is refused", async () => {
   });
 });
 
-test("two companies on one machine get separate stores", async () => {
+test("two companies on one machine get separate memories", async () => {
   await withHome(async (home) => {
     const a = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     const b = await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
@@ -171,14 +171,14 @@ test("two companies on one machine get separate stores", async () => {
   });
 });
 
-test("an ambiguous store is reported, never picked", async () => {
+test("an ambiguous memory is reported, never picked", async () => {
   await withHome(async (home) => {
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
     const unbound = join(home, "elsewhere");
     await mkdir(unbound, { recursive: true });
     process.chdir(unbound);
-    await assert.rejects(() => status(), /several stores found/);
+    await assert.rejects(() => status(), /several memories found/);
   });
 });
 
@@ -221,4 +221,13 @@ test("addToRoster on a missing project says how to fix it", async () => {
     const store = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await assert.rejects(() => addToRoster(store.dir, "nope", ["r"]), /varve add nope/);
   });
+});
+
+test("the npm test script actually runs the suite", async () => {
+  // Shipped broken once: `node --test test/` resolves the directory as a module
+  // and exits before running anything. A test command that cannot fail is the
+  // same failure mode as having no tests at all.
+  const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(pkg.scripts.test, /\.test\.mjs|--test\s*$/,
+    "the test script must resolve to files, not a bare directory");
 });

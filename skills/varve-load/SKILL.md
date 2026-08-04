@@ -19,7 +19,7 @@ Walk up from the working directory for `.varve.yml`:
 
 ```yaml
 project: atlas
-store: git@github.com:acme/company-context.git
+memory: git@github.com:acme/acme-context.git
 ```
 
 - `--project <name>` overrides.
@@ -28,12 +28,12 @@ store: git@github.com:acme/company-context.git
   and never fall back to a default store: a wrong guess writes one company's
   context into another company's session.
 
-Resolve the store's local path in this order: `VARVE_STORE` → `~/company-context`
-→ the last path used. If the store is not cloned yet, clone it from the `store`
-line, **non-interactively**:
+The local path is derived from the memory repo's own name — `acme-context`
+resolves to `~/acme-context` — so two companies never collide on one directory.
+If it is not cloned yet, clone it from the `memory` line, **non-interactively**:
 
 ```bash
-GIT_TERMINAL_PROMPT=0 git clone --depth 50 <store> ~/company-context
+GIT_TERMINAL_PROMPT=0 git clone --depth 50 <memory-url> ~/acme-context
 ```
 
 If that fails — no credentials, no network, wrong host — **say one line and
@@ -73,7 +73,7 @@ means truncate and say how to get more, never exceed silently.
 
 ```text
 project: atlas · repos[2]: atlas-web, atlas-api · logs: 47 · last: 2026-08-01 (alice)
-store: ~/company-context · pulled 2m ago
+memory: ~/acme-context · pulled 2m ago
 
 active[2]{what,since}:
   rate-limit header rename — api shipped, web pending,2026-07-29
