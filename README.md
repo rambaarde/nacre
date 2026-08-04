@@ -11,11 +11,14 @@
 
 ## Status
 
-**Planning. No implementation yet.**
+**Early. One thing built.** [`skills/`](skills/README.md) holds two skill files
+and a store template — no CLI, no package, no portal.
 
-The design lives in [`docs/founder-thesis.md`](docs/founder-thesis.md) — scope,
-competitive analysis, the hypotheses that would falsify it, and what is
-deliberately out of scope.
+That is deliberate. The unproven part of this idea is not capture, it is
+**sharing**: whether a second person reads a shared store and ever publishes back
+to it. Building a CLI and a portal before knowing that would be building on an
+assumption. So the smallest possible version ships first, and the rest waits on
+what it shows.
 
 ## The idea
 
@@ -30,9 +33,11 @@ varve is one git-backed memory store for a whole company — every project, ever
 repository — with two doors onto the same files:
 
 - **Agents** read plain markdown directly, plus a token-bounded CLI.
-- **Humans** read an auth-gated portal generated from those same files.
+- **Humans** read a portal generated from those same files, served from their
+  own clone — no login, no server, no database.
 
-Nothing is shared until a person publishes it.
+Nothing is shared until a person publishes it — writing and publishing are one
+deliberate motion, with the private-block strip and secret scan inline.
 
 ## Why it is different
 
@@ -50,34 +55,35 @@ Concretely:
 | **Plain markdown in git** | reviewable in a PR, greppable, diffable, portable. Not a database, not sync chunks |
 | **Nothing captured silently** | a human publishes, or it stays local |
 | **Zero inference on reads** | exactly one LLM call in the system, at session end, user-triggered |
-| **Company-wide scope** | company → projects → repositories, not one wiki per repo |
+| **Company-wide scope** | company → projects → teams → people, and projects → repositories. Not one wiki per repo |
 
 ## Shape
 
 ```
-_ai_memory_company_context/        one private git repo per company
-  _company.md                      cross-project facts, shared infrastructure
+_ai_memory_company_context/       one private git repo per company
+  _company.md                     cross-project facts, shared infrastructure
   _standards.md
-  _projects/{name}.md              one per project, lists its repos
-  _team/_{who}/
-    _session_log/{project}-{date}.md
-  _handoffs/{project}.md           rolling next-session brief
-  _decisions/{project}/ADR-*.md
+  _team/_{who}/_profile.md        identity — spans projects
+  {project}/
+    _project.md                   roster: repos + teams
+    _handoff.md                   rolling next-session brief
+    _decisions/ADR-*.md
+    {team}/{person}/{project}-{date}_{time}.md    one file per session
 ```
 
-Each code repository carries a one-line `.context.yml` (`project: ims`) so the
+Each code repository carries a one-line `.varve.yml` (`project: atlas`) so the
 tooling resolves with no flags from any checkout.
 
 ## Open questions
 
-This is a thesis, not a product. The load-bearing questions are unanswered:
+These are unanswered, and they decide whether this is worth building:
 
 1. Does anyone besides the author care that the store is human-readable?
-2. Once drafting is automatic, will people actually publish?
+2. With writing human-invoked, will a second person record anything at all?
 3. Is cross-repo memory worth paying for?
 
-See the thesis §8 for how each would be falsified.
+Each one has a test attached, and a result that would end the project.
 
 ## License
 
-TBD — intended open-source core with a hosted service. See thesis §12.
+Open-source core, with a hosted service for the parts a team would rather not operate. The free tier is not a trial: the store is your git repo, and every read is local and permanent.

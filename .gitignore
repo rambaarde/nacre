@@ -31,3 +31,6 @@ build/
 .env
 .env.*
 !.env.example
+
+# Lavish review artifacts — local scratch surfaces for design review, not product.
+.lavish/
