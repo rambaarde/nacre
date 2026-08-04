@@ -1,4 +1,3 @@
-<!-- The roster: the one canonical answer to what this project consists of. -->
 ---
 type: varve-project
 project: [Insert Slug]          # IMMUTABLE — it is in every path and filename
@@ -8,6 +7,7 @@ teams: [Insert Teams]
 status: active
 ---
 
+<!-- The roster: the one canonical answer to what this project consists of. -->
 # Project Snapshot
 
 * **Purpose:** [What problem this product solves]
