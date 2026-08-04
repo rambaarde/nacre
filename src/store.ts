@@ -344,7 +344,27 @@ export async function resolveStoreDir(flag?: string, url?: string | null): Promi
 
 export interface Roster { file: string; text: string; fm: Frontmatter; repos: string[] }
 
+/**
+ * A project or person name is ONE directory name inside the memory — never a
+ * path. Rejecting the rest here, at the only layer that turns a name into a
+ * file, protects every caller including ones not written yet.
+ *
+ * The portal decodes URL parameters, and `%2e%2e%2f` survives Node's path
+ * normalisation to become `../` afterwards, so `/s/%2e%2e%2foutside` read a
+ * file outside the memory. Guarding the two routes would have left the next
+ * route to rediscover it.
+ */
+export function isSafeName(name: string): boolean {
+  return name.length > 0
+    && name !== "."
+    && name !== ".."
+    && !name.includes("/")
+    && !name.includes("\\")
+    && !name.includes("\0");
+}
+
 export async function readRoster(store: string, project: string): Promise<Roster | null> {
+  if (!isSafeName(project)) return null;
   const file = join(store, project, "_project.md");
   if (!(await exists(file))) return null;
   const text = await readFile(file, "utf8");
@@ -377,6 +397,7 @@ export async function listProjects(store: string): Promise<string[]> {
 
 /** Count session logs for a project, and find the newest. */
 export async function logStats(store: string, project: string) {
+  if (!isSafeName(project)) return { count: 0, newest: null, who: "" };
   const root = join(store, project);
   if (!(await exists(root))) return { count: 0, newest: null, who: null };
   let count = 0;
