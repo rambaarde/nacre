@@ -42,7 +42,7 @@ jobs:
           node -e '
             const pkg = require("./package.json");
             // devDependencies are fine — they never reach an installing user.
-            // `dependencies` is what `npx varve` would have to download.
+            // `dependencies` is what `npm i -g varve-cli` would have to download.
             const deps = Object.keys(pkg.dependencies ?? {});
             if (deps.length) {
               console.error("runtime dependencies present:", deps.join(", "));
@@ -56,6 +56,10 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+        # `npm pack` reports the files that exist on disk, so an unbuilt dist/
+        # would make the assertion below fail for the wrong reason. This is the
+        # same build `prepublishOnly` runs at publish time.
+      - run: npm run build
 
       - name: assert the TARBALL is right, not just files[]
         # This used to check `files.includes("dist")` — a string standing in for
@@ -70,7 +74,7 @@ jobs:
             const files = meta.files.map((f) => f.path);
             const fail = (msg) => { console.error(msg); process.exitCode = 1; };
 
-            // Someone running `npx varve` gets nothing without this.
+            // Someone installing varve-cli gets nothing without this.
             for (const required of [
               "dist/bin/varve.js",
               "skills/varve-load/SKILL.md",
