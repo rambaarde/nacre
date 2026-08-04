@@ -166,6 +166,27 @@ export async function initGit(dir: string, remote?: string | null): Promise<stri
  * a private mirror. Unknown must never read as "public", or the guard would
  * fire on people it should not.
  */
+/**
+ * Does this remote already hold a history? Asked with the caller's own
+ * credentials, unlike `isPubliclyReadable`, which deliberately strips them.
+ *
+ * `null` means the question could not be answered — offline, no access, no such
+ * repo. That is not the dangerous case: a remote nobody can reach is a remote
+ * nobody can push a divergent history to. The dangerous case is a remote that is
+ * reachable and already has a memory on it, and that is exactly `true`.
+ */
+export async function remoteHasCommits(url: string): Promise<boolean | null> {
+  try {
+    const { stdout } = await run("git", ["ls-remote", "--heads", url], {
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" },
+      timeout: 15_000,
+    });
+    return stdout.trim().length > 0;
+  } catch {
+    return null;
+  }
+}
+
 export async function isPubliclyReadable(url: string): Promise<boolean | null> {
   const https = url
     .replace(/^git@([^:]+):/, "https://$1/")
