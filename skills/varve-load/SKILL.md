@@ -87,7 +87,7 @@ risks[1]{what,who}:
   old header still read in atlas-web,bob
 
 next: remove the old header path in atlas-web before the next release
-help[]: varve-publish · read {project}/{team}/{person}/<file> --full
+help[]: varve-publish · varve serve (the same memory, for a person)
 ```
 
 **Explicit empty state.** A project with no logs yet gets a definite line and the

@@ -23,6 +23,13 @@ repos in the project roster. Adding a repo later is the same command again. Run
 `varve` with no arguments at any point to see where you are and what applies
 next.
 
+To read the memory as a person rather than through an agent:
+
+```bash
+npx varve serve          # a portal over your own clone. No login, loopback only
+npx varve search <term>  # the same search, same ranking
+```
+
 Every command also works as **`vrv`**. Inside a session, the skills answer to
 `vrv load` and `vrv publish` as well as their full names.
 
