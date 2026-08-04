@@ -315,7 +315,12 @@ export async function projectView(memory: string, project: string) {
     handoff: live.find((l) => l.next)?.next ?? "",
     handoffBy: live.find((l) => l.next) ?? null,
     logs: live,
-    count: logs.length,
+    // `count` counts what is listed. `superseded` is reported separately rather
+    // than folded in: a header reading "2 logs" above a single row tells the
+    // reader something is missing without saying what, and a correction being
+    // invisible is the opposite of why corrections are written as new files.
+    count: live.length,
+    superseded: logs.length - live.length,
     hasStandards: await exists(join(memory, project, "_standards.md")),
   };
 }

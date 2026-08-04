@@ -177,7 +177,9 @@ function renderProject(v: ProjectView): string {
   <hr class="thin"><div class="block note"><p class="empty">Nobody has written one yet — it lives in <code>${
     escape(v.project)
   }/_project.md</code>. The logs below are still the record either way.</p></div>`}
-  <div class="bh"><span>Recent</span><span class="cnt">${v.count} log${v.count === 1 ? "" : "s"}</span></div>
+  <div class="bh"><span>Recent</span><span class="cnt">${v.count} log${v.count === 1 ? "" : "s"}${
+    v.superseded ? ` · ${v.superseded} superseded` : ""
+  }</span></div>
   <hr class="thin">${logRows(v.logs)}`;
 }
 
