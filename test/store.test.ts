@@ -413,3 +413,31 @@ test("a scaffolded profile is filled from git, not left as a form", async () => 
     assert.match(text, /^github:\s*$/m, "left blank rather than guessed from an API");
   });
 });
+
+test("the author slug is one value, so a person cannot become two", async () => {
+  // init scaffolds _team/_<slug>/ from git config user.name; a log's `who:` is
+  // written by the skill. If those two ever disagree the person's profile sits
+  // in one folder while their logs file under another — their own page shows no
+  // profile, and nothing errors. `varve` therefore reports the slug it uses, so
+  // the skill has one value to copy rather than a name to guess at.
+  await withHome(async (home: string) => {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+    await git("git", ["config", "--global", "user.name", "Dana Reyes"]);
+    await git("git", ["config", "--global", "user.email", "dana@acme.test"]);
+
+    const store = await initStore({ store: "file:///tmp/none.git", storePath: join(home, "mem") });
+    const repo = join(home, "atlas-web");
+    await mkdir(repo, { recursive: true });
+    await addProject({ project: "atlas", repos: [repo], storePath: store.dir });
+
+    // status() reads the binding from cwd, as it does for a real user.
+    process.chdir(repo);
+    const st = await status({ storePath: store.dir });
+    assert.equal(st.state, "ready");
+    const slug = st.state === "ready" ? st.you : "";
+    assert.equal(slug, "dana-reyes", "slug is git user.name, slugified");
+    await access(join(store.dir, "_team", `_${slug}`, "_profile.md"));
+  });
+});

@@ -113,7 +113,7 @@ function renderStatus(st: Status): void {
       blank(), next(`varve ${c.bold("add")} ${st.binding.project}`), blank());
   }
 
-  const { binding, repos, logs, here, skillsReady } = st;
+  const { binding, repos, logs, here, skillsReady, you } = st;
   const summary = `${repos.length} repo${repos.length === 1 ? "" : "s"} · ${logs.count} log${logs.count === 1 ? "" : "s"}`;
   say(
     ...brand(tilde(st.store)),
@@ -123,6 +123,7 @@ function renderStatus(st: Status): void {
     row("repos", repos.map((r) => (r === here ? c.bold(r) : c.grey(r))).join("  ") || c.grey("none linked")),
     logs.newest ? row("last", `${logs.newest.replace(/\.md$/, "")}  ${c.grey(logs.who)}`) : null,
     row("here", here ? c.bold(here) : c.grey("outside a linked repo")),
+    row("you", `${c.bold(you)}  ${c.grey("— logs and your profile file under this")}`),
     blank(),
     skillsReady ? null : warn(`skills not installed · varve add ${binding.project} .`),
     logs.count === 0
@@ -157,11 +158,11 @@ function renderStatusPlain(st: Status): void {
       `next: varve add ${st.binding.project}`,
     );
   }
-  const { binding, repos, logs, here, skillsReady } = st;
+  const { binding, repos, logs, here, skillsReady, you } = st;
   out(
     `project: ${binding.project} · repos[${repos.length}]: ${repos.join(", ") || "none linked"} · ` +
       `logs: ${logs.count}${logs.newest ? ` · last: ${logs.newest.replace(/\.md$/, "")} (${logs.who})` : ""}`,
-    `memory: ${st.store}${here ? ` · you are in: ${here}` : ""}`,
+    `memory: ${st.store}${here ? ` · you are in: ${here}` : ""} · you: ${you}`,
     logs.count === 0
       ? "no logs yet · next: varve-publish at the end of this session"
       : "next: varve-load at the start of a session · varve-publish at the end",
