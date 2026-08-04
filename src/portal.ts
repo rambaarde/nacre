@@ -324,11 +324,16 @@ export async function projectView(memory: string, project: string) {
 export async function personView(memory: string, who: string) {
   const logs = (await readLogs(memory)).filter((l) => l.who === who);
   const file = join(memory, "_team", `_${who}`, "_profile.md");
+  // Same rule as the project note: a scaffolded profile is prompts until someone
+  // answers them, and "Role: [One line]" under a heading marked "curated" is
+  // worse than saying nobody has written one.
   const profile = (await exists(file))
-    ? (await readFile(file, "utf8"))
-        .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
-        .replace(/<!--[\s\S]*?-->/g, "")
-        .trim()
+    ? unfilled(
+        (await readFile(file, "utf8"))
+          .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+          .replace(/<!--[\s\S]*?-->/g, "")
+          .trim(),
+      )
     : "";
   return {
     who,
