@@ -54,10 +54,14 @@ design's one quiet failure — say the age out loud rather than hiding it.
 Stop as soon as the budget is spent. The order is urgency of not knowing, not
 recency:
 
-1. `_company.md` and `_standards.md` — the only always-loaded files
-2. every `## Decided against` block in the newest ~15 logs for this project
-3. open risks and unresolved items
-4. the newest few log summaries, any team, any person
+1. `_company.md` and `_standards.md` — company-wide, always loaded
+2. `{project}/_standards.md` if it exists — this project's own rules. Where the
+   two disagree the project's are the specific ones and win; say so rather than
+   silently picking. A stack rule belongs here, not at company level, so that a
+   project on a different stack never pays for it.
+3. every `## Decided against` block in the newest ~15 logs for this project
+4. open risks and unresolved items
+5. the newest few log summaries, any team, any person
 
 Never read another project's tree. An agent working on `atlas` must not load
 `beacon` — that is a relevance rule before it is a token one.

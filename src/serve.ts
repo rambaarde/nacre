@@ -20,7 +20,7 @@ import { basename, join } from "node:path";
 import { exists } from "./store.js";
 import { markdown, escape } from "./markdown.js";
 import { tilde } from "./render.js";
-import { index, projectView, personView, search, age, readLogs } from "./portal.js";
+import { index, projectView, personView, search, age, readLogs, projectStandards } from "./portal.js";
 import type { Hit, Log } from "./portal.js";
 
 type Index = Awaited<ReturnType<typeof index>>;
@@ -143,7 +143,9 @@ function renderProject(v: ProjectView): string {
   return `<h1>${escape(v.title)}</h1>
   <p class="sub">repos[${v.repos.length}] ${escape(v.repos.join(", ") || "none linked")}${
     v.teams.length ? ` · teams[${v.teams.length}] ${escape(v.teams.join(", "))}` : ""
-  } · ${v.count} log${v.count === 1 ? "" : "s"}</p>
+  } · ${v.count} log${v.count === 1 ? "" : "s"}${
+    v.hasStandards ? ` · ${link(`/s/${encodeURIComponent(v.project)}`, "standards")}` : ""
+  }</p>
   ${searchForm("", v.project)}
   ${v.handoff ? `<div class="bh"><span>Handoff</span><span class="cnt">${
     escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")
@@ -247,6 +249,20 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
           `<h1>${escape(found.id)}</h1><p class="sub">${escape(found.who)} · ${escape(found.project)}${
             found.repos.length ? ` · repos[${found.repos.length}] ${escape(found.repos.join(", "))}` : ""
           }</p><div class="log">${markdown(found.body)}</div>`));
+      }
+
+      const projStd = url.pathname.match(/^\/s\/(.+)$/);
+      if (projStd) {
+        const name = decodeURIComponent(projStd[1] as string);
+        const text = await projectStandards(memory, name);
+        if (text === null) {
+          return send(shell(memory, clone, idx, { project: name }, name,
+            `<p class="empty">${escape(name)} has no standards of its own — the company standards apply</p>`), 404);
+        }
+        return send(shell(memory, clone, idx, { project: name }, `${name} standards`,
+          `<h1>${escape(name)} — standards</h1>
+           <p class="sub">${escape(name)}/_standards.md · loaded with this project only</p>
+           <div class="log">${markdown(text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").replace(/<!--[\s\S]*?-->/g, ""))}</div>`));
       }
 
       const company = url.pathname.match(/^\/c\/(_company|_standards)$/);

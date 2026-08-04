@@ -93,6 +93,13 @@ export async function addProject({ project, title, team, repos, storePath: pathF
 
   if (fresh) {
     await cp(join(PKG_ROOT, "store-template", "PROJECT-TEMPLATE"), projectDir, { recursive: true });
+    const std = join(projectDir, "_standards.md");
+    if (await exists(std)) {
+      const t = await readFile(std, "utf8");
+      await writeFile(std, t
+        .replace(/^project:.*$/m, `project: ${project}`)
+        .replace(/^# \[Insert Project\] — Standards$/m, `# ${title ?? project} — Standards`));
+    }
     const file = join(projectDir, "_project.md");
     let text = await readFile(file, "utf8");
     text = text

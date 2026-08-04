@@ -19,3 +19,7 @@ Only rules you would otherwise repeat next week. Project-specific rules go in th
 # Not Here
 
 Architecture, API docs, onboarding guides. varve is a log, not a wiki.
+
+Anything true of one project only — a language version, a test runner, a deploy
+gate for one service. That goes in `{project}/_standards.md`, so a project on a
+different stack never loads it.

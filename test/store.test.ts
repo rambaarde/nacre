@@ -30,6 +30,10 @@ async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
   const cwd = process.cwd();
   process.env.HOME = home;
   delete process.env.VARVE_STORE;
+  // Also move into the temp home. Binding resolution walks up from the working
+  // directory by design, so a .varve.yml anywhere above the repo would leak in
+  // — and the repo of anyone who actually uses varve has one.
+  process.chdir(home);
   try {
     return await body(home);
   } finally {

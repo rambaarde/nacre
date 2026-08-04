@@ -229,6 +229,13 @@ export async function search(
   });
 }
 
+/** Does this project carry its own standards? */
+export async function projectStandards(memory: string, project: string): Promise<string | null> {
+  const file = join(memory, project, "_standards.md");
+  if (!(await exists(file))) return null;
+  return readFile(file, "utf8");
+}
+
 /** Everything the project page needs, in the order it is read. */
 export async function projectView(memory: string, project: string) {
   const roster = await readRoster(memory, project);
@@ -249,6 +256,7 @@ export async function projectView(memory: string, project: string) {
     risks: live.flatMap((l) => l.risks.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
     logs: live,
     count: logs.length,
+    hasStandards: await exists(join(memory, project, "_standards.md")),
   };
 }
 
