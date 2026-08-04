@@ -12,7 +12,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -297,5 +297,54 @@ test("a public memory is refused, and the override is explicit", async () => {
       allowPublic: true,
     });
     assert.ok(forced.created, "--i-know-its-public must skip the probe entirely");
+  });
+});
+
+test("a bound repo fetches its memory instead of asking for init", async () => {
+  // The onboarding promise: clone one code repo, run nothing, start warm.
+  // This was claimed verified once and never actually exercised — the CLI told
+  // a teammate to run `init`, which creates a *second* memory rather than
+  // joining theirs. A local bare repo stands in for the remote so the test
+  // stays offline.
+  await withHome(async (home: string) => {
+    const origin = join(home, "origin.git");
+    const seed = join(home, "seed");
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+
+    await mkdir(seed, { recursive: true });
+    await writeFile(join(seed, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await git("git", ["init", "-q", seed]);
+    await git("git", ["-C", seed, "config", "user.email", "a@b.c"]);
+    await git("git", ["-C", seed, "config", "user.name", "alice"]);
+    await git("git", ["-C", seed, "add", "-A"]);
+    await git("git", ["-C", seed, "commit", "-qm", "seed"]);
+    await git("git", ["clone", "-q", "--bare", seed, origin]);
+
+    // A repo bound to that memory, with nothing cloned locally yet.
+    const repo = join(home, "acme-fe");
+    await mkdir(repo, { recursive: true });
+    await writeFile(join(repo, ".varve.yml"), `project: acme\nmemory: ${origin}\n`);
+
+    const { ensureMemory, resolveStoreDir, resolveBinding } = await import("../src/store.js");
+    const binding = await resolveBinding(repo);
+    const dir = await resolveStoreDir(undefined, binding?.store);
+    const first = await ensureMemory(dir, binding?.store);
+
+    assert.deepEqual(first, { ok: true, cloned: true }, "it must fetch, not instruct");
+    await access(join(dir, "_company.md"));
+
+    const again = await ensureMemory(dir, binding?.store);
+    assert.deepEqual(again, { ok: true, cloned: false }, "and not re-clone once present");
+  });
+});
+
+test("an unreachable memory explains itself rather than hanging", async () => {
+  await withHome(async (home: string) => {
+    const { ensureMemory } = await import("../src/store.js");
+    const result = await ensureMemory(join(home, "nope"), join(home, "does-not-exist.git"));
+    assert.equal(result.ok, false);
+    assert.match((result as { reason: string }).reason, /could not clone/);
   });
 });

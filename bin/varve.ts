@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
-import { resolveStoreDir, resolveBinding, exists } from "../src/store.js";
+import { resolveStoreDir, resolveBinding, ensureMemory } from "../src/store.js";
 import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 
@@ -90,7 +90,8 @@ function renderStatus(st: Status): void {
 
   if (st.state === "no-store") {
     return say(...brand(""), rule(),
-      row("memory", c.grey("none yet")),
+      row("memory", c.grey(tilde(st.store))),
+      st.reason ? row("", c.grey(st.reason)) : null,
       blank(), next(`varve ${c.bold("init")} <git-url>`), blank());
   }
   if (st.state === "no-binding") {
@@ -133,7 +134,12 @@ function renderStatus(st: Status): void {
 /** The plain path is byte-for-byte what agents and CI already parse. */
 function renderStatusPlain(st: Status): void {
   if (st.state === "no-store") {
-    return out(`no memory at ${st.store}`, "next: varve init <git-url>", "help[]: varve --help");
+    return out(
+      `no memory at ${st.store}`,
+      st.reason ? `reason: ${st.reason}` : null,
+      "next: varve init <git-url>",
+      "help[]: varve --help",
+    );
   }
   if (st.state === "no-binding") {
     return out(
@@ -255,9 +261,8 @@ async function main() {
     if (command === "serve") {
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store);
-      if (!(await exists(join(memory, "_company.md")))) {
-        fail(`no memory at ${tilde(memory)} · run: varve init <git-url>`);
-      }
+      const ready = await ensureMemory(memory, binding?.store);
+      if (!ready.ok) fail(`${tilde(memory)} · ${ready.reason}`);
       const port = o.port === undefined ? 4173 : Number(o.port);
       if (Number.isNaN(port)) fail(`--port must be a number, got: ${o.port}`, 2);
       const { url } = await serve({ memory, port });
@@ -276,6 +281,7 @@ async function main() {
       if (!term) fail("missing argument: varve search <term>");
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store);
+      await ensureMemory(memory, binding?.store);
       const hits = await searchMemory(memory, term, { project: binding?.project, all: o.all });
       if (!hits.length) {
         return out(`no hits for "${term}"${binding?.project && !o.all ? ` in ${binding.project}` : ""}`,

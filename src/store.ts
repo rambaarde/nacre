@@ -197,6 +197,37 @@ export async function isPubliclyReadable(url: string): Promise<boolean | null> {
   }
 }
 
+/**
+ * Clone the memory if it is not here yet.
+ *
+ * This is the whole onboarding promise: a teammate clones one code repo, runs
+ * nothing, and their next session is warm. The binding already says where the
+ * memory lives, so asking them to run `init` would be both unnecessary and
+ * wrong — init creates a *new* memory rather than joining the existing one.
+ *
+ * Never interactive. Without credentials git would sit waiting for a password
+ * and hang the session, which is a worse first impression than a clear message.
+ */
+export async function ensureMemory(dir: string, remote?: string | null): Promise<
+  { ok: true; cloned: boolean } | { ok: false; reason: string }
+> {
+  if (await exists(join(dir, "_company.md"))) return { ok: true, cloned: false };
+  if (!remote) return { ok: false, reason: "no memory here, and nothing says where it lives" };
+
+  try {
+    await run("git", ["clone", "--quiet", remote, dir], {
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" },
+      timeout: 60_000,
+    });
+  } catch (error) {
+    const text = String((error as { stderr?: string })?.stderr ?? error).trim().split("\n").pop();
+    return { ok: false, reason: `could not clone ${remote} — ${text}` };
+  }
+
+  if (await exists(join(dir, "_company.md"))) return { ok: true, cloned: true };
+  return { ok: false, reason: `${remote} does not look like a varve memory (no _company.md)` };
+}
+
 /** Author slug from git config. Wrong harmlessly; never blocks. */
 export async function gitSlug(): Promise<string> {
   try {
