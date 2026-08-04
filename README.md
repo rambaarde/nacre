@@ -2,12 +2,17 @@
 
 # varve
 
-**One git-backed memory for a whole company. Agents and people read the same files.**
+**One context memory for your whole company — every project, every repo, every
+person. Agents and people read the same files.**
 
-Your agent remembers a session. Your team remembers nothing. varve gives every
-project — and every repository inside it — one shared memory: plain Markdown in a
-private git repo that an agent loads at session start and a person browses in a
-portal, with no database in between.
+Your agent remembers a session. Your team remembers nothing. varve gives a
+company one shared memory: plain Markdown in a private git repo that an agent
+loads at session start and a person browses in a portal, with no database in
+between.
+
+Most tools scope memory to a repository. A product is rarely one repository, and
+the knowledge that matters most lives in the seam between them. varve's unit is
+the **product**, and above it the **company**.
 
 No vectors. No API key. No service to run. Markdown you can read in a pull request.
 
@@ -47,6 +52,21 @@ You pay the same tax every time:
 fact is owned by two repositories and lives in neither — so a per-repo wiki has
 nowhere to put it, and it ends up in someone's head or a Slack thread that
 scrolls away.
+
+## The promise
+
+When any developer or agent joins a project session, they should understand the
+current state, known risks, active decisions, and the next move — within minutes.
+
+> **No teammate starts from zero.**
+>
+> **No rejected idea gets rediscovered as if new.**
+>
+> **No production lesson disappears inside a dead transcript.**
+
+One memory per company. Every project inside it, every repo inside those, every
+person who works on them — including the ones who joined last week and the ones
+who were on leave. Nobody left reconstructing what the team already knew.
 
 ## How it works
 
@@ -146,6 +166,16 @@ queries. SQLite, vectors, a graph, an extraction pipeline. A human reads it, if
 at all, through a debug viewer.
 
 varve builds **team memory** — a document humans and agents share.
+
+The distinction underneath: **the reasoning trail is episodic, not
+encyclopedic.** What a system *is* can be documented and kept current. What
+happened, what was tried, what was ruled out and why — that is a sequence of
+dated, attributed entries, and it is not an encyclopedia. Plenty of tools are
+building the encyclopedia. The trail is the part nobody keeps, and it is the part
+that stops a decision being made twice.
+
+It is also why varve composes rather than competes: if you keep a per-repo
+architecture wiki, keep it. This is the layer above it.
 
 | | |
 |---|---|
