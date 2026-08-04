@@ -43,6 +43,8 @@ store: ~/company-context · you are in: atlas-web
 no logs yet · next: varve-publish at the end of this session
 ```
 
+Every command also works as **`vrv`** — `vrv init`, `vrv add`, `vrv`.
+
 Node 20+, zero runtime dependencies. Prefix with `npx` to run without
 installing.
 

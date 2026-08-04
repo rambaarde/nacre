@@ -22,6 +22,9 @@ npx varve add atlas --repos ../atlas-web,../atlas-api            # once, per pro
 record the repos in the project roster. Run `varve` with no arguments at any
 point to see where you are and what applies next.
 
+Every command also works as **`vrv`**. Inside a session, the skills answer to
+`vrv load` and `vrv publish` as well as their full names.
+
 `.varve.yml` is two lines and **committed, not gitignored**:
 
 ```yaml
