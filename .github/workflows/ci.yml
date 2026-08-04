@@ -72,7 +72,7 @@ jobs:
           node -e '
             // npm 12 changed this from an array to an object keyed by
             // package name. Accept both: the guard exists to check the bytes,
-            // not to have an opinion about npm's envelope.
+            // not to have an opinion about the envelope npm wraps them in.
             const raw = require("/tmp/pack.json");
             const meta = Array.isArray(raw) ? raw[0] : Object.values(raw)[0];
             if (!meta || !Array.isArray(meta.files)) {
