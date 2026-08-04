@@ -491,3 +491,25 @@ test("a name the slugifier cannot spell must not erase the person", async () => 
   assert.equal(slugify("   "), "you");
   assert.equal(slugify("!!!"), "you");
 });
+
+test("no apostrophe hides inside a single-quoted shell block in a workflow", async () => {
+  // The CI guard broke because a code comment read "npm's envelope". Inside
+  // `node -e '...'` that apostrophe closes the shell string, and the failure
+  // surfaces as an exit code from a workflow rather than as anything resembling
+  // a quoting mistake. Prose is where this hides, which is why a human review
+  // will not catch it twice.
+  const { readdir } = await import("node:fs/promises");
+  const dir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+  const files = await readdir(dir);
+
+  for (const name of files.filter((f) => f.endsWith(".yml"))) {
+    const text = await readFile(join(dir, name), "utf8");
+    for (const block of text.matchAll(/node -e '\n([\s\S]*?)\n\s*'/g)) {
+      const offenders = (block[1] as string)
+        .split("\n")
+        .filter((line) => line.includes("'"));
+      assert.deepEqual(offenders, [],
+        `${name}: an apostrophe inside node -e '...' ends the shell string early`);
+    }
+  }
+});
