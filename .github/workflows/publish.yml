@@ -1,18 +1,22 @@
-# Publish to npm when a version lands on main.
+# Conventional commits on main accumulate into a Release PR that maintains
+# CHANGELOG.md and the package version. Merging that PR cuts the tag and the
+# GitHub Release, and publishes to npm in the SAME run — a GITHUB_TOKEN-created
+# release event cannot trigger a separate workflow, so `on: release: published`
+# would never fire.
 #
-# There is deliberately no NPM_TOKEN. This uses npm Trusted Publishing: GitHub
-# mints a short-lived OIDC token for this exact workflow in this exact repo, and
-# npm verifies it. Nothing long-lived exists to leak, rotate, or paste into a
-# chat window — and npm is restricting the bypass-2FA tokens that were the only
-# other way to publish unattended.
+# Both jobs live in this one file on purpose. npm's trusted publisher is pinned
+# to the workflow filename, and for OIDC npm reads the TOP-LEVEL workflow of the
+# run. Splitting the publish half into its own file — even called via
+# `uses:` — would make npm see the caller instead and refuse the publish.
+#
+# There is deliberately no NPM_TOKEN. Trusted Publishing mints a short-lived
+# OIDC token for this exact workflow in this exact repository, so nothing
+# long-lived exists to leak or rotate — and npm is restricting the bypass-2FA
+# tokens that were the only other way to publish unattended.
 #
 # One-time setup on npmjs.com, which cannot be done from here:
 #   varve-cli → Settings → Trusted Publisher → GitHub Actions
 #   repository: rambaarde/varve   workflow: publish.yml
-#
-# The version in package.json is the trigger. A merge that does not change it
-# publishes nothing and passes — most merges to main are not releases, and a
-# release pipeline that fails on ordinary merges gets ignored.
 name: publish
 
 on:
@@ -25,10 +29,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  # Opens and maintains the Release PR. Merging that PR is what sets
+  # release_created, which is the only thing that reaches npm.
+  release-please:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # to push the version tag
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
       id-token: write # to mint the OIDC token npm verifies
     steps:
       - uses: actions/checkout@v4
@@ -44,37 +67,21 @@ jobs:
 
       - run: npm ci
 
-      # The gate is the same suite the ci workflow runs. Publishing something
-      # that was never tested on the merge commit is how a green PR ships a red
-      # package.
+      # The same suite ci.yml runs, re-run on the release commit. Publishing
+      # something that was never tested at this exact sha is how a green PR
+      # ships a red package.
       - run: npm run typecheck
       - run: npm test
 
-      - name: is this version already published?
-        id: check
-        run: |
-          NAME=$(node -p "require('./package.json').name")
-          VERSION=$(node -p "require('./package.json').version")
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::$NAME@$VERSION is already on the registry — nothing to publish"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      # Assert the artifact, not package.json's claims about it. This is the
-      # same check ci.yml runs, repeated here because this is the last moment
-      # before bytes reach a stranger.
+      # Assert the artifact, not package.json's claims about it. Repeated here
+      # because this is the last moment before bytes reach a stranger.
       - name: assert the tarball before it leaves
-        if: steps.check.outputs.publish == 'true'
         run: |
           npm pack --dry-run --json > /tmp/pack.json
           node -e '
-            // npm 12 changed this from an array to an object keyed by
-            // package name. Accept both: the guard exists to check the bytes,
-            // not to have an opinion about the envelope npm wraps them in.
+            // npm 12 changed this from an array to an object keyed by package
+            // name. Accept both: the guard exists to check the bytes, not to
+            // have an opinion about the envelope npm wraps them in.
             const raw = require("/tmp/pack.json");
             const meta = Array.isArray(raw) ? raw[0] : Object.values(raw)[0];
             if (!meta || !Array.isArray(meta.files)) {
@@ -82,7 +89,7 @@ jobs:
               process.exit(1);
             }
             const files = meta.files.map((f) => f.path);
-            const fail = (m) => { console.error(m); process.exitCode = 1; };
+            const fail = (msg) => { console.error(msg); process.exitCode = 1; };
             for (const required of [
               "dist/bin/varve.js",
               "skills/varve-load/SKILL.md",
@@ -96,40 +103,27 @@ jobs:
           '
 
       # Provenance requires a PUBLIC source repository — npm rejects the bundle
-      # with 422 otherwise, after signing it, so the failure arrives late and
+      # with 422 otherwise, AFTER signing it, so the failure arrives late and
       # reads like an auth problem when it is not. Trusted publishing itself
-      # works either way; this only controls the attestation, and it switches
-      # itself on if the repo ever becomes public.
+      # works either way; this switches itself on if the repo becomes public.
       - name: publish
-        if: steps.check.outputs.publish == 'true'
         run: npm publish --access public ${{ github.event.repository.private && ' ' || '--provenance' }}
 
-      # A tag makes a published version findable in history. The repo had none
-      # for its first twelve releases, so "which commit is 0.2.7" was
-      # unanswerable.
-      - name: tag the release
-        if: steps.check.outputs.publish == 'true'
-        run: |
-          git tag "v${{ steps.check.outputs.version }}"
-          git push origin "v${{ steps.check.outputs.version }}"
-
       - name: verify it is actually installable
-        if: steps.check.outputs.publish == 'true'
         run: |
-          NAME='${{ steps.check.outputs.name }}'
-          VERSION='${{ steps.check.outputs.version }}'
+          VERSION='${{ needs.release-please.outputs.version }}'
           for i in 1 2 3 4 5 6; do
-            npm view "$NAME@$VERSION" version >/dev/null 2>&1 && break
+            npm view "varve-cli@$VERSION" version >/dev/null 2>&1 && break
             echo "waiting for the registry to serve $VERSION ($i)"; sleep 10
           done
           WORK=$(mktemp -d)
           cd "$WORK"
           npm init -y >/dev/null
-          npm install "$NAME@$VERSION" --prefer-online
-          # `--version` shipped broken once while working perfectly in the repo,
+          npm install "varve-cli@$VERSION" --prefer-online
+          # --version shipped broken once while working perfectly in the repo,
           # because bin/ and dist/bin/ are different layouts. Run the installed
           # binary, which is the only place that bug could ever appear.
           GOT=$(./node_modules/.bin/varve --version)
           [ "$GOT" = "$VERSION" ] || { echo "installed binary reports $GOT, expected $VERSION"; exit 1; }
           ./node_modules/.bin/vrv --version >/dev/null
-          echo "ok: $NAME@$VERSION installs and runs"
+          echo "ok: varve-cli@$VERSION installs and runs"
