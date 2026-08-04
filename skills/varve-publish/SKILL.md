@@ -55,6 +55,16 @@ Path — **one file per session**, never per day:
 Local date and time from this machine. A cross-timezone team needs no shared
 clock, because no two people ever write the same file.
 
+**`{person}` and the `who:` field are the same slug, and it is not a free
+choice.** It is `git config user.name`, lowercased, with every run of
+non-alphanumeric characters replaced by a hyphen — `Dana Reyes` → `dana-reyes`.
+Run `varve` to see the one this machine will use.
+
+Inventing a shorter one splits a person in two: their profile stays in
+`_team/_dana-reyes/` while their logs file under `dana`, so their own page never
+shows their profile and the roster disagrees with the record. Nothing errors —
+it just quietly becomes two people.
+
 ```markdown
 ---
 project: atlas
