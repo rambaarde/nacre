@@ -26,7 +26,7 @@ import type { Hit, Log } from "./portal.js";
 type Index = Awaited<ReturnType<typeof index>>;
 type ProjectView = NonNullable<Awaited<ReturnType<typeof projectView>>>;
 type PersonView = Awaited<ReturnType<typeof personView>>;
-type Active = { project?: string; who?: string; month?: string; company?: string };
+type Active = { project?: string; who?: string; month?: string; company?: string; section?: string };
 
 const CSS = `
 :root{--ink:#16150f;--soft:#55524a;--faint:#8a867c;--paper:#faf8f3;--paper2:#f2efe7;
@@ -80,7 +80,10 @@ form.q{display:flex;gap:.5rem;font-family:var(--mono);font-size:.8rem;margin:0 0
 form.q input[type=search]{flex:1;min-width:0;background:var(--paper2);border:1px solid var(--rule);
 color:var(--ink);padding:.35rem .6rem;font:inherit}
 form.q button{background:none;border:1px solid var(--rule);color:var(--soft);padding:.35rem .7rem;font:inherit;cursor:pointer}
-.log{max-width:38rem}
+.log,.note{max-width:38rem}
+.note h1,.note h2{font-size:1.02rem;margin:1.3rem 0 .3rem;font-family:var(--mono);
+letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.note li{margin:.15rem 0}
 .log h2,.log h3{font-size:1.05rem;margin:1.4rem 0 .3rem}
 .log pre{background:var(--paper2);padding:.7rem .9rem;overflow-x:auto;font-size:.8rem}
 .log code{font-family:var(--mono);font-size:.86em}
@@ -103,7 +106,15 @@ function rail(idx: Index, active: Active = {}): string {
       }<span class="n">${n}</span></li>`)
       .join("")}</ul>`;
   };
+  const project = active.project
+    ? `<h4>${escape(active.project)}</h4><ul>
+        <li class="${active.section !== "standards" ? "on" : ""}">${link(`/p/${encodeURIComponent(active.project)}`, "overview")}</li>
+        <li class="${active.section === "standards" ? "on" : ""}">${link(`/s/${encodeURIComponent(active.project)}`, "standards")}</li>
+      </ul>`
+    : "";
+
   return `<nav class="rail">
+    ${project}
     <h4>Company</h4>
     <ul>
       <li class="${active.company === "_company" ? "on" : ""}">${link("/c/_company", "context")}</li>
@@ -150,16 +161,19 @@ function renderProject(v: ProjectView): string {
   ${v.handoff ? `<div class="bh"><span>Handoff</span><span class="cnt">${
     escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")
   }</span></div><hr class="thin"><div class="block">${markdown(v.handoff)}</div>` : ""}
-  ${v.decisions.length ? `<div class="bh"><span>Decisions</span><span class="cnt">${v.decisions.length}</span></div>
-  <hr class="thin">
-  <div class="block">${v.decisions.map((d) => `<div class="decision"><div class="what">${escape(d.what)}</div>
-    <div class="by">${escape(d.who)} · ${escape(d.date)}</div></div>`).join("")}</div>` : ""}
-  <div class="bh"><span style="color:var(--declined)">Decided against</span><span class="cnt">${v.against.length}</span></div>
+  ${v.note ? `<div class="bh"><span>Project note</span><span class="cnt">curated</span></div>
+  <hr class="thin"><div class="block note">${markdown(v.note)}</div>` : ""}
+  <div class="bh"><span style="color:var(--declined)">Recently decided against</span><span class="cnt">${
+    v.againstTotal > v.against.length ? `${v.against.length} of ${v.againstTotal}` : v.against.length
+  }</span></div>
   <hr class="dbl">
   <div class="block">${v.against.length
     ? v.against.map((a) => `<div class="item"><div class="what">${escape(a.what)}</div>
         <div class="by">${escape(a.who)} · ${escape(a.date)}</div></div>`).join("")
-    : '<p class="empty">nothing recorded yet</p>'}</div>
+    : '<p class="empty">nothing recorded yet</p>'}
+    ${v.againstTotal > v.against.length
+      ? `<p class="empty">the durable ones belong in the project note · ${link(`/search?q=&project=${encodeURIComponent(v.project)}`, "search the rest")}</p>`
+      : ""}</div>
   <div class="bh"><span style="color:var(--risk)">Open risks</span><span class="cnt">${v.risks.length}</span></div>
   <hr class="thin">
   <div class="block">${v.risks.length
@@ -259,7 +273,7 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
           return send(shell(memory, clone, idx, { project: name }, name,
             `<p class="empty">${escape(name)} has no standards of its own — the company standards apply</p>`), 404);
         }
-        return send(shell(memory, clone, idx, { project: name }, `${name} standards`,
+        return send(shell(memory, clone, idx, { project: name, section: "standards" }, `${name} standards`,
           `<h1>${escape(name)} — standards</h1>
            <p class="sub">${escape(name)}/_standards.md · loaded with this project only</p>
            <div class="log">${markdown(text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").replace(/<!--[\s\S]*?-->/g, ""))}</div>`));

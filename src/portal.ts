@@ -244,16 +244,25 @@ export async function projectView(memory: string, project: string) {
   const superseded = new Set(logs.map((l) => l.supersedes).filter(Boolean));
   const live = logs.filter((l) => !superseded.has(l.id));
 
+  const note = roster.text
+    .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .trim();
+
   return {
     project,
+    note,
     title: roster.fm.title && !String(roster.fm.title).startsWith("Insert") ? (roster.fm.title as string) : project,
     repos: roster.repos,
     teams: Array.isArray(roster.fm.teams) ? roster.fm.teams.filter((t: string) => !t.startsWith("Insert")) : [],
     handoff: live.find((l) => l.next)?.next ?? "",
     handoffBy: live.find((l) => l.next) ?? null,
-    against: live.flatMap((l) => l.against.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
-    decisions: live.flatMap((l) => l.decisions.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
-    risks: live.flatMap((l) => l.risks.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
+    // Only the newest few. These are per-session entries: useful as "what has
+    // just been ruled out", useless as an ever-growing list. The durable ones
+    // belong in the project note above, put there by a person.
+    against: live.slice(0, 4).flatMap((l) => l.against.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
+    risks: live.slice(0, 4).flatMap((l) => l.risks.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
+    againstTotal: live.reduce((n, l) => n + l.against.length, 0),
     logs: live,
     count: logs.length,
     hasStandards: await exists(join(memory, project, "_standards.md")),

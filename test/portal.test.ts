@@ -171,7 +171,7 @@ test("the portal serves every axis", async () => {
   try {
     const project = await get("/p/atlas");
     assert.equal(project.status, 200);
-    assert.match(project.body, /Decided against/);
+    assert.match(project.body, /Recently decided against/, "the block is bounded now, and says so");
     assert.match(project.body, /Remove the old header path/);
     assert.ok(!/text-decoration:\s*line-through/.test(project.body),
       "a live constraint must never render as struck through");
@@ -340,4 +340,29 @@ test("a project can carry its own standards, and they stay scoped to it", async 
     server.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("the project page carries the curated note, and bounds what it aggregates", async () => {
+  // Two lifespans, and the page was showing neither. A project note is durable
+  // and written by a person; a session log's decisions belong to that session.
+  // Aggregating the second onto the project page looks fine at nine logs and is
+  // a wall at five hundred.
+  const dir = await fixture();
+  const many = join(dir, "atlas", "devs", "alice");
+  for (let i = 1; i <= 9; i++) {
+    const day = String(10 + i).padStart(2, "0");
+    await writeFile(join(many, `atlas-2026-09-${day}_09-00-00.md`),
+      `---\nproject: atlas\nwho: alice\n---\n\n* **Decided Against:** rejection number ${i}.\n`);
+  }
+
+  const v = await projectView(dir, "atlas");
+  assert.ok(v);
+  assert.match(v.note, /# Atlas/, "the curated note is carried, not just its frontmatter");
+  assert.ok(v.against.length < v.againstTotal, "the aggregate must be bounded");
+  assert.ok(v.against.length <= 4, `showed ${v.against.length}, which grows without bound`);
+  assert.ok(v.againstTotal >= 9);
+
+  // And the newest are the ones kept — an old rejection is the project note's job.
+  assert.match(v.against[0]?.what ?? "", /rejection number 9/);
+  await rm(dir, { recursive: true, force: true });
 });
