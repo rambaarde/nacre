@@ -2,8 +2,10 @@
 # shipped broken once already (`node --test test/` resolved the directory as a
 # module and ran nothing), and nothing would have caught it.
 #
-# No install step and no lockfile, because there are no dependencies. If this
-# workflow ever needs `npm ci`, that is the signal a dependency crept in.
+# There is an install step now, for TypeScript and @types/node. Those are dev
+# dependencies — the published package still ships zero runtime dependencies,
+# and the second job below enforces exactly that rather than trusting the
+# distinction to be remembered.
 name: ci
 
 on:
@@ -24,22 +26,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
       - run: npm test
 
   no-dependencies:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: assert zero runtime dependencies
+      - name: assert zero RUNTIME dependencies
         # The install story is the product's answer to a competitor's heavy
         # setup. A dependency added quietly would take that answer away.
         run: |
           node -e '
             const pkg = require("./package.json");
+            // devDependencies are fine — they never reach an installing user.
+            // `dependencies` is what `npx varve` would have to download.
             const deps = Object.keys(pkg.dependencies ?? {});
             if (deps.length) {
               console.error("runtime dependencies present:", deps.join(", "));
               process.exit(1);
             }
-            console.log("ok: zero runtime dependencies");
+            const files = pkg.files ?? [];
+            if (!files.includes("dist")) {
+              console.error("package.json files[] must ship dist/");
+              process.exit(1);
+            }
+            console.log("ok: zero runtime dependencies, dist shipped");
           '

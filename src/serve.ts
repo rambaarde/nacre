@@ -16,9 +16,15 @@
 
 import { createServer } from "node:http";
 import { basename } from "node:path";
-import { markdown, escape } from "./markdown.mjs";
-import { tilde } from "./render.mjs";
-import { index, projectView, personView, search, age, readLogs } from "./portal.mjs";
+import { markdown, escape } from "./markdown.js";
+import { tilde } from "./render.js";
+import { index, projectView, personView, search, age, readLogs } from "./portal.js";
+import type { Hit, Log } from "./portal.js";
+
+type Index = Awaited<ReturnType<typeof index>>;
+type ProjectView = NonNullable<Awaited<ReturnType<typeof projectView>>>;
+type PersonView = Awaited<ReturnType<typeof personView>>;
+type Active = { project?: string; who?: string; month?: string };
 
 const CSS = `
 :root{--ink:#16150f;--soft:#55524a;--faint:#8a867c;--paper:#faf8f3;--paper2:#f2efe7;
@@ -76,14 +82,14 @@ form.q button{background:none;border:1px solid var(--rule);color:var(--soft);pad
 .empty{font-family:var(--mono);font-size:.78rem;color:var(--faint)}
 `;
 
-const page = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
+const page = (title: string, body: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escape(title)} · varve</title><style>${CSS}</style></head><body>${body}</body></html>`;
 
-const link = (href, text) => `<a href="${escape(href)}">${escape(text)}</a>`;
+const link = (href: string, text: string): string => `<a href="${escape(href)}">${escape(text)}</a>`;
 
-function rail(idx, active = {}) {
-  const group = (label, entries, prefix, key) => {
+function rail(idx: Index, active: Active = {}): string {
+  const group = (label: string, entries: Record<string, number>, prefix: string, key: keyof Active): string => {
     const rows = Object.entries(entries).sort(([a], [b]) => a.localeCompare(b));
     if (!rows.length) return `<h4>${label}</h4><ul><li class="n">none yet</li></ul>`;
     return `<h4>${label}</h4><ul>${rows
@@ -99,21 +105,21 @@ function rail(idx, active = {}) {
   </nav>`;
 }
 
-const shell = (memory, clone, idx, active, title, inner) => page(title, `
+const shell = (memory: string, clone: string, idx: Index, active: Active, title: string, inner: string): string => page(title, `
   <div class="top">
     <a class="brand" href="/">varve</a><span>· ${escape(basename(memory))}</span>
     <span class="right">${escape(tilde(memory))} · pulled ${escape(clone)}</span>
   </div>
   <div class="cols">${rail(idx, active)}<div class="pane">${inner}</div></div>`);
 
-const searchForm = (q = "", scope = "") => `<form class="q" method="get" action="/search">
+const searchForm = (q = "", scope = ""): string => `<form class="q" method="get" action="/search">
   <input type="search" name="q" value="${escape(q)}" placeholder="search…" autofocus>
   ${scope ? `<input type="hidden" name="project" value="${escape(scope)}">` : ""}
   <button type="submit">search</button>
   ${scope ? `<button type="submit" name="all" value="1">all projects</button>` : ""}
 </form>`;
 
-const logRows = (logs, showProject = false) => logs.length
+const logRows = (logs: Log[], showProject = false): string => logs.length
   ? `<div class="scroll"><table>${logs.map((l) => `<tr>
       <td class="d">${escape(l.date)}</td>
       <td class="w">${escape(l.who)}</td>
@@ -123,7 +129,7 @@ const logRows = (logs, showProject = false) => logs.length
   : `<p class="empty">no logs yet — run varve-publish at the end of a session</p>`;
 
 /** Project page. Order is urgency of not knowing, not recency. */
-function renderProject(v) {
+function renderProject(v: ProjectView): string {
   return `<h1>${escape(v.title)}</h1>
   <p class="sub">repos[${v.repos.length}] ${escape(v.repos.join(", ") || "none linked")}${
     v.teams.length ? ` · teams[${v.teams.length}] ${escape(v.teams.join(", "))}` : ""
@@ -147,7 +153,7 @@ function renderProject(v) {
   <hr class="thin">${logRows(v.logs)}`;
 }
 
-function renderPerson(v) {
+function renderPerson(v: PersonView): string {
   return `<h1>${escape(v.who)}</h1>
   <p class="sub">projects[${v.projects.length}] ${escape(v.projects.join(", ") || "none")} · ${v.count} log${v.count === 1 ? "" : "s"}</p>
   <div class="bh"><span style="color:var(--declined)">Decided against</span><span class="cnt">${v.against.length}</span></div>
@@ -160,7 +166,7 @@ function renderPerson(v) {
   <hr class="thin">${logRows(v.logs, true)}`;
 }
 
-function renderSearch(q, hits, scope, all) {
+function renderSearch(q: string, hits: Hit[], scope: string, all: boolean): string {
   return `<h1>search</h1>
   <p class="sub">${escape(q ? `“${q}”` : "")} · scope: ${escape(all ? "all projects" : scope || "all projects")} · ${hits.length} hit${hits.length === 1 ? "" : "s"}</p>
   ${searchForm(q, scope)}
@@ -176,20 +182,22 @@ function renderSearch(q, hits, scope, all) {
 /**
  * Start the portal. Returns the server so a caller — or a test — can close it.
  */
-export async function serve({ memory, port = 4173, host = "127.0.0.1" } = {}) {
+export interface ServeOptions { memory: string; port?: number; host?: string }
+
+export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOptions) {
   const server = createServer(async (req, res) => {
     try {
-      const url = new URL(req.url, `http://${host}`);
+      const url = new URL(req.url ?? "/", `http://${host}`);
       const idx = await index(memory);
       const clone = await age(memory);
-      const send = (html, status = 200) => {
+      const send = (html: string, status = 200): void => {
         res.writeHead(status, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         res.end(html);
       };
 
       const project = url.pathname.match(/^\/p\/(.+)$/);
       if (project) {
-        const name = decodeURIComponent(project[1]);
+        const name = decodeURIComponent(project[1] as string);
         const v = await projectView(memory, name);
         if (!v) return send(shell(memory, clone, idx, {}, name, `<h1>${escape(name)}</h1><p class="empty">no such project</p>`), 404);
         return send(shell(memory, clone, idx, { project: name }, v.title, renderProject(v)));
@@ -197,14 +205,14 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" } = {}) {
 
       const person = url.pathname.match(/^\/who\/(.+)$/);
       if (person) {
-        const who = decodeURIComponent(person[1]);
+        const who = decodeURIComponent(person[1] as string);
         const v = await personView(memory, who);
         return send(shell(memory, clone, idx, { who }, who, renderPerson(v)));
       }
 
       const month = url.pathname.match(/^\/t\/(.+)$/);
       if (month) {
-        const m = decodeURIComponent(month[1]);
+        const m = decodeURIComponent(month[1] as string);
         const logs = (await readLogs(memory)).filter((l) => l.date.startsWith(m));
         return send(shell(memory, clone, idx, { month: m }, m,
           `<h1>${escape(m)}</h1><p class="sub">${logs.length} log${logs.length === 1 ? "" : "s"}</p>${logRows(logs, true)}`));
@@ -212,7 +220,7 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" } = {}) {
 
       const log = url.pathname.match(/^\/log\/(.+)$/);
       if (log) {
-        const rel = decodeURIComponent(log[1]);
+        const rel = decodeURIComponent(log[1] as string);
         // Path is taken from the index, never from user input beyond matching it.
         const all = await readLogs(memory);
         const found = all.find((l) => l.rel === rel);
@@ -234,8 +242,8 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" } = {}) {
       if (url.pathname === "/") {
         const names = Object.keys(idx.projects);
         if (names.length === 1) {
-          const v = await projectView(memory, names[0]);
-          return send(shell(memory, clone, idx, { project: names[0] }, v.title, renderProject(v)));
+          const v = (await projectView(memory, names[0] as string)) as ProjectView;
+          return send(shell(memory, clone, idx, { project: names[0] as string }, v.title, renderProject(v)));
         }
         return send(shell(memory, clone, idx, {}, basename(memory), `
           <h1>${escape(basename(memory))}</h1>
@@ -248,14 +256,17 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" } = {}) {
 
       send(shell(memory, clone, idx, {}, "not found", '<p class="empty">not found</p>'), 404);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       res.writeHead(500, { "content-type": "text/plain" });
-      res.end(`error: ${error.message}\n`);
+      res.end(`error: ${message}\n`);
     }
   });
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, host, resolve);
+    server.listen(port, host, () => resolve());
   });
-  return { server, url: `http://${host}:${server.address().port}` };
+  const address = server.address();
+  const bound = typeof address === "object" && address ? address.port : port;
+  return { server, url: `http://${host}:${bound}` };
 }

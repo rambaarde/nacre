@@ -29,3 +29,7 @@ build/
 .env
 .env.*
 !.env.example
+
+# Build output. npx runs the published dist; the repo holds source only.
+dist/
+node_modules/

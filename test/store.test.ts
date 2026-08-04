@@ -19,13 +19,13 @@ import { join } from "node:path";
 import {
   frontmatter, setFrontmatterKey, repoName, resolveBinding,
   readRoster, addToRoster, listProjects, logStats, discoverStores,
-} from "../src/store.mjs";
-import { initStore, addProject, linkRepo, status } from "../src/operations.mjs";
+} from "../src/store.js";
+import { initStore, addProject, linkRepo, status } from "../src/operations.js";
 
 /** Run a body with HOME pointed at a fresh directory, then clean up. */
-async function withHome(body) {
+async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
   const home = await mkdtemp(join(tmpdir(), "varve-test-"));
-  const realHome = process.env.HOME;
+  const realHome = process.env.HOME as string;
   const realStore = process.env.VARVE_STORE;
   const cwd = process.cwd();
   process.env.HOME = home;
@@ -78,20 +78,21 @@ test("repoName derives the store directory from any git URL form", () => {
 });
 
 test("resolveBinding walks up, and returns null rather than guessing", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const deep = join(home, "repo", "src", "nested");
     await mkdir(deep, { recursive: true });
     assert.equal(await resolveBinding(deep), null, "no binding must not be a guess");
 
     await writeFile(join(home, "repo", ".varve.yml"), "project: atlas\nstore: git@h:a/s.git\n");
     const found = await resolveBinding(deep);
+    assert.ok(found);
     assert.equal(found.project, "atlas");
     assert.equal(found.store, "git@h:a/s.git");
   });
 });
 
 test("init → add wires both records", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const repo = join(home, "atlas-web");
     await mkdir(repo, { recursive: true });
 
@@ -112,12 +113,12 @@ test("init → add wires both records", async () => {
 
     // Record two: the project roster. Updating only one would leave the
     // company-level answer silently wrong.
-    assert.deepEqual((await readRoster(store.dir, "atlas")).repos, ["atlas-web"]);
+    assert.deepEqual((await readRoster(store.dir, "atlas"))?.repos, ["atlas-web"]);
   });
 });
 
 test("linking a second repo keeps the first — the erasure regression", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     for (const name of ["atlas-web", "atlas-api"]) await mkdir(join(home, name), { recursive: true });
     const store = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await addProject({ project: "atlas", who: "alice" });
@@ -126,7 +127,7 @@ test("linking a second repo keeps the first — the erasure regression", async (
     await linkRepo({ repo: join(home, "atlas-api"), project: "atlas" });
 
     assert.deepEqual(
-      (await readRoster(store.dir, "atlas")).repos,
+      (await readRoster(store.dir, "atlas"))?.repos,
       ["atlas-api", "atlas-web"],
       "a roster merge must be a union, never a replacement",
     );
@@ -134,7 +135,7 @@ test("linking a second repo keeps the first — the erasure regression", async (
 });
 
 test("linking the second repo needs no URL; it resolves", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     await mkdir(join(home, "atlas-api"), { recursive: true });
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await addProject({ project: "atlas", who: "alice" });
@@ -144,7 +145,7 @@ test("linking the second repo needs no URL; it resolves", async () => {
 });
 
 test("rebinding a repo to a different project is refused", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const repo = join(home, "atlas-web");
     await mkdir(repo, { recursive: true });
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
@@ -162,7 +163,7 @@ test("rebinding a repo to a different project is refused", async () => {
 });
 
 test("two companies on one machine get separate memories", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const a = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     const b = await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
     assert.equal(a.dir, join(home, "acme-context"));
@@ -172,7 +173,7 @@ test("two companies on one machine get separate memories", async () => {
 });
 
 test("an ambiguous memory is reported, never picked", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
     const unbound = join(home, "elsewhere");
@@ -183,7 +184,7 @@ test("an ambiguous memory is reported, never picked", async () => {
 });
 
 test("status reports each stage without a store or binding", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const loose = join(home, "loose");
     await mkdir(loose, { recursive: true });
     process.chdir(loose);
@@ -202,7 +203,7 @@ test("status reports each stage without a store or binding", async () => {
 });
 
 test("logStats counts sessions across teams and people", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const store = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await addProject({ project: "atlas", who: "alice" });
     const dir = join(store.dir, "atlas");
@@ -223,20 +224,21 @@ test("addToRoster on a missing project says how to fix it", async () => {
   });
 });
 
-test("the npm test script actually runs the suite", async () => {
-  // Shipped broken once: `node --test test/` resolves the directory as a module
-  // and exits before running anything. A test command that cannot fail is the
-  // same failure mode as having no tests at all.
-  const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.match(pkg.scripts.test, /\.test\.mjs|--test\s*$/,
-    "the test script must resolve to files, not a bare directory");
+test("the npm test script builds first and resolves to files", async () => {
+  // Shipped broken once: `node --test test/` resolved the directory as a module
+  // and exited before running anything. With a build step there is a second way
+  // to be green and wrong — running a stale dist — so the script must compile
+  // before it runs.
+  const pkg = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
+  assert.match(pkg.scripts.test, /build/, "test must rebuild, or it can pass against stale output");
+  assert.match(pkg.scripts.test, /\.test\.js/, "and resolve to files, not a bare directory");
 });
 
 test("add inherits the memory it resolved, even with two on the machine", async () => {
   // The link step used to re-derive the memory from the repo being linked — but
   // a repo being linked for the first time has no binding, so the answer `add`
   // already had was discarded and resolution failed outright.
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     const bound = join(home, "ims-fe");
     const fresh = join(home, "acme-billing");
     for (const d of [bound, fresh]) await mkdir(d, { recursive: true });
@@ -254,7 +256,7 @@ test("add inherits the memory it resolved, even with two on the machine", async 
 });
 
 test("--memory accepts a name, not only a path", async () => {
-  await withHome(async (home) => {
+  await withHome(async (home: string) => {
     await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
     await initStore({ store: "git@github.com:beta/beta-memory.git", who: "alice" });
     const loose = join(home, "loose");
@@ -272,7 +274,7 @@ test("piped output carries no escape codes", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
   const { stdout } = await run(process.execPath, [bin, "--help"]);
   const ESC = String.fromCharCode(27);
   assert.ok(!stdout.includes(ESC), "styling must never reach a pipe");
