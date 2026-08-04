@@ -216,7 +216,10 @@ export async function search(
       if (!line || !line.toLowerCase().includes(q)) continue;
       hits.push({
         date: log.date, who: log.who, project: log.project,
-        repo: log.repos[0] ?? log.project, line: line.replace(/^#{1,6}\s*/, ""),
+        // Empty when the log names no repo, rather than quietly substituting the
+        // project — a column headed "repo" holding a project name is a field
+        // that lies, and a caller cannot tell which it got.
+        repo: log.repos[0] ?? "", line: line.replace(/^#{1,6}\s*/, ""),
         id: log.id, rel: log.rel,
         against: log.against.some((a) => a.toLowerCase().includes(q)),
       });
@@ -253,6 +256,42 @@ export async function projectStandards(memory: string, project: string): Promise
 }
 
 /** Everything the project page needs, in the order it is read. */
+/**
+ * Drop the lines of a curated note nobody filled in.
+ *
+ * The project template ships as prompts — `* **Purpose:** [What problem this
+ * product solves]`. Rendered verbatim that is thirty lines of square brackets
+ * sitting above the logs, which reads as content, answers nothing, and pushes
+ * the actual session history below the fold. A half-written note keeps the
+ * lines that were written and loses the ones that were not; a wholly unwritten
+ * one comes back empty, so the page can say so plainly instead of pretending.
+ */
+export function unfilled(text: string): string {
+  const lines = text.split(/\r?\n/).filter((line) => {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) return true;
+    return !/\[[^\]]*\]\s*$/.test(t);
+  });
+
+  // A heading whose every line was a placeholder is an empty promise: it names a
+  // section the reader then finds nothing in. Drop the heading along with it.
+  const kept: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] as string;
+    if (!line.trim().startsWith("#")) {
+      kept.push(line);
+      continue;
+    }
+    const rest = lines.slice(i + 1);
+    const nextHeading = rest.findIndex((l) => l.trim().startsWith("#"));
+    const body = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+    if (body.some((l) => l.trim())) kept.push(line);
+  }
+
+  if (!kept.some((l) => l.trim() && !l.trim().startsWith("#"))) return "";
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 export async function projectView(memory: string, project: string) {
   const roster = await readRoster(memory, project);
   if (!roster) return null;
@@ -260,10 +299,12 @@ export async function projectView(memory: string, project: string) {
   const superseded = new Set(logs.map((l) => l.supersedes).filter(Boolean));
   const live = logs.filter((l) => !superseded.has(l.id));
 
-  const note = roster.text
-    .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .trim();
+  const note = unfilled(
+    roster.text
+      .replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .trim(),
+  );
 
   return {
     project,
