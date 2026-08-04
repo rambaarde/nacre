@@ -24,7 +24,7 @@ npx varve init git@github.com:acme/acme-context.git
 [create-ai-memory](https://github.com/rambaarde/create-ai-memory) instead —
 same idea, one person, no shared repo to set up.
 
-![tests](https://img.shields.io/badge/tests-34%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-44%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)

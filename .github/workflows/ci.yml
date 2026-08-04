@@ -48,10 +48,41 @@ jobs:
               console.error("runtime dependencies present:", deps.join(", "));
               process.exit(1);
             }
-            const files = pkg.files ?? [];
-            if (!files.includes("dist")) {
-              console.error("package.json files[] must ship dist/");
-              process.exit(1);
-            }
-            console.log("ok: zero runtime dependencies, dist shipped");
+            console.log("ok: zero runtime dependencies");
+          '
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+
+      - name: assert the TARBALL is right, not just files[]
+        # This used to check `files.includes("dist")` — a string standing in for
+        # "the CLI ships". It passed while the tarball carried the compiled test
+        # suite and source maps pointing at .ts files that were never published.
+        # A proxy cannot catch that; only the artifact can. So ask npm what it
+        # would actually upload, and assert on those bytes.
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e '
+            const [meta] = require("/tmp/pack.json");
+            const files = meta.files.map((f) => f.path);
+            const fail = (msg) => { console.error(msg); process.exitCode = 1; };
+
+            // Someone running `npx varve` gets nothing without this.
+            for (const required of [
+              "dist/bin/varve.js",
+              "skills/varve-load/SKILL.md",
+              "skills/varve-publish/SKILL.md",
+              "store-template/_company.md",
+              "README.md",
+            ]) if (!files.includes(required)) fail("missing from tarball: " + required);
+
+            // Tests, maps and declarations are weight a user never asked for;
+            // the maps additionally reference sources that are not shipped.
+            const junk = files.filter((f) => /(^|\/)test\/|\.map$|\.d\.ts$/.test(f));
+            if (junk.length) fail("must not publish: " + junk.join(", "));
+
+            console.log(`ok: ${meta.entryCount} files, ${(meta.size / 1024).toFixed(1)}kb packed`);
           '
