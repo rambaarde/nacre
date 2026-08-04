@@ -460,3 +460,34 @@ test("--version and --help work from the PACKAGED layout, not just the repo", as
   const { stdout: help } = await run("node", [bin, "--help"]);
   assert.match(help, /varve init <git-url>/, "--help prints usage");
 });
+
+test("a name the slugifier cannot spell must not erase the person", async () => {
+  // The old rule was [^a-z0-9-] → "-", which is fine for "Dana Reyes" and
+  // ruinous otherwise: 李明, Дмитрий and محمد each became "-", so colleagues
+  // with non-Latin names collided into ONE identity — worse than splitting one
+  // person in two, and directly against "no teammate left out".
+  const { slugify } = await import("../src/store.js");
+
+  assert.equal(slugify("Dana Reyes"), "dana-reyes");
+  assert.equal(slugify("José Ñuñez"), "jose-nunez", "Latin diacritics fold");
+  assert.equal(slugify("María López"), slugify("Maria Lopez"),
+    "so María and Maria are one person, not two");
+
+  // Every script keeps its letters — a directory name may be Unicode, and the
+  // person's own name is the honest slug.
+  for (const name of ["李明", "Дмитрий Иванов", "محمد علي", "Łukasz Nowak"]) {
+    assert.notEqual(slugify(name), "you", `${name} must not fall back`);
+    assert.notEqual(slugify(name), "-", `${name} must not collapse to a hyphen`);
+  }
+
+  const distinct = new Set(["李明", "王小明", "Дмитрий Иванов", "محمد علي"].map(slugify));
+  assert.equal(distinct.size, 4, "four people must be four slugs");
+
+  // Cyrillic и-with-breve is a letter, not an accent: folding it would merge
+  // two different names.
+  assert.notEqual(slugify("Дмитрий"), slugify("Дмитрии"));
+
+  // And a name with nothing usable still yields something rather than "".
+  assert.equal(slugify("   "), "you");
+  assert.equal(slugify("!!!"), "you");
+});
