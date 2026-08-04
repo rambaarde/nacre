@@ -53,7 +53,7 @@ const USAGE = `varve — one git-backed memory for a whole company
   also works as \`vrv\`
 
 Adding repos to an existing project is the same command again:
-  varve add ims ../ims-worker
+  varve add atlas ../atlas-worker
 
   --memory <name|dir>  which memory, when you have more than one
   --team <name>        team folder       (default: devs)

@@ -412,12 +412,12 @@ test("the auto block never stands in for what a person wrote", async () => {
   // git output appended below the notes must not become the summary. A log with
   // commits and nothing said is still a log with nothing said.
   const log = [
-    "---", "project: ims", "who: ram", "---", "",
+    "---", "project: atlas", "who: ram", "---", "",
     "# Session Outcome", "",
     "* **High-Level Summary:** Split 401 and 419.",
     "", "## Auto Session Log",
     "_Auto-generated 2026-08-04 22:36:21._", "",
-    "* **Repos:** ims-be-2025", "* **Branch:** main",
+    "* **Repos:** atlas-api", "* **Branch:** main",
     "* **Commits this session:**", "- b057180 feat(api): send 419 on expiry",
   ].join("\n");
 
