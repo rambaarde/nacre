@@ -115,10 +115,10 @@ test("a superseding log replaces the one it supersedes", async () => {
     "---\nproject: atlas\nwho: alice\nsupersedes: atlas-2026-08-01_09-14-03\n---\n\n## Decided against\nCorrected: the limit can be raised after beacon moves off.\n");
   const v = await projectView(dir, "atlas");
   assert.ok(v);
-  assert.ok(v);
-  assert.ok(!v.against.some((a) => /Same instance as beacon\./.test(a.what)),
-    "the superseded entry drops out of the live view");
-  assert.ok(v.against.some((a) => /Corrected/.test(a.what)));
+  assert.ok(!v.logs.some((l) => l.id === "atlas-2026-08-01_09-14-03"),
+    "the superseded log drops out of the live view");
+  assert.ok(v.logs.some((l) => l.against.some((a) => /Corrected/.test(a))),
+    "and the superseding one carries the correction");
   assert.equal(v.count, 3, "but both files remain — nothing is overwritten");
   await rm(dir, { recursive: true, force: true });
 });
@@ -129,9 +129,11 @@ test("projectView orders by urgency of not knowing", async () => {
   assert.ok(v);
   assert.ok(v);
   assert.match(v.handoff, /Remove the old header path/);
-  assert.equal(v.against.length, 1);
-  assert.equal(v.risks.length, 1);
   assert.deepEqual(v.repos, ["atlas-api"]);
+  // Decisions and rejections are read in the log that made them, not merged
+  // onto this page — a project with 99 logs would otherwise render 92 of them.
+  assert.ok(!("against" in v), "the project page must not aggregate log content");
+  assert.ok(!("risks" in v));
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -140,6 +142,8 @@ test("personView spans projects", async () => {
   const v = await personView(dir, "alice");
   assert.deepEqual(v.projects, ["atlas", "beacon"]);
   assert.equal(v.count, 2);
+  assert.ok(!("against" in v), "nor the person page");
+  assert.ok(!("decisions" in v));
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -171,7 +175,6 @@ test("the portal serves every axis", async () => {
   try {
     const project = await get("/p/atlas");
     assert.equal(project.status, 200);
-    assert.match(project.body, /Recently decided against/, "the block is bounded now, and says so");
     assert.match(project.body, /Remove the old header path/);
     assert.ok(!/text-decoration:\s*line-through/.test(project.body),
       "a live constraint must never render as struck through");
@@ -342,27 +345,27 @@ test("a project can carry its own standards, and they stay scoped to it", async 
   }
 });
 
-test("the project page carries the curated note, and bounds what it aggregates", async () => {
-  // Two lifespans, and the page was showing neither. A project note is durable
-  // and written by a person; a session log's decisions belong to that session.
-  // Aggregating the second onto the project page looks fine at nine logs and is
-  // a wall at five hundred.
+test("the project page carries the curated note and does not grow with the log", async () => {
+  // The page used to assemble every decision and rejection from every log. At
+  // the scale the source vault actually runs — 99 logs, 92 of them carrying
+  // decisions — that is a wall, and capping it only made it a truncated wall.
   const dir = await fixture();
   const many = join(dir, "atlas", "devs", "alice");
-  for (let i = 1; i <= 9; i++) {
-    const day = String(10 + i).padStart(2, "0");
-    await writeFile(join(many, `atlas-2026-09-${day}_09-00-00.md`),
-      `---\nproject: atlas\nwho: alice\n---\n\n* **Decided Against:** rejection number ${i}.\n`);
+  for (let i = 1; i <= 40; i++) {
+    const day = String(10 + (i % 20)).padStart(2, "0");
+    await writeFile(join(many, `atlas-2026-09-${day}_09-${String(i).padStart(2, "0")}-00.md`),
+      `---\nproject: atlas\nwho: alice\n---\n\n* **Decided Against:** rejection ${i}.\n`);
   }
 
-  const v = await projectView(dir, "atlas");
-  assert.ok(v);
-  assert.match(v.note, /# Atlas/, "the curated note is carried, not just its frontmatter");
-  assert.ok(v.against.length < v.againstTotal, "the aggregate must be bounded");
-  assert.ok(v.against.length <= 4, `showed ${v.against.length}, which grows without bound`);
-  assert.ok(v.againstTotal >= 9);
-
-  // And the newest are the ones kept — an old rejection is the project note's job.
-  assert.match(v.against[0]?.what ?? "", /rejection number 9/);
-  await rm(dir, { recursive: true, force: true });
+  const { serve } = await import("../src/serve.js");
+  const { server, url } = await serve({ memory: dir, port: 0 });
+  try {
+    const body = await (await fetch(`${url}/p/atlas`)).text();
+    assert.match(body, /Project note/, "the curated half is what the page carries");
+    assert.doesNotMatch(body, /rejection 4\b/, "log content is not merged onto the page");
+    assert.doesNotMatch(body, /Decided against<\/span>/i);
+  } finally {
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  }
 });
