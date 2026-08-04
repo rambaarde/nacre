@@ -1,37 +1,89 @@
+<div align="center">
+
 # varve
 
-> **varve** *(n.)* /värv/ — an annual layer of sediment. One is laid down each
-> year: coarse and light in summer, fine and dark in winter. Count them like
-> tree rings and you can read a lake's history year by year, thousands of years
-> back. Nothing rewrites an older layer. New ones settle on top.
+**One git-backed memory for a whole company. Agents and people read the same files.**
 
-**One layer per session. Nothing overwritten.**
+Your agent remembers a session. Your team remembers nothing. varve gives every
+project — and every repository inside it — one shared memory: plain Markdown in a
+private git repo that an agent loads at session start and a person browses in a
+portal, with no database in between.
+
+No vectors. No API key. No service to run. Markdown you can read in a pull request.
+
+```sh
+npx varve init git@github.com:acme/acme-context.git
+```
+
+![tests](https://img.shields.io/badge/tests-34%20passing-brightgreen)
+![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
+![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
+![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+
+</div>
 
 ---
 
-## Status
+## The problem
 
-**Early. One thing built.** [`skills/`](skills/README.md) holds two skill files
-and a store template — no CLI, no package, no portal.
+The code lands. The reasoning dies with the session.
 
-That is deliberate. The unproven part of this idea is not capture, it is
-**sharing**: whether a second person reads a shared store and ever publishes back
-to it. Building a CLI and a portal before knowing that would be building on an
-assumption. So the smallest possible version ships first, and the rest waits on
-what it shows.
+One developer spends six hours with an agent discovering a constraint, rejecting
+three approaches, and shipping a fix. The diff records what changed. Nothing
+records *why*, or what was tried and abandoned. Next week someone else — or the
+same person with a fresh agent — starts blind and rediscovers it.
+
+You pay the same tax every time:
+
+- **Decisions evaporate.** Why a choice was made lives in a closed chat thread.
+- **Rejections are invisible.** Nothing records what was tried and deliberately
+  not done, so it gets re-litigated — or re-shipped, and re-broken.
+- **Onboarding is oral.** A new teammate's context is whatever someone remembers
+  to tell them.
+- **Agents restart cold.** Every session re-derives what the team already knows.
+
+**And the knowledge that actually breaks production belongs to no single repo.**
+*"The API changed its expiry response; the web app must deploy after it."* That
+fact is owned by two repositories and lives in neither — so a per-repo wiki has
+nowhere to put it, and it ends up in someone's head or a Slack thread that
+scrolls away.
+
+## How it works
+
+One private git repo holds the memory for the whole company. Your code repos
+carry a two-line signpost pointing at it — no memory lives in them, only the
+address.
+
+```
+acme-context/          ← all memory. One repo. Separate from your code.
+  _company.md              facts owned by more than one project
+  ims/                     a project
+    _project.md              which repos and teams make it up
+    devs/ram/                one file per session, never overwritten
+  stashlify/
+
+ims-fe/.varve.yml      ← project: ims · memory: git@…/acme-context.git
+ims-be/.varve.yml      ← the same two lines
+```
+
+**Agents** read it through two skills — one loads what the team decided at
+session start, one writes the session's log at the end. **People** read the same
+bytes in a local portal.
+
+Both doors, one store. Neither gets a privileged interface.
 
 ## Setup
 
 Two commands, run by whoever sets things up.
 
-```bash
+```sh
 varve init git@github.com:acme/acme-context.git   # once, per company
 varve add ims ../ims-fe ../ims-be                 # once, per project
 ```
 
 Adding a repo later is the same command again:
 
-```bash
+```sh
 varve add ims ../ims-worker
 ```
 
@@ -43,92 +95,86 @@ names the one command that applies next.
 
 ```
 $ varve
-project: ims · repos[3]: ims-be, ims-fe, ims-worker · logs: 0
+project: ims · repos[3]: ims-be, ims-fe, ims-worker · logs: 47
 memory: ~/acme-context · you are in: ims-fe
-no logs yet · next: varve-publish at the end of this session
+next: varve-load at session start · varve-publish at the end
 ```
+
+Every command also works as **`vrv`**.
 
 ## Read it
 
-```bash
+```sh
 varve serve            # the portal, from your own clone. No login.
-varve search 419       # same search the portal uses, same ranking
+varve search 419       # the same search the portal uses, same ranking
 ```
 
-Three ways in — project, person, time — over one store. The project page is
-ordered by urgency of not knowing: handoff, then what was **decided against**,
-then open risks, then the log.
+Three ways in — **project · person · time** — over one store. The project page is
+ordered by urgency of not knowing: the handoff, then what was **decided
+against**, then open risks, then the log. A reader who stops after the first
+block has already had the value.
 
-Agents read the same files through the two skills, so both doors show the same
-bytes and neither gets a privileged interface.
+Decided-against entries are never struck through. Strikethrough reads as
+*deleted*; these are live constraints, and they are the class of knowledge
+nothing else keeps.
 
-Every command also works as **`vrv`**. Node 20+, zero runtime dependencies;
-prefix with `npx` to run without installing.
+## Write it
 
-## The idea
+Capture is one motion, and a person is present for all of it:
 
-Your agent remembers. Your team doesn't.
+```
+compose → strip <!-- private --> → secret scan → show → push
+```
 
-Every serious team using AI agents has the same hole: one developer spends six
-hours with an agent discovering constraints, rejecting approaches, and shipping
-a fix. The code lands. The reasoning dies with the session. The next developer
-opens a new session cold and rediscovers it.
+No draft folder, no second command. The private block matters more than it looks:
+without somewhere to put the unshareable half, people write nothing at all.
 
-varve is one git-backed memory for a whole company — every project, every
-repository — with two doors onto the same files:
+**Nothing is shared by omission**, and nothing reaches the store without someone
+seeing it first.
 
-- **Agents** read plain markdown directly, plus a token-bounded CLI.
-- **Humans** read a portal generated from those same files, served from their
-  own clone — no login, no server, no database.
+## Why plain files
 
-Nothing is shared until a person publishes it — writing and publishing are one
-deliberate motion, with the private-block strip and secret scan inline.
+> **varve** *(n.)* /värv/ — an annual layer of sediment. One is laid down each
+> year: coarse and light in summer, fine and dark in winter. Count them like tree
+> rings and you can read a lake's history year by year, thousands of years back.
+> Nothing rewrites an older layer. New ones settle on top.
 
-## Why it is different
+**One layer per session. Nothing overwritten.**
 
-Every other tool in this space builds **agent memory** — a database the agent
+Everything else in this space builds **agent memory** — a database the agent
 queries. SQLite, vectors, a graph, an extraction pipeline. A human reads it, if
 at all, through a debug viewer.
 
-varve builds **team memory** — a document humans and agents share. Both read
-the same bytes. Neither gets a privileged interface.
-
-Concretely:
+varve builds **team memory** — a document humans and agents share.
 
 | | |
 |---|---|
-| **Plain markdown in git** | reviewable in a PR, greppable, diffable, portable. Not a database, not sync chunks |
-| **Nothing captured silently** | a human publishes, or it stays local |
-| **Zero inference on reads** | exactly one LLM call in the system, at session end, user-triggered |
-| **Company-wide scope** | company → projects → teams → people, and projects → repositories. Not one wiki per repo |
+| **Markdown in git** | reviewable in a pull request, greppable, diffable, portable |
+| **Nothing captured silently** | a person publishes, or it stays local |
+| **Zero inference on reads** | reading is file reads; one model call, and only when you write |
+| **Company-wide scope** | company → projects → teams → people, and projects → repos |
+| **Append, never reconcile** | new files only; a correction is a new layer, not an edit |
 
-## Shape
+Uninstall varve and you are left with a git repo of readable Markdown and its
+full history. That is the test this design has to keep passing.
 
-```
-_ai_memory_company_context/       one private git repo per company
-  _company.md                     cross-project facts, shared infrastructure
-  _standards.md
-  _team/_{who}/_profile.md        identity — spans projects
-  {project}/
-    _project.md                   roster: repos + teams
-    _handoff.md                   rolling next-session brief
-    _decisions/ADR-*.md
-    {team}/{person}/{project}-{date}_{time}.md    one file per session
-```
+## Status
 
-Each code repository carries a one-line `.varve.yml` (`project: atlas`) so the
-tooling resolves with no flags from any checkout.
+**Early, and honest about it.** The CLI, both skills, and the portal work and are
+tested. What has *not* happened is the part that matters: nobody outside the
+author has used this with a teammate for two weeks.
+
+That experiment is the point. The unproven half of this idea is not capture, it
+is **sharing** — whether a second person reads a shared memory and ever publishes
+back to it. If the answer turns out to be no, this should be abandoned rather
+than repositioned.
 
 ## Open questions
 
-These are unanswered, and they decide whether this is worth building:
-
-1. Does anyone besides the author care that the store is human-readable?
+1. Does anyone besides the author care that the memory is human-readable?
 2. With writing human-invoked, will a second person record anything at all?
-3. Is cross-repo memory worth paying for?
-
-Each one has a test attached, and a result that would end the project.
+3. Is cross-repo memory worth paying for, or merely nice to have?
 
 ## License
 
-Open-source core, with a hosted service for the parts a team would rather not operate. The free tier is not a trial: the store is your git repo, and every read is local and permanent.
+Apache-2.0.
