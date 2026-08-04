@@ -441,3 +441,22 @@ test("the author slug is one value, so a person cannot become two", async () => 
     await access(join(store.dir, "_team", `_${slug}`, "_profile.md"));
   });
 });
+
+test("--version and --help work from the PACKAGED layout, not just the repo", async () => {
+  // `varve --version` shipped broken: bin/varve.ts computed its own PKG_ROOT by
+  // going one directory up, which is the repo root from bin/ and dist/ from
+  // dist/bin/. Every install got ENOENT on dist/package.json. store.ts had
+  // already been fixed to walk up for package.json; the duplicate had not.
+  //
+  // The build output is what users run, so this asserts against dist/.
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  const bin = join(import.meta.dirname, "..", "bin", "varve.js");
+
+  const { stdout: version } = await run("node", [bin, "--version"]);
+  assert.match(version.trim(), /^\d+\.\d+\.\d+$/, "--version prints a semver, not an error");
+
+  const { stdout: help } = await run("node", [bin, "--help"]);
+  assert.match(help, /varve init <git-url>/, "--help prints usage");
+});
