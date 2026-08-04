@@ -163,12 +163,25 @@ like laziness but are actually discretion.
 
 **1. Strip** every `<!-- private -->` … `<!-- /private -->` block. Report the count.
 
-**2. Scan** for secrets. Prefer `gitleaks detect --no-git --source <file>` if it
-is installed; the rules are a solved problem and a hand-rolled scanner will be
-worse. Without it, fall back to obvious patterns — `AKIA`, `ghp_`, `sk-`,
-`-----BEGIN`, `password=`, `Bearer ey`, long high-entropy strings, anything
-shaped like a connection string — **and say plainly that the fallback is weaker
-than gitleaks.**
+**2. Scan** for secrets — **both scanners, and take the union.** Neither is a
+superset of the other; this was measured, not assumed.
+
+```bash
+gitleaks detect --no-git --source <file>          # if installed
+grep -nE 'AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9-]{20,}|xox[baprs]-|-----BEGIN|password=|Bearer ey|://[^:/]+:[^@]+@' <file>
+```
+
+Against five planted secrets, gitleaks caught the AWS key, the private key and
+the Slack token but **missed a `postgres://user:pass@host` connection string and
+an `sk-proj-` key**. The patterns caught those two and missed the Slack token.
+Running only one of them publishes a live credential.
+
+If gitleaks is not installed, say plainly that the scan is patterns-only and
+therefore weaker — but do not skip the patterns when it *is* installed, which is
+the mistake this rule used to invite.
+
+Note that `AKIAIOSFODNN7EXAMPLE` is AWS's documented example key and gitleaks
+allowlists it deliberately. Testing the gate with it proves nothing.
 
 **3. Show** the exact final content. Not a summary of it. The reviewed surface
 must stay small enough that review is genuine rather than ceremonial; if a log is
