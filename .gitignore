@@ -1,9 +1,3 @@
-# Internal strategy docs — LOCAL ONLY, never published.
-# This repository is the consumer-facing front for developers and companies
-# using varve. The founder thesis contains competitive teardowns, pricing, the
-# open-core boundary, and candid risk assessments. None of it belongs in a
-# public repo. Keep product docs for users in a separate directory (see below).
-docs/
 
 # Local drafts — session logs captured automatically, before a human publishes.
 # Never committed: this is the privacy boundary (thesis §6.3).
@@ -35,6 +29,3 @@ build/
 .env
 .env.*
 !.env.example
-
-# Lavish review artifacts — local scratch surfaces for design review, not product.
-.lavish/
