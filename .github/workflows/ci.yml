@@ -70,7 +70,15 @@ jobs:
         run: |
           npm pack --dry-run --json > /tmp/pack.json
           node -e '
-            const [meta] = require("/tmp/pack.json");
+            // npm 12 changed this from an array to an object keyed by
+            // package name. Accept both: the guard exists to check the bytes,
+            // not to have an opinion about npm's envelope.
+            const raw = require("/tmp/pack.json");
+            const meta = Array.isArray(raw) ? raw[0] : Object.values(raw)[0];
+            if (!meta || !Array.isArray(meta.files)) {
+              console.error("unrecognised npm pack --json shape: " + JSON.stringify(Object.keys(raw)));
+              process.exit(1);
+            }
             const files = meta.files.map((f) => f.path);
             const fail = (msg) => { console.error(msg); process.exitCode = 1; };
 
