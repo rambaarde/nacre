@@ -34,6 +34,8 @@ const OPTIONS = {
 
 const USAGE = `varve — one git-backed memory store for a whole company
 
+  every command also works as \`vrv\`
+
   varve                              where am I, and what is next
   varve init   --store <git-url>     create the company store      (once)
   varve add    <project> [--repos]   add a project to the store    (per project)

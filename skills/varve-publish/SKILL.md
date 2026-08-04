@@ -4,8 +4,8 @@ description: >
   Write this session's log into the shared company context store and publish it
   in one gated motion — compose, strip private blocks, scan for secrets, show
   the result, push. Use at the end of a working session, and when the user says
-  "varve publish", "/varve-publish", "log this", "publish the session", or asks
-  to record what was decided for the rest of the team.
+  "varve publish", "vrv publish", "/varve-publish", "log this", "publish the
+  session", or asks to record what was decided for the rest of the team.
 ---
 
 # varve-publish

@@ -4,8 +4,8 @@ description: >
   Read the company context store at session start so you begin warm: what the
   project decided against, its open risks, and its newest session logs. Use at
   the beginning of any session in a repo carrying a .varve.yml, and when the
-  user says "varve load", "/varve-load", "load context", "what did the team
-  decide", or asks what happened on this project before now.
+  user says "varve load", "vrv load", "/varve-load", "load context", "what did
+  the team decide", or asks what happened on this project before now.
 ---
 
 # varve-load

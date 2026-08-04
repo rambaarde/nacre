@@ -1,13 +1,37 @@
 {
   "name": "varve",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "description": "One git-backed memory store for a whole company. Agents read plain markdown; humans read the same files.",
   "type": "module",
-  "bin": { "varve": "bin/varve.mjs" },
-  "files": ["bin", "src", "skills", "store-template", "README.md"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "varve": "bin/varve.mjs",
+    "vrv": "bin/varve.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "skills",
+    "store-template",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "license": "Apache-2.0",
-  "repository": { "type": "git", "url": "git+https://github.com/rambaarde/varve.git" },
-  "keywords": ["ai-memory", "agent-memory", "team-memory", "context", "claude", "markdown", "git"],
-  "scripts": { "test": "node --test" }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambaarde/varve.git"
+  },
+  "keywords": [
+    "ai-memory",
+    "agent-memory",
+    "team-memory",
+    "context",
+    "claude",
+    "markdown",
+    "git"
+  ],
+  "scripts": {
+    "test": "node --test"
+  }
 }
