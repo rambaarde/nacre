@@ -369,3 +369,41 @@ test("the project page carries the curated note and does not grow with the log",
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("the rail is identical on every page — only the highlight moves", async () => {
+  // A sidebar that changes shape as you move is not navigation. The project
+  // group used to appear only on project pages, so clicking a person made the
+  // whole rail jump up four rows and every target land somewhere else.
+  const dir = await fixture();
+  await writeFile(join(dir, "atlas", "_standards.md"),
+    "---\nproject: atlas\n---\n\n# Atlas — Standards\n\n* **Stack:** Node.\n");
+
+  const { serve } = await import("../src/serve.js");
+  const { server, url } = await serve({ memory: dir, port: 0 });
+  try {
+    const railOf = async (path: string) => {
+      const html = await (await fetch(url + path)).text();
+      const rail = html.match(/<nav class="rail">[\s\S]*?<\/nav>/)?.[0] ?? "";
+      // The active-highlight class is the only thing allowed to differ.
+      return rail.replace(/class="(on)?"/g, "").replace(/\s+/g, " ");
+    };
+
+    const paths = ["/p/atlas", "/s/atlas", "/who/alice", "/c/_company", "/t/2026-08", "/search?q=cache"];
+    const rails = await Promise.all(paths.map(railOf));
+    for (const [i, rail] of rails.entries()) {
+      assert.equal(rail, rails[0], `${paths[i]} renders a different rail`);
+    }
+    assert.ok(rails[0]!.length > 0, "and it is not empty");
+
+    // Project-scoped nav lives on the page, where it cannot reflow the sidebar.
+    const overview = await (await fetch(`${url}/p/atlas`)).text();
+    assert.match(overview, /<nav class="tabs">/);
+    assert.match(overview, /href="\/s\/atlas"/);
+
+    // A page load must not log a 404 for a missing favicon.
+    assert.equal((await fetch(`${url}/favicon.ico`)).status, 204);
+  } finally {
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
