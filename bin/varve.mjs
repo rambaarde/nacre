@@ -15,6 +15,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initStore, addProject, status, installSkills } from "../src/operations.mjs";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.mjs";
+import { resolveStoreDir, resolveBinding, exists } from "../src/store.mjs";
+import { search as searchMemory } from "../src/portal.mjs";
+import { serve } from "../src/serve.mjs";
 
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -29,6 +32,9 @@ const OPTIONS = {
   force: { type: "boolean" },
   "no-skills": { type: "boolean" },
   plain: { type: "boolean" },
+  port: { type: "string" },
+  all: { type: "boolean" },
+  open: { type: "boolean" },
   help: { type: "boolean", short: "h" },
   version: { type: "boolean" },
 };
@@ -38,6 +44,8 @@ const USAGE = `varve — one git-backed memory for a whole company
   varve                          where am I, and what is next
   varve init <git-url>           create the company memory     (once)
   varve add  <project> [dir...]  add a project, and its repos  (as needed)
+  varve serve                    the portal, from your own clone
+  varve search <term>            one search, same ranking as the portal
 
   also works as \`vrv\`
 
@@ -49,6 +57,8 @@ Adding repos to an existing project is the same command again:
   --title <name>       display name
   --who <slug>         author slug       (default: from git config)
   --agents <a,b>       claude,opencode   (default: claude)
+  --all                search every project, not just this one
+  --port <n>           portal port       (default: 4173)
   --no-skills          skip installing the skills
   --plain              plain output, as when piped
 
@@ -233,6 +243,43 @@ async function main() {
         blank());
     }
 
+
+    if (command === "serve") {
+      const binding = await resolveBinding();
+      const memory = await resolveStoreDir(memoryPath, binding?.store);
+      if (!(await exists(join(memory, "_company.md")))) {
+        fail(`no memory at ${tilde(memory)} · run: varve init <git-url>`);
+      }
+      const { url } = await serve({ memory, port: Number(o.port) || 4173 });
+      if (isTTY()) {
+        say(blank(), ok(`portal on ${c.bold(url)}`),
+          row("memory", c.grey(tilde(memory))),
+          blank(), `  ${c.grey("read-only · loopback only · ctrl-c to stop")}`, blank());
+      } else {
+        out(`ok: serving ${url}`, `memory: ${memory}`, "help[]: ctrl-c to stop");
+      }
+      return new Promise(() => {}); // hold the process open
+    }
+
+    if (command === "search") {
+      const term = positionals.slice(1).join(" ");
+      if (!term) fail("missing argument: varve search <term>");
+      const binding = await resolveBinding();
+      const memory = await resolveStoreDir(memoryPath, binding?.store);
+      const hits = await searchMemory(memory, term, { project: binding?.project, all: o.all });
+      if (!hits.length) {
+        return out(`no hits for "${term}"${binding?.project && !o.all ? ` in ${binding.project}` : ""}`,
+          "help[]: varve search <term> --all");
+      }
+      // Ranking is the engine's; truncation is this adapter's. The portal shows
+      // every hit, the CLI cuts to its ceiling — same order either way.
+      const shown = hits.slice(0, 12);
+      out(`hits[${hits.length}]{date,who,repo,line}:`,
+        ...shown.map((h) => `${h.date},${h.who},${h.repo},${h.line.slice(0, 90)}`),
+        hits.length > shown.length ? `(truncated, ${hits.length} total — use varve serve)` : null,
+        "help[]: varve serve · varve search <term> --all");
+      return;
+    }
 
     fail(`unknown command: ${command} · try: varve --help`, 2);
   } catch (error) {
