@@ -1,0 +1,28 @@
+# Internal strategy docs — LOCAL ONLY, never published.
+# This repository is the consumer-facing front for developers and companies
+# using varve. The founder thesis contains competitive teardowns, pricing, the
+# open-core boundary, and candid risk assessments. None of it belongs in a
+# public repo. Keep product docs for users in a separate directory (see below).
+docs/
+
+# Local drafts — session logs captured automatically, before a human publishes.
+# Never committed: this is the privacy boundary (thesis §6.3).
+_drafts/
+**/_drafts/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (for when the CLI exists)
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.npm/
+.env
+.env.*
+!.env.example
