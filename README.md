@@ -20,17 +20,31 @@ to it. Building a CLI and a portal before knowing that would be building on an
 assumption. So the smallest possible version ships first, and the rest waits on
 what it shows.
 
-## Install
+## Setup
+
+Three commands, done by different people at different times.
 
 ```bash
-npx varve init --project <slug> --store <git-url> --create-store
+varve init --store git@github.com:acme/company-context.git   # once, per company
+varve add atlas --repos ../atlas-web,../atlas-api            # once, per project
+varve link ../atlas-worker --project atlas                   # once, per repo
 ```
 
-Installs the skills, binds the repo, scaffolds the store. Node 20+, zero runtime
-dependencies.
+**Everyone after that runs nothing.** They clone a repo that already carries
+`.varve.yml`, and their next session starts warm.
 
-Everyone after the first person runs nothing at all — they clone a repo that
-already carries `.varve.yml`, and their next session starts warm.
+If you are unsure where you are, run `varve` with no arguments. It reports live
+state and names the one command that applies next.
+
+```
+$ varve
+project: atlas · repos[2]: atlas-api, atlas-web · logs: 0
+store: ~/company-context · you are in: atlas-web
+no logs yet · next: varve-publish at the end of this session
+```
+
+Node 20+, zero runtime dependencies. Prefix with `npx` to run without
+installing.
 
 ## The idea
 
