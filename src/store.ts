@@ -13,12 +13,29 @@
 import { access, readFile, writeFile, mkdir, cp, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve, basename } from "node:path";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
-export const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/**
+ * The package root, found by walking up for package.json rather than counting
+ * directories. Source runs from src/ and the build runs from dist/src/, so a
+ * fixed number of `..` is right in exactly one of them — and wrong silently in
+ * the other, since it only fails when a template is actually read.
+ */
+function findPackageRoot(from: string): string {
+  let dir = from;
+  for (;;) {
+    if (existsSync(join(dir, "package.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return from;
+    dir = parent;
+  }
+}
+
+export const PKG_ROOT = findPackageRoot(dirname(fileURLToPath(import.meta.url)));
 
 /** Agent skill directories we know how to install into. */
 export const AGENTS = {
@@ -26,19 +43,22 @@ export const AGENTS = {
   opencode: join(homedir(), ".config", "opencode", "skills"),
 };
 
-export const exists = (p) => access(p).then(() => true, () => false);
+export const exists = (p: string): Promise<boolean> => access(p).then(() => true, () => false);
 
 /** Read `key: value` pairs from a YAML frontmatter block. Lists become arrays. */
-export function frontmatter(text) {
+export type Frontmatter = Record<string, string | string[]>;
+
+export function frontmatter(text: string): Frontmatter {
   // Tolerate leading comments or blank lines before the block: a file that
   // cannot be fully parsed must still be readable, not silently empty.
   const block = text.match(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n([\s\S]*?)\r?\n---/)?.[1];
   if (!block) return {};
-  const out = {};
+  const out: Frontmatter = {};
   for (const line of block.split(/\r?\n/)) {
     const m = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
     if (!m) continue;
-    const [, key, raw] = m;
+    const key = m[1] as string;
+    const raw = m[2] as string;
     const value = raw.replace(/\s+#.*$/, "").trim();
     out[key] = value.startsWith("[")
       ? value.slice(1, -1).split(",").map((v) => v.trim()).filter(Boolean)
@@ -48,7 +68,7 @@ export function frontmatter(text) {
 }
 
 /** Replace one frontmatter key in place, preserving everything else verbatim. */
-export function setFrontmatterKey(text, key, value) {
+export function setFrontmatterKey(text: string, key: string, value: string | string[]): string {
   const rendered = Array.isArray(value) ? `[${value.join(", ")}]` : value;
   const line = `${key}: ${rendered}`;
   const re = new RegExp(`^${key}:.*$`, "m");
@@ -63,14 +83,16 @@ export function setFrontmatterKey(text, key, value) {
  * store: a fallback is the one mechanism by which one company's notes could be
  * written into another company's store, so failing loudly is the feature.
  */
-export async function resolveBinding(start = process.cwd()) {
+export interface Binding { file: string; dir: string; project?: string; store?: string }
+
+export async function resolveBinding(start: string = process.cwd()): Promise<Binding | null> {
   let dir = resolve(start);
   for (;;) {
     const file = join(dir, ".varve.yml");
     if (await exists(file)) {
       const fm = frontmatter(`---\n${await readFile(file, "utf8")}\n---`);
       // `store:` accepted as the former spelling of `memory:`.
-      return { file, dir, project: fm.project, store: fm.memory ?? fm.store };
+      return { file, dir, project: fm.project as string, store: (fm.memory ?? fm.store) as string };
     }
     const parent = dirname(dir);
     if (parent === dir) return null;
@@ -79,7 +101,7 @@ export async function resolveBinding(start = process.cwd()) {
 }
 
 /** The repo name from a git URL: git@host:acme/acme-context.git → acme-context */
-export function repoName(url) {
+export function repoName(url?: string | null): string | null {
   if (!url) return null;
   const last = url.trim().replace(/\.git$/, "").split(/[/:]/).pop();
   return last && /^[\w.-]+$/.test(last) ? last : null;
@@ -92,7 +114,7 @@ export function repoName(url) {
  * store repo differently and someone working for two of them would otherwise
  * have both collide on one directory.
  */
-export const storePath = (flag, url) =>
+export const storePath = (flag?: string, url?: string | null): string =>
   resolve(
     flag ??
       process.env.VARVE_STORE ??
@@ -105,7 +127,7 @@ export const storePath = (flag, url) =>
  * Not a second copy of the URL: the store is a git repository, so `origin` is
  * already the answer, and reading it means the two can never drift.
  */
-export async function storeRemote(dir) {
+export async function storeRemote(dir: string): Promise<string | null> {
   try {
     const { stdout } = await run("git", ["-C", dir, "remote", "get-url", "origin"]);
     return stdout.trim() || null;
@@ -115,7 +137,7 @@ export async function storeRemote(dir) {
 }
 
 /** Make the store a real git repo with its remote set. Safe to re-run. */
-export async function initGit(dir, remote) {
+export async function initGit(dir: string, remote?: string | null): Promise<string | null> {
   try {
     await run("git", ["-C", dir, "rev-parse", "--git-dir"]);
   } catch {
@@ -129,7 +151,7 @@ export async function initGit(dir, remote) {
 }
 
 /** Author slug from git config. Wrong harmlessly; never blocks. */
-export async function gitSlug() {
+export async function gitSlug(): Promise<string> {
   try {
     const { stdout } = await run("git", ["config", "user.name"]);
     return stdout.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || "you";
@@ -146,7 +168,7 @@ export async function gitSlug() {
  * than resolved, because picking one silently is how a contractor's notes end
  * up in the wrong company's store.
  */
-export async function discoverStores() {
+export async function discoverStores(): Promise<string[]> {
   const home = homedir();
   let entries;
   try {
@@ -154,7 +176,7 @@ export async function discoverStores() {
   } catch {
     return [];
   }
-  const found = [];
+  const found: string[] = [];
   for (const e of entries) {
     if (!e.isDirectory() || e.name.startsWith(".")) continue;
     if (await exists(join(home, e.name, "_company.md"))) found.push(join(home, e.name));
@@ -163,7 +185,7 @@ export async function discoverStores() {
 }
 
 /** Resolve which store to use: flag → env → store URL → discovery. */
-export async function resolveStoreDir(flag, url) {
+export async function resolveStoreDir(flag?: string, url?: string | null): Promise<string> {
   if (flag) {
     // A bare name means "the memory called that", not a directory under cwd.
     if (!flag.includes("/") && !flag.startsWith(".")) {
@@ -173,10 +195,11 @@ export async function resolveStoreDir(flag, url) {
     return resolve(flag);
   }
   if (process.env.VARVE_STORE) return resolve(process.env.VARVE_STORE);
-  if (repoName(url)) return join(homedir(), repoName(url));
+  const derived = repoName(url);
+  if (derived) return join(homedir(), derived);
 
   const found = await discoverStores();
-  if (found.length === 1) return found[0];
+  if (found.length === 1) return found[0] as string;
   if (found.length > 1) {
     throw new Error(
       `several memories found: ${found.map((f) => basename(f)).join(", ")} · ` +
@@ -186,7 +209,9 @@ export async function resolveStoreDir(flag, url) {
   return join(homedir(), "company-context");
 }
 
-export async function readRoster(store, project) {
+export interface Roster { file: string; text: string; fm: Frontmatter; repos: string[] }
+
+export async function readRoster(store: string, project: string): Promise<Roster | null> {
   const file = join(store, project, "_project.md");
   if (!(await exists(file))) return null;
   const text = await readFile(file, "utf8");
@@ -198,7 +223,7 @@ export async function readRoster(store, project) {
 
 /** Add repos to a project's roster. Union, never overwrite — two people adding
  *  repos the same afternoon should not erase each other's work. */
-export async function addToRoster(store, project, repos) {
+export async function addToRoster(store: string, project: string, repos: string[]) {
   const roster = await readRoster(store, project);
   if (!roster) throw new Error(`no project "${project}" in ${store} · run: varve add ${project}`);
   const merged = [...new Set([...roster.repos, ...repos])].sort();
@@ -206,10 +231,10 @@ export async function addToRoster(store, project, repos) {
   return { added: merged.filter((r) => !roster.repos.includes(r)), repos: merged };
 }
 
-export async function listProjects(store) {
+export async function listProjects(store: string): Promise<string[]> {
   if (!(await exists(store))) return [];
   const entries = await readdir(store, { withFileTypes: true });
-  const out = [];
+  const out: string[] = [];
   for (const e of entries) {
     if (!e.isDirectory() || e.name.startsWith("_") || e.name.startsWith(".")) continue;
     if (await exists(join(store, e.name, "_project.md"))) out.push(e.name);
@@ -218,10 +243,12 @@ export async function listProjects(store) {
 }
 
 /** Count session logs for a project, and find the newest. */
-export async function logStats(store, project) {
+export async function logStats(store: string, project: string) {
   const root = join(store, project);
   if (!(await exists(root))) return { count: 0, newest: null, who: null };
-  let count = 0, newest = null, who = null;
+  let count = 0;
+  let newest: string | null = null;
+  let who: string | null = null;
   const teams = await readdir(root, { withFileTypes: true });
   for (const team of teams) {
     if (!team.isDirectory() || team.name.startsWith("_")) continue;
@@ -239,10 +266,10 @@ export async function logStats(store, project) {
   return { count, newest, who };
 }
 
-export async function installSkills(agents) {
-  const installed = [];
+export async function installSkills(agents: string[]): Promise<string[]> {
+  const installed: string[] = [];
   for (const name of agents) {
-    const dest = AGENTS[name];
+    const dest = AGENTS[name as keyof typeof AGENTS];
     if (!dest) continue;
     for (const skill of ["varve-load", "varve-publish"]) {
       await mkdir(join(dest, skill), { recursive: true });

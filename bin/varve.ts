@@ -2,7 +2,7 @@
 /**
  * varve CLI — argv in, one operation, rendered result out.
  *
- * No product logic here by design; it all lives in src/operations.mjs.
+ * No product logic here by design; it all lives in src/operations.ts.
  *
  * Output follows AXI (https://axi.md/): structured lines on stdout, explicit
  * empty states, and every command ending in the next command to run — so nobody
@@ -10,14 +10,16 @@
  */
 
 import { parseArgs } from "node:util";
+import type { ParseArgsOptionsConfig } from "node:util";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { initStore, addProject, status, installSkills } from "../src/operations.mjs";
-import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.mjs";
-import { resolveStoreDir, resolveBinding, exists } from "../src/store.mjs";
-import { search as searchMemory } from "../src/portal.mjs";
-import { serve } from "../src/serve.mjs";
+import { initStore, addProject, status, installSkills } from "../src/operations.js";
+import type { Status } from "../src/operations.js";
+import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
+import { resolveStoreDir, resolveBinding, exists } from "../src/store.js";
+import { search as searchMemory } from "../src/portal.js";
+import { serve } from "../src/serve.js";
 
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,7 +39,7 @@ const OPTIONS = {
   open: { type: "boolean" },
   help: { type: "boolean", short: "h" },
   version: { type: "boolean" },
-};
+} as const satisfies ParseArgsOptionsConfig;
 
 const USAGE = `varve — one git-backed memory for a whole company
 
@@ -64,12 +66,13 @@ Adding repos to an existing project is the same command again:
 
 Reading and writing memory happen through the skills, not this binary.`;
 
-const out = (...lines) => lines.filter(Boolean).forEach((l) => console.log(l));
+const out = (...lines: (string | null | undefined)[]): void =>
+  lines.filter(Boolean).forEach((l) => console.log(l));
 
 /** Brand line. Only a person needs to be told what they are looking at. */
-const brand = (right) => (isTTY() ? [blank(), head("varve", right)] : []);
+const brand = (right: string): string[] => (isTTY() ? [blank(), head("varve", right)] : []);
 
-function fail(message, code = 1) {
+function fail(message: string, code = 1): never {
   if (isTTY()) {
     say(blank(), `  ${c.red("✗")} ${tilde(message)}`, blank());
   } else {
@@ -80,7 +83,7 @@ function fail(message, code = 1) {
 }
 
 /** Bare `varve` — live state, and the single next command that applies. */
-function renderStatus(st) {
+function renderStatus(st: Status): void {
   if (!isTTY()) return renderStatusPlain(st);
 
   if (st.state === "no-store") {
@@ -126,7 +129,7 @@ function renderStatus(st) {
 }
 
 /** The plain path is byte-for-byte what agents and CI already parse. */
-function renderStatusPlain(st) {
+function renderStatusPlain(st: Status): void {
   if (st.state === "no-store") {
     return out(`no memory at ${st.store}`, "next: varve init <git-url>", "help[]: varve --help");
   }
@@ -162,7 +165,7 @@ async function main() {
   try {
     parsed = parseArgs({ options: OPTIONS, allowPositionals: true, args: process.argv.slice(2) });
   } catch (error) {
-    fail(error.message, 2);
+    fail(error instanceof Error ? error.message : String(error), 2);
   }
   const { values: o, positionals } = parsed;
   const [command, arg] = positionals;
@@ -285,8 +288,8 @@ async function main() {
 
     fail(`unknown command: ${command} · try: varve --help`, 2);
   } catch (error) {
-    fail(error.message);
+    fail(error instanceof Error ? error.message : String(error));
   }
 }
 
-main().catch((error) => fail(error.message));
+main().catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));

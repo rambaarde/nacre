@@ -8,7 +8,7 @@
  * Zero dependencies, and every value is escaped before it reaches the page.
  */
 
-export const escape = (s) =>
+export const escape = (s: unknown): string =>
   String(s)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -16,7 +16,7 @@ export const escape = (s) =>
     .replaceAll('"', "&quot;");
 
 /** Inline spans: code, bold, italic, links. Escaped first, so tags cannot inject. */
-function inline(text) {
+function inline(text: string): string {
   return escape(text)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -29,12 +29,12 @@ function inline(text) {
  * paragraphs — the shapes a session log actually uses. Anything else falls
  * through as a paragraph rather than being dropped.
  */
-export function markdown(src = "") {
+export function markdown(src: string = ""): string {
   const lines = String(src).replace(/\r\n/g, "\n").split("\n");
-  const out = [];
-  let para = [];
-  let list = null;
-  let fence = null;
+  const out: string[] = [];
+  let para: string[] = [];
+  let list: string | null = null;
+  let fence: string[] | null = null;
 
   const flushPara = () => {
     if (para.length) out.push(`<p>${inline(para.join(" "))}</p>`);
@@ -60,8 +60,8 @@ export function markdown(src = "") {
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       flushPara(); flushList();
-      const level = Math.min(heading[1].length + 1, 6);
-      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      const level = Math.min((heading[1] as string).length + 1, 6);
+      out.push(`<h${level}>${inline(heading[2] as string)}</h${level}>`);
       continue;
     }
 
@@ -73,12 +73,12 @@ export function markdown(src = "") {
       flushPara();
       const want = bullet ? "ul" : "ol";
       if (list !== want) { flushList(); out.push(`<${want}>`); list = want; }
-      out.push(`<li>${inline((bullet ?? number)[1])}</li>`);
+      out.push(`<li>${inline(((bullet ?? number) as RegExpMatchArray)[1] as string)}</li>`);
       continue;
     }
 
     const quote = line.match(/^>\s?(.*)$/);
-    if (quote) { flushPara(); flushList(); out.push(`<blockquote>${inline(quote[1])}</blockquote>`); continue; }
+    if (quote) { flushPara(); flushList(); out.push(`<blockquote>${inline(quote[1] as string)}</blockquote>`); continue; }
 
     para.push(line.trim());
   }

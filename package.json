@@ -1,15 +1,14 @@
 {
   "name": "varve",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "One git-backed memory store for a whole company. Agents read plain markdown; humans read the same files.",
   "type": "module",
   "bin": {
-    "varve": "bin/varve.mjs",
-    "vrv": "bin/varve.mjs"
+    "varve": "dist/bin/varve.js",
+    "vrv": "dist/bin/varve.js"
   },
   "files": [
-    "bin",
-    "src",
+    "dist",
     "skills",
     "store-template",
     "README.md"
@@ -32,6 +31,14 @@
     "git"
   ],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
-  }
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
+  "types": "dist/src/operations.d.ts"
 }

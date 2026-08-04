@@ -13,9 +13,9 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseLog, readLogs, search, projectView, personView, index } from "../src/portal.mjs";
-import { markdown, escape } from "../src/markdown.mjs";
-import { serve } from "../src/serve.mjs";
+import { parseLog, readLogs, search, projectView, personView, index } from "../src/portal.js";
+import { markdown, escape } from "../src/markdown.js";
+import { serve } from "../src/serve.js";
 
 const LOG_A = `---
 project: atlas
@@ -47,11 +47,12 @@ Added the new handler. Deploy after atlas-api.
 `;
 
 /** A memory with two people, two projects, and a cross-project fact. */
-async function fixture() {
+async function fixture(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "varve-portal-"));
   await writeFile(join(dir, "_company.md"), "---\ntype: varve-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
   await writeFile(join(dir, "_standards.md"), "---\ntype: varve-standards\n---\n\nMigrations are raw SQL.\n");
-  for (const [p, title] of [["atlas", "Atlas"], ["beacon", "Beacon"]]) {
+  const PROJECTS: Array<[string, string]> = [["atlas", "Atlas"], ["beacon", "Beacon"]];
+  for (const [p, title] of PROJECTS) {
     await mkdir(join(dir, p), { recursive: true });
     await writeFile(join(dir, p, "_project.md"),
       `---\nproject: ${p}\ntitle: ${title}\nrepos: [${p}-api]\nteams: [devs]\n---\n\n# ${title}\n`);
@@ -70,8 +71,8 @@ test("parseLog splits sections and survives a log that uses none", () => {
   const p = parseLog(LOG_A);
   assert.equal(p.fm.who, "alice");
   assert.deepEqual(p.fm.repos, ["atlas-api", "atlas-web"]);
-  assert.match(p.against[0], /cache eviction limit/);
-  assert.match(p.risks[0], /old header name/);
+  assert.match(p.against[0] ?? "", /cache eviction limit/);
+  assert.match(p.risks[0] ?? "", /old header name/);
   assert.match(p.next, /Remove the old header path/);
 
   const plain = parseLog("---\nwho: bob\n---\n\nJust prose, no headings.\n");
@@ -83,7 +84,7 @@ test("readLogs walks team and person folders, newest first", async () => {
   const dir = await fixture();
   const logs = await readLogs(dir);
   assert.equal(logs.length, 3);
-  assert.equal(logs[0].who, "bob", "newest first, and filenames sort");
+  assert.equal(logs[0]?.who, "bob", "newest first, and filenames sort");
   assert.deepEqual(await readLogs(dir, "beacon").then((l) => l.map((x) => x.who)), ["alice"]);
   await rm(dir, { recursive: true, force: true });
 });
@@ -92,7 +93,7 @@ test("search ranks live constraints above ordinary hits", async () => {
   const dir = await fixture();
   const hits = await search(dir, "cache", { all: true });
   assert.ok(hits.length >= 3);
-  assert.equal(hits[0].against, true, "a decided-against must not sort below prose");
+  assert.equal(hits[0]?.against, true, "a decided-against must not sort below prose");
   assert.ok(hits.some((h) => h.project === "_company"),
     "the company-level fact is the row a per-repo tool cannot produce");
   await rm(dir, { recursive: true, force: true });
@@ -111,6 +112,8 @@ test("a superseding log replaces the one it supersedes", async () => {
   await writeFile(join(dir, "atlas/devs/alice/atlas-2026-08-05_10-00-00.md"),
     "---\nproject: atlas\nwho: alice\nsupersedes: atlas-2026-08-01_09-14-03\n---\n\n## Decided against\nCorrected: the limit can be raised after beacon moves off.\n");
   const v = await projectView(dir, "atlas");
+  assert.ok(v);
+  assert.ok(v);
   assert.ok(!v.against.some((a) => /Same instance as beacon\./.test(a.what)),
     "the superseded entry drops out of the live view");
   assert.ok(v.against.some((a) => /Corrected/.test(a.what)));
@@ -121,6 +124,8 @@ test("a superseding log replaces the one it supersedes", async () => {
 test("projectView orders by urgency of not knowing", async () => {
   const dir = await fixture();
   const v = await projectView(dir, "atlas");
+  assert.ok(v);
+  assert.ok(v);
   assert.match(v.handoff, /Remove the old header path/);
   assert.equal(v.against.length, 1);
   assert.equal(v.risks.length, 1);
@@ -157,7 +162,7 @@ test("markdown escapes anything that could inject", () => {
 test("the portal serves every axis", async () => {
   const dir = await fixture();
   const { server, url } = await serve({ memory: dir, port: 0 });
-  const get = async (p) => {
+  const get = async (p: string) => {
     const res = await fetch(url + p);
     return { status: res.status, body: await res.text() };
   };
@@ -187,14 +192,14 @@ test("the CLI and the portal rank a query identically", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
 
   const engine = await search(dir, "cache", { all: true });
   const { stdout } = await run(process.execPath,
     [bin, "search", "cache", "--all", "--memory", dir]);
 
-  const cliOrder = stdout.split("\n").filter((l) => /^\d{4}-|^,/.test(l))
-    .map((l) => l.split(",").slice(0, 3).join(","));
+  const cliOrder = stdout.split("\n").filter((l: string) => /^\d{4}-|^,/.test(l))
+    .map((l: string) => l.split(",").slice(0, 3).join(","));
   const engineOrder = engine.slice(0, cliOrder.length)
     .map((h) => [h.date, h.who, h.repo].join(","));
   assert.deepEqual(cliOrder, engineOrder, "ranking is the engine's job, truncation the adapter's");
@@ -209,7 +214,7 @@ test("company-wide reads sort by time, not by project name", async () => {
   const logs = await readLogs(dir);
   const stamps = logs.map((l) => l.stamp);
   assert.deepEqual([...stamps].sort().reverse(), stamps, "newest first, across every project");
-  assert.equal(logs[0].who, "bob");
+  assert.equal(logs[0]?.who, "bob");
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -220,7 +225,7 @@ test("varve search and varve serve work as commands, not just as functions", asy
   const { execFile, spawn } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
 
   const { stdout } = await run(process.execPath, [bin, "search", "cache", "--all", "--memory", dir]);
   assert.match(stdout, /^hits\[\d+\]\{date,who,repo,line\}:/m, "AXI shape on stdout");
@@ -232,8 +237,8 @@ test("varve search and varve serve work as commands, not just as functions", asy
   // serve holds the process open, so drive it as a child and stop it.
   const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
   try {
-    const line = await new Promise((resolve, reject) => {
-      child.stdout.once("data", (d) => resolve(String(d)));
+    const line: string = await new Promise<string>((resolve, reject) => {
+      child.stdout.once("data", (d: unknown) => resolve(String(d)));
       child.once("error", reject);
       setTimeout(() => reject(new Error("serve did not announce a url")), 8000);
     });
@@ -249,14 +254,14 @@ test("--port 0 asks for any free port, and is not swallowed", async () => {
   // to ask the OS for a free port, and it is what a second instance needs.
   const dir = await fixture();
   const { spawn } = await import("node:child_process");
-  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
   const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
   try {
-    const line = await new Promise((resolve, reject) => {
-      child.stdout.once("data", (d) => resolve(String(d)));
+    const line: string = await new Promise<string>((resolve, reject) => {
+      child.stdout.once("data", (d: unknown) => resolve(String(d)));
       setTimeout(() => reject(new Error("no url")), 8000);
     });
-    const port = Number(line.match(/:(\d+)/)[1]);
+    const port = Number(line.match(/:(\d+)/)?.[1]);
     assert.notEqual(port, 4173, "an explicit 0 must not fall back to the default");
     assert.ok(port > 0);
   } finally {

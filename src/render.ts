@@ -19,7 +19,7 @@ const NO_COLOR = process.env.NO_COLOR !== undefined || process.env.TERM === "dum
 export const isTTY = () =>
   process.stdout.isTTY === true && !NO_COLOR && !process.argv.includes("--plain");
 
-const code = (open, close) => (s) => `[${open}m${s}[${close}m`;
+const code = (open: number, close: number) => (s: unknown) => `[${open}m${s}[${close}m`;
 const raw = {
   bold: code(1, 22),
   dim: code(2, 22),
@@ -33,24 +33,26 @@ const raw = {
 };
 
 /** Style helpers that become the identity function when output is not a TTY. */
-export const s = new Proxy(raw, {
-  get: (target, key) => (isTTY() ? target[key] : (v) => String(v)),
-});
+export type Style = (v: unknown) => string;
+export const s: Record<keyof typeof raw, Style> = new Proxy(raw, {
+  get: (target: typeof raw, key: string) =>
+    isTTY() ? target[key as keyof typeof raw] : (v: unknown) => String(v),
+}) as Record<keyof typeof raw, Style>;
 
 /** Collapse `$HOME` to `~` — the full path is noise in a header. */
-export const tilde = (p) => {
+export const tilde = (p: string): string => {
   const home = process.env.HOME;
   return home && p.startsWith(home) ? `~${p.slice(home.length)}` : p;
 };
 
-export const say = (...lines) => lines.filter((l) => l != null).forEach((l) => console.log(l));
+export const say = (...lines: (string | null | undefined)[]): void => lines.filter((l) => l != null).forEach((l) => console.log(l));
 
 /** A labelled row, aligned so values line up down the block. */
-export const row = (label, value, width = 9) =>
+export const row = (label: string, value: unknown, width = 9): string =>
   `  ${s.grey(label.padEnd(width))}${value}`;
 
 /** Section header: name on the left, a dim summary on the right of the line. */
-export function head(left, right = "") {
+export function head(left: string, right = ""): string {
   const width = Math.min(process.stdout.columns || 80, 72);
   const plain = `  ${left}${right ? `  ${right}` : ""}`;
   if (!isTTY()) return plain;
@@ -63,8 +65,8 @@ export const rule = () => {
   return s.grey("  " + "─".repeat(width - 4));
 };
 
-export const ok = (text) => `  ${s.green("✓")} ${text}`;
-export const warn = (text) => `  ${s.yellow("!")} ${text}`;
-export const bad = (text) => `  ${s.red("✗")} ${text}`;
-export const next = (text) => `  ${s.cyan("→")} ${text}`;
-export const blank = () => "";
+export const ok = (text: string): string => `  ${s.green("✓")} ${text}`;
+export const warn = (text: string): string => `  ${s.yellow("!")} ${text}`;
+export const bad = (text: string): string => `  ${s.red("✗")} ${text}`;
+export const next = (text: string): string => `  ${s.cyan("→")} ${text}`;
+export const blank = (): string => "";

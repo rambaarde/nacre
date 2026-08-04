@@ -11,7 +11,28 @@
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { exists, frontmatter, readRoster, listProjects } from "./store.mjs";
+import { exists, frontmatter, readRoster, listProjects } from "./store.js";
+import type { Frontmatter } from "./store.js";
+
+export interface LogSections {
+  fm: Frontmatter;
+  body: string;
+  summary: string;
+  against: string[];
+  risks: string[];
+  next: string;
+}
+
+export interface Log extends LogSections {
+  project: string; team: string; who: string;
+  file: string; id: string; path: string; rel: string;
+  date: string; stamp: string; repos: string[]; supersedes: string | null;
+}
+
+export interface Hit {
+  date: string; who: string; project: string; repo: string;
+  line: string; id: string; rel: string; against: boolean;
+}
 
 /** Sections a session log may carry, and the headings that introduce them. */
 const SECTION = {
@@ -27,42 +48,43 @@ const SECTION = {
  * sections, and its body renders whole. Failing to understand a file must never
  * mean losing it.
  */
-export function parseLog(text) {
+export function parseLog(text: string): LogSections {
   const fm = frontmatter(text);
   const body = text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
-  const sections = { against: [], risk: [], next: [] };
-  let current = null;
-  const rest = [];
+  const sections: Record<string, string[]> = { against: [], risk: [], next: [] };
+  let current: string | null = null;
+  const rest: string[] = [];
 
   for (const line of body.split(/\r?\n/)) {
     const heading = /^#{1,6}\s+/.test(line);
     if (heading) {
-      current = Object.keys(SECTION).find((k) => SECTION[k].test(line)) ?? null;
+      current = Object.keys(SECTION).find((k) => (SECTION[k as keyof typeof SECTION]).test(line)) ?? null;
       if (current) continue;
     }
     if (current) {
-      if (line.trim()) sections[current].push(line.trim());
-      else if (sections[current].length) sections[current].push("");
+      const bucket = sections[current] as string[];
+      if (line.trim()) bucket.push(line.trim());
+      else if (bucket.length) bucket.push("");
     } else rest.push(line);
   }
 
-  const clean = (arr) =>
+  const clean = (arr: string[]): string[] =>
     arr.join("\n").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
 
   return {
     fm,
     body: body.trim(),
     summary: rest.join("\n").trim(),
-    against: clean(sections.against),
-    risks: clean(sections.risk),
-    next: clean(sections.next).join(" "),
+    against: clean(sections.against as string[]),
+    risks: clean(sections.risk as string[]),
+    next: clean(sections.next as string[]).join(" "),
   };
 }
 
 /** Every session log, newest first. `project` narrows; omitting it is company-wide. */
-export async function readLogs(memory, project) {
+export async function readLogs(memory: string, project?: string): Promise<Log[]> {
   const projects = project ? [project] : await listProjects(memory);
-  const logs = [];
+  const logs: Log[] = [];
 
   for (const p of projects) {
     const root = join(memory, p);
@@ -87,7 +109,7 @@ export async function readLogs(memory, project) {
             // alphabetically by project and only look right inside one.
             stamp: name.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})/)?.[1] ?? name,
             repos: Array.isArray(parsed.fm.repos) ? parsed.fm.repos : [],
-            supersedes: parsed.fm.supersedes ?? null,
+            supersedes: (parsed.fm.supersedes as string) ?? null,
             ...parsed,
           });
         }
@@ -104,11 +126,15 @@ export async function readLogs(memory, project) {
  * ceiling, the portal shows everything, and because both rank identically the
  * two can differ in length without ever disagreeing about what matters.
  */
-export async function search(memory, query, { project, all } = {}) {
+export async function search(
+  memory: string,
+  query: string,
+  { project, all }: { project?: string; all?: boolean } = {},
+): Promise<Hit[]> {
   const q = String(query ?? "").trim().toLowerCase();
   if (!q) return [];
   const logs = await readLogs(memory, all ? undefined : project);
-  const hits = [];
+  const hits: Hit[] = [];
 
   for (const log of logs) {
     for (const raw of log.body.split(/\r?\n/)) {
@@ -146,7 +172,7 @@ export async function search(memory, query, { project, all } = {}) {
 }
 
 /** Everything the project page needs, in the order it is read. */
-export async function projectView(memory, project) {
+export async function projectView(memory: string, project: string) {
   const roster = await readRoster(memory, project);
   if (!roster) return null;
   const logs = await readLogs(memory, project);
@@ -155,9 +181,9 @@ export async function projectView(memory, project) {
 
   return {
     project,
-    title: roster.fm.title && !String(roster.fm.title).startsWith("Insert") ? roster.fm.title : project,
+    title: roster.fm.title && !String(roster.fm.title).startsWith("Insert") ? (roster.fm.title as string) : project,
     repos: roster.repos,
-    teams: Array.isArray(roster.fm.teams) ? roster.fm.teams.filter((t) => !t.startsWith("Insert")) : [],
+    teams: Array.isArray(roster.fm.teams) ? roster.fm.teams.filter((t: string) => !t.startsWith("Insert")) : [],
     handoff: live.find((l) => l.next)?.next ?? "",
     handoffBy: live.find((l) => l.next) ?? null,
     against: live.flatMap((l) => l.against.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
@@ -168,7 +194,7 @@ export async function projectView(memory, project) {
 }
 
 /** The person axis: what one teammate has decided, across every project. */
-export async function personView(memory, who) {
+export async function personView(memory: string, who: string) {
   const logs = (await readLogs(memory)).filter((l) => l.who === who);
   return {
     who,
@@ -180,12 +206,12 @@ export async function personView(memory, who) {
 }
 
 /** Rail counts for the three axes. */
-export async function index(memory) {
+export async function index(memory: string) {
   const logs = await readLogs(memory);
   const projects = await listProjects(memory);
   const byProject = Object.fromEntries(projects.map((p) => [p, 0]));
-  const byPerson = {};
-  const byMonth = {};
+  const byPerson: Record<string, number> = {};
+  const byMonth: Record<string, number> = {};
   for (const l of logs) {
     byProject[l.project] = (byProject[l.project] ?? 0) + 1;
     byPerson[l.who] = (byPerson[l.who] ?? 0) + 1;
@@ -196,7 +222,7 @@ export async function index(memory) {
 }
 
 /** How stale the clone is. A memory read from a week-old checkout is a week old. */
-export async function age(memory) {
+export async function age(memory: string): Promise<string> {
   try {
     const head = join(memory, ".git", "FETCH_HEAD");
     const target = (await exists(head)) ? head : join(memory, ".git");

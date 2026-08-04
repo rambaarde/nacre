@@ -19,10 +19,25 @@ import {
   listProjects, logStats, installSkills, resolveBinding, frontmatter,
   storeRemote, initGit, repoName, resolveStoreDir,
   readFile, writeFile, mkdir, cp, basename, join, resolve,
-} from "./store.mjs";
+} from "./store.js";
+import type { Binding } from "./store.js";
+
+export interface InitInput { store?: string; storePath?: string; who?: string; force?: boolean }
+export interface AddInput {
+  project?: string; title?: string; team?: string; repos?: string[];
+  storePath?: string; store?: string | null; who?: string;
+}
+export interface LinkInput {
+  repo?: string; project?: string; store?: string | null;
+  storePath?: string; skipRoster?: boolean;
+}
+export interface LinkResult {
+  dir: string; name: string; file: string; wrote: boolean;
+  project: string; store: string; roster: { added: string[]; repos: string[] } | null;
+}
 
 /** Create the one centralised context store for a company. */
-export async function initStore({ store, storePath: pathFlag, who, force }) {
+export async function initStore({ store, storePath: pathFlag, who, force }: InitInput) {
   const dir = await resolveStoreDir(pathFlag, store);
   const already = await exists(join(dir, "_company.md"));
   if (already && !force) {
@@ -47,7 +62,7 @@ export async function initStore({ store, storePath: pathFlag, who, force }) {
 }
 
 /** Add a project to the store. Optionally link repos in the same motion. */
-export async function addProject({ project, title, team, repos, storePath: pathFlag, store, who }) {
+export async function addProject({ project, title, team, repos, storePath: pathFlag, store, who }: AddInput) {
   if (!project) throw new Error("missing required argument: varve add <project>");
   const dir = await resolveStoreDir(pathFlag, store ?? (await resolveBinding())?.store);
   if (!(await exists(join(dir, "_company.md")))) {
@@ -74,7 +89,7 @@ export async function addProject({ project, title, team, repos, storePath: pathF
   }
 
   const remote = store ?? (await storeRemote(dir));
-  const linked = [];
+  const linked: LinkResult[] = [];
   for (const repo of repos ?? []) {
     // Pass the resolved memory down. A repo being linked for the first time has
     // no binding of its own, so letting linkRepo re-derive would discard the
@@ -84,7 +99,7 @@ export async function addProject({ project, title, team, repos, storePath: pathF
   }
   const roster = linked.length
     ? await addToRoster(dir, project, linked.map((l) => l.name))
-    : await readRoster(dir, project).then((r) => ({ repos: r?.repos ?? [], added: [] }));
+    : await readRoster(dir, project).then((r) => ({ repos: r?.repos ?? [], added: [] as string[] }));
 
   return { dir, project, created: fresh, team: teamName, who: author, linked, roster };
 }
@@ -98,7 +113,7 @@ export async function addProject({ project, title, team, repos, storePath: pathF
  * that updated only one of them would leave the company-level answer silently
  * wrong while every individual repo looked correctly wired.
  */
-export async function linkRepo({ repo, project, store, storePath: pathFlag, skipRoster }) {
+export async function linkRepo({ repo, project, store, storePath: pathFlag, skipRoster }: LinkInput): Promise<LinkResult> {
   const dir = resolve(repo ?? process.cwd());
   const name = basename(dir);
   if (!(await exists(dir))) throw new Error(`no such directory: ${dir}`);
@@ -133,27 +148,48 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
     wrote = true;
   }
 
-  const roster = skipRoster ? null : await addToRoster(storeDir, project, [name]);
-  return { dir, name, file, wrote, project, store: remote, roster };
+  const roster = skipRoster ? null : await addToRoster(storeDir, project as string, [name]);
+  return { dir, name, file, wrote, project: project as string, store: remote as string, roster };
 }
 
+export interface LogStats { count: number; newest: string | null; who: string | null }
+
+/**
+ * A discriminated union rather than one loose shape, so a renderer cannot read
+ * a field that does not exist in the state it is rendering — `binding` is only
+ * present once there is one.
+ */
+export type Status =
+  | { state: "no-store"; store: string; projects: string[] }
+  | { state: "no-binding"; store: string; projects: string[] }
+  | { state: "unknown-project"; store: string; projects: string[]; binding: BoundBinding }
+  | {
+      state: "ready"; store: string; binding: BoundBinding; repos: string[];
+      logs: LogStats; here: string; skillsReady: boolean;
+    };
+
+/** A binding that has been checked to actually name a project. */
+export type BoundBinding = Binding & { project: string };
+
 /** Live state for the bare `varve` command. Read-only, no side effects. */
-export async function status({ storePath: pathFlag } = {}) {
+export async function status({ storePath: pathFlag }: { storePath?: string } = {}): Promise<Status> {
   const binding = await resolveBinding();
   const dir = await resolveStoreDir(pathFlag, binding?.store);
   const storeReady = await exists(join(dir, "_company.md"));
   const projects = await listProjects(dir);
 
   if (!storeReady) return { state: "no-store", store: dir, projects };
-  if (!binding) return { state: "no-binding", store: dir, projects };
+  if (!binding?.project) return { state: "no-binding", store: dir, projects };
 
-  const roster = await readRoster(dir, binding.project);
-  if (!roster) return { state: "unknown-project", store: dir, projects, binding };
+  const bound = binding as BoundBinding;
+  const project = bound.project;
+  const roster = await readRoster(dir, project);
+  if (!roster) return { state: "unknown-project", store: dir, projects, binding: bound };
 
-  const logs = await logStats(dir, binding.project);
+  const logs = await logStats(dir, project);
   const skillsReady = await exists(join(AGENTS.claude, "varve-load", "SKILL.md"));
   return {
-    state: "ready", store: dir, binding, repos: roster.repos, logs,
+    state: "ready", store: dir, binding: bound, repos: roster.repos, logs,
     here: basename(binding.dir), skillsReady,
   };
 }
