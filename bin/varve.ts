@@ -12,16 +12,18 @@
 import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 import { readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
-import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush } from "../src/store.js";
+import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, PKG_ROOT } from "../src/store.js";
 import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 
-const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// PKG_ROOT is imported, not recomputed. This file had its own copy that counted
+// one directory up — correct from bin/ in the repo, wrong from dist/bin/ in the
+// package, so `varve --version` failed with ENOENT on every install. store.ts
+// had already been fixed to walk up for package.json; the duplicate had not.
 
 const OPTIONS = {
   memory: { type: "string" },
