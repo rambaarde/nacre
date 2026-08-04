@@ -8,7 +8,7 @@ project: [Insert Slug]
 
 # [Insert Project] — Standards
 
-Rules that apply to this project and would be wrong elsewhere.
+<!-- Rules that apply to this project and would be wrong elsewhere. -->
 
 * **Stack:** [Languages, frameworks, runtime versions]
 * **[Rule]:** [Non-negotiable for this stack, in one line]
@@ -20,7 +20,7 @@ Rules that apply to this project and would be wrong elsewhere.
 * **Migrations:** [How schema changes ship here]
 * **Deploys:** [Order, gates, who can]
 
-# Not Here
-
-Rules that hold across every project — commit format, branch protection,
-production access — belong in the company standards, not repeated per project.
+<!-- # Not Here
+     Rules that hold across every project — commit format, branch protection,
+     production access — belong in the company standards, not repeated per
+     project. -->
