@@ -49,6 +49,8 @@ Added the new handler. Deploy after atlas-api.
 /** A memory with two people, two projects, and a cross-project fact. */
 async function fixture(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "varve-portal-"));
+  // Same isolation as store.test: nothing above the repo may influence a read.
+  process.chdir(dir);
   await writeFile(join(dir, "_company.md"), "---\ntype: varve-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
   await writeFile(join(dir, "_standards.md"), "---\ntype: varve-standards\n---\n\nMigrations are raw SQL.\n");
   const PROJECTS: Array<[string, string]> = [["atlas", "Atlas"], ["beacon", "Beacon"]];
@@ -304,4 +306,38 @@ test("heading form still parses, so either shape works", () => {
   const p = parseLog("---\nwho: jun\n---\n\n## Decided against\nOptimistic UI.\n\n## Next\nShip it.\n");
   assert.match(p.against[0] ?? "", /Optimistic UI/);
   assert.match(p.next, /Ship it/);
+});
+
+test("a project can carry its own standards, and they stay scoped to it", async () => {
+  // Company standards are paid for by every project on every read. A rule true
+  // of one stack must not be one of them — a Python project should never load
+  // a Node project's test runner.
+  const dir = await fixture();
+  await writeFile(join(dir, "atlas", "_standards.md"),
+    "---\ntype: varve-project-standards\nproject: atlas\n---\n\n# Atlas — Standards\n\n* **Stack:** Node 20, Postgres.\n");
+
+  const { projectStandards, projectView } = await import("../src/portal.js");
+
+  assert.match((await projectStandards(dir, "atlas")) ?? "", /Node 20/);
+  assert.equal(await projectStandards(dir, "beacon"), null,
+    "a project without its own standards must report none, not inherit a file");
+
+  assert.equal((await projectView(dir, "atlas"))?.hasStandards, true);
+  assert.equal((await projectView(dir, "beacon"))?.hasStandards, false);
+
+  const { serve } = await import("../src/serve.js");
+  const { server, url } = await serve({ memory: dir, port: 0 });
+  try {
+    const atlas = await fetch(`${url}/s/atlas`);
+    assert.equal(atlas.status, 200);
+    assert.match(await atlas.text(), /Node 20/);
+
+    // Absent is not an error worth a stack trace — it means the company rules apply.
+    const beacon = await fetch(`${url}/s/beacon`);
+    assert.equal(beacon.status, 404);
+    assert.match(await beacon.text(), /company standards apply/);
+  } finally {
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  }
 });
