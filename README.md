@@ -20,6 +20,10 @@ No vectors. No API key. No service to run. Markdown you can read in a pull reque
 npx varve init git@github.com:acme/acme-context.git
 ```
 
+**Working alone?** You want
+[create-ai-memory](https://github.com/rambaarde/create-ai-memory) instead —
+same idea, one person, no shared repo to set up.
+
 ![tests](https://img.shields.io/badge/tests-34%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
@@ -187,6 +191,30 @@ architecture wiki, keep it. This is the layer above it.
 
 Uninstall varve and you are left with a git repo of readable Markdown and its
 full history. That is the test this design has to keep passing.
+
+## If you are working alone
+
+Use **[create-ai-memory](https://github.com/rambaarde/create-ai-memory)**
+(`npm create ai-memory@latest`). Same conviction — plain Markdown you own, no
+database, memory that outlives the chat thread — scoped to one person and one
+machine.
+
+varve exists for the part that only shows up with other people: a memory a
+teammate reads, a decision that has to survive the person who made it, and a
+fact that belongs to two repositories and neither. If nobody else is going to
+read it, everything varve adds is cost — a shared repo to create, a publish step
+to remember, a portal nobody opens.
+
+|  | create-ai-memory | varve |
+|---|---|---|
+| scope | you | your company |
+| memory lives | a vault on your machine | a private git repo the team clones |
+| sharing | not the point | the whole point |
+| setup | one command | a repo, then one command per project |
+
+They are the same idea at two sizes. Start with the smaller one — it is a real
+tool, not a demo, and moving up later is copying Markdown into a different
+folder.
 
 ## Status
 
