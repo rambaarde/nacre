@@ -225,6 +225,9 @@ export type Status =
   | {
       state: "ready"; store: string; binding: BoundBinding; repos: string[];
       logs: LogStats; here: string; skillsReady: boolean;
+      /** The slug this machine files logs under. Shown because it is not a free
+       *  choice: a log written under a different one splits the author in two. */
+      you: string;
     };
 
 /** A binding that has been checked to actually name a project. */
@@ -252,7 +255,7 @@ export async function status({ storePath: pathFlag }: { storePath?: string } = {
   const skillsReady = await exists(join(AGENTS.claude, "varve-load", "SKILL.md"));
   return {
     state: "ready", store: dir, binding: bound, repos: roster.repos, logs,
-    here: basename(binding.dir), skillsReady,
+    here: basename(binding.dir), skillsReady, you: await gitSlug(),
   };
 }
 
