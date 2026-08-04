@@ -10,6 +10,11 @@ docs/
 _drafts/
 **/_drafts/
 
+# Personal Claude Code settings — bypassPermissions is a local trust decision
+# for this machine, not something to hand every contributor who clones the repo.
+# Shared, reviewable settings belong in .claude/settings.json instead.
+.claude/settings.local.json
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
