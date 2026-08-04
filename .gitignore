@@ -10,9 +10,13 @@ docs/
 _drafts/
 **/_drafts/
 
-# Personal Claude Code settings — bypassPermissions is a local trust decision
+# Personal Claude Code settings — permission modes are a local trust decision
 # for this machine, not something to hand every contributor who clones the repo.
-# Shared, reviewable settings belong in .claude/settings.json instead.
+# Both files are ignored: settings.json was carrying defaultMode
+# "bypassPermissions", which is exactly the thing this rule exists to keep out
+# of a public repo. If genuinely shared, reviewable settings are ever needed,
+# add a narrowly-scoped file and un-ignore that one deliberately.
+.claude/settings.json
 .claude/settings.local.json
 
 # OS / editor noise
