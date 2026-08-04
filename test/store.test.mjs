@@ -265,3 +265,15 @@ test("--memory accepts a name, not only a path", async () => {
     assert.equal(r.dir, join(home, "beta-memory"));
   });
 });
+
+test("piped output carries no escape codes", async () => {
+  // The agent contract: stdout read by a program must stay plain and stable.
+  // Tests run without a TTY, so this exercises the real piped path.
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  const bin = new URL("../bin/varve.mjs", import.meta.url).pathname;
+  const { stdout } = await run(process.execPath, [bin, "--help"]);
+  const ESC = String.fromCharCode(27);
+  assert.ok(!stdout.includes(ESC), "styling must never reach a pipe");
+});

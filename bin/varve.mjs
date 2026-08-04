@@ -14,6 +14,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initStore, addProject, status, installSkills } from "../src/operations.mjs";
+import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.mjs";
 
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -27,6 +28,7 @@ const OPTIONS = {
   agents: { type: "string" },
   force: { type: "boolean" },
   "no-skills": { type: "boolean" },
+  plain: { type: "boolean" },
   help: { type: "boolean", short: "h" },
   version: { type: "boolean" },
 };
@@ -48,48 +50,96 @@ Adding repos to an existing project is the same command again:
   --who <slug>         author slug       (default: from git config)
   --agents <a,b>       claude,opencode   (default: claude)
   --no-skills          skip installing the skills
+  --plain              plain output, as when piped
 
 Reading and writing memory happen through the skills, not this binary.`;
 
 const out = (...lines) => lines.filter(Boolean).forEach((l) => console.log(l));
 
+/** Brand line. Only a person needs to be told what they are looking at. */
+const brand = (right) => (isTTY() ? [blank(), head("varve", right)] : []);
+
 function fail(message, code = 1) {
-  console.log(`error: ${message}`);
-  console.log("help[]: varve --help");
+  if (isTTY()) {
+    say(blank(), `  ${c.red("✗")} ${tilde(message)}`, blank());
+  } else {
+    console.log(`error: ${message}`);
+    console.log("help[]: varve --help");
+  }
   process.exit(code);
 }
 
 /** Bare `varve` — live state, and the single next command that applies. */
-function renderStatus(s) {
-  if (s.state === "no-store") {
-    return out(
-      `no memory at ${s.store}`,
-      "next: varve init <git-url>",
-      "help[]: varve --help",
-    );
+function renderStatus(st) {
+  if (!isTTY()) return renderStatusPlain(st);
+
+  if (st.state === "no-store") {
+    return say(...brand(""), rule(),
+      row("memory", c.grey("none yet")),
+      blank(), next(`varve ${c.bold("init")} <git-url>`), blank());
   }
-  if (s.state === "no-binding") {
+  if (st.state === "no-binding") {
+    const list = st.projects.length ? st.projects.join("  ") : c.grey("none yet");
+    return say(...brand(tilde(st.store)), rule(),
+      row("projects", list),
+      row("here", c.grey("not bound to a project")),
+      blank(),
+      next(st.projects.length
+        ? `varve ${c.bold("add")} <${st.projects.join("|")}> .`
+        : `varve ${c.bold("add")} <project> .`),
+      blank());
+  }
+  if (st.state === "unknown-project") {
+    return say(...brand(tilde(st.store)), rule(),
+      warn(`.varve.yml names ${c.bold(st.binding.project)}, which is not in this memory`),
+      row("projects", st.projects.join("  ") || c.grey("none")),
+      blank(), next(`varve ${c.bold("add")} ${st.binding.project}`), blank());
+  }
+
+  const { binding, repos, logs, here, skillsReady } = st;
+  const summary = `${repos.length} repo${repos.length === 1 ? "" : "s"} · ${logs.count} log${logs.count === 1 ? "" : "s"}`;
+  say(
+    ...brand(tilde(st.store)),
+    rule(),
+    head(binding.project, summary),
+    blank(),
+    row("repos", repos.map((r) => (r === here ? c.bold(r) : c.grey(r))).join("  ") || c.grey("none linked")),
+    logs.newest ? row("last", `${logs.newest.replace(/\.md$/, "")}  ${c.grey(logs.who)}`) : null,
+    row("here", here ? c.bold(here) : c.grey("outside a linked repo")),
+    blank(),
+    skillsReady ? null : warn(`skills not installed · varve add ${binding.project} .`),
+    logs.count === 0
+      ? next(`${c.bold("varve-publish")} at the end of this session ${c.grey("— nothing recorded yet")}`)
+      : next(`${c.bold("varve-load")} at session start · ${c.bold("varve-publish")} at the end`),
+    blank(),
+  );
+}
+
+/** The plain path is byte-for-byte what agents and CI already parse. */
+function renderStatusPlain(st) {
+  if (st.state === "no-store") {
+    return out(`no memory at ${st.store}`, "next: varve init <git-url>", "help[]: varve --help");
+  }
+  if (st.state === "no-binding") {
     return out(
-      `memory: ${s.store} · projects[${s.projects.length}]: ${s.projects.join(", ") || "none yet"}`,
+      `memory: ${st.store} · projects[${st.projects.length}]: ${st.projects.join(", ") || "none yet"}`,
       "this directory is not bound to a project",
-      s.projects.length
-        ? `next: varve add <${s.projects.join("|")}> .`
-        : "next: varve add <project> .",
+      st.projects.length ? `next: varve add <${st.projects.join("|")}> .` : "next: varve add <project> .",
       "help[]: varve --help",
     );
   }
-  if (s.state === "unknown-project") {
+  if (st.state === "unknown-project") {
     return out(
-      `error: .varve.yml names "${s.binding.project}", which is not in ${s.store}`,
-      `projects[${s.projects.length}]: ${s.projects.join(", ") || "none"}`,
-      `next: varve add ${s.binding.project}`,
+      `error: .varve.yml names "${st.binding.project}", which is not in ${st.store}`,
+      `projects[${st.projects.length}]: ${st.projects.join(", ") || "none"}`,
+      `next: varve add ${st.binding.project}`,
     );
   }
-  const { binding, repos, logs, here, skillsReady } = s;
+  const { binding, repos, logs, here, skillsReady } = st;
   out(
     `project: ${binding.project} · repos[${repos.length}]: ${repos.join(", ") || "none linked"} · ` +
       `logs: ${logs.count}${logs.newest ? ` · last: ${logs.newest.replace(/\.md$/, "")} (${logs.who})` : ""}`,
-    `memory: ${s.store}${here ? ` · you are in: ${here}` : ""}`,
+    `memory: ${st.store}${here ? ` · you are in: ${here}` : ""}`,
     logs.count === 0
       ? "no logs yet · next: varve-publish at the end of this session"
       : "next: varve-load at the start of a session · varve-publish at the end",
@@ -123,18 +173,33 @@ async function main() {
     if (command === "init") {
       if (!arg && !memoryPath) fail("missing argument: varve init <git-url>");
       const r = await initStore({ store: arg, storePath: memoryPath, who: o.who, force: o.force });
-      if (!r.created) {
-        return out(
-          `ok: memory already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
-          "next: varve add <project> <repo-dir>",
-        );
+      if (!isTTY()) {
+        return r.created
+          ? out(
+              `ok: memory created · ${r.dir}`,
+              `files: _company.md, _standards.md, _team/_${r.who}/ · remote: ${r.remote ?? "not set"}`,
+              "next: varve add <project> <repo-dir>",
+              "help[]: commit and push the memory, then keep the default branch protected",
+            )
+          : out(
+              `ok: memory already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
+              "next: varve add <project> <repo-dir>",
+            );
       }
-      return out(
-        `ok: memory created · ${r.dir}`,
-        `files: _company.md, _standards.md, _team/_${r.who}/ · remote: ${r.remote ?? "not set"}`,
-        "next: varve add <project> <repo-dir>",
-        "help[]: commit and push the store, then keep the default branch protected",
-      );
+      if (!r.created) {
+        return say(blank(), ok(`memory already at ${c.bold(tilde(r.dir))}`),
+          row("projects", r.projects.join("  ") || c.grey("none yet")),
+          blank(), next(`varve ${c.bold("add")} <project> <repo-dir>`), blank());
+      }
+      return say(blank(),
+        ok(`memory created  ${c.grey(tilde(r.dir))}`),
+        blank(),
+        row("files", c.grey(`_company.md  _standards.md  _team/_${r.who}/`)),
+        row("remote", r.remote ?? c.grey("not set")),
+        blank(),
+        next(`varve ${c.bold("add")} <project> <repo-dir>`),
+        `  ${c.grey("then commit and push it, and protect the default branch")}`,
+        blank());
     }
 
     if (command === "add") {
@@ -146,13 +211,26 @@ async function main() {
         storePath: memoryPath, who: o.who,
       });
       if (!o["no-skills"] && r.linked.length) await installSkills(agents);
-      return out(
-        `ok: ${r.project} ${r.created ? "added" : "already present"} · ${r.dir}/${r.project}`,
-        `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
-        r.linked.length
-          ? `next: commit .varve.yml in ${r.linked.map((l) => l.name).join(", ")} — teammates then need nothing`
-          : `next: varve add ${r.project} <repo-dir>`,
-      );
+      const fresh = r.linked.filter((l) => l.wrote).map((l) => l.name);
+      if (!isTTY()) {
+        return out(
+          `ok: ${r.project} ${r.created ? "added" : "already present"} · ${r.dir}/${r.project}`,
+          `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
+          fresh.length
+            ? `next: commit .varve.yml in ${fresh.join(", ")} — teammates then need nothing`
+            : `next: varve add ${r.project} <repo-dir>`,
+        );
+      }
+      return say(blank(),
+        ok(`${c.bold(r.project)} ${r.created ? "added" : c.grey("already present")}  ${c.grey(tilde(r.dir + "/" + r.project))}`),
+        blank(),
+        row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.grey(x))).join("  ") || c.grey("none linked")),
+        row("team", c.grey(r.team)),
+        blank(),
+        fresh.length
+          ? next(`commit ${c.bold(".varve.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
+          : next(`varve ${c.bold("add")} ${r.project} <repo-dir>`),
+        blank());
     }
 
 
