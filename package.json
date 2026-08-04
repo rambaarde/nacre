@@ -1,34 +1,45 @@
 {
-  "name": "varve",
-  "version": "0.2.0",
-  "description": "One git-backed memory store for a whole company. Agents read plain markdown; humans read the same files.",
-  "type": "module",
-  "bin": {
-    "varve": "dist/bin/varve.js",
-    "vrv": "dist/bin/varve.js"
-  },
-  "files": [
-    "dist",
-    "skills",
-    "store-template",
-    "README.md"
-  ],
-  "engines": {
-    "node": ">=20"
-  },
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rambaarde/varve.git"
-  },
+  "name": "varve-cli",
+  "version": "0.2.1",
+  "description": "One context memory for a whole company — every project, every repo. Plain Markdown in git; agents and people read the same files.",
   "keywords": [
     "ai-memory",
     "agent-memory",
     "team-memory",
     "context",
     "claude",
+    "claude-code",
     "markdown",
-    "git"
+    "git",
+    "monorepo",
+    "cross-repo"
+  ],
+  "homepage": "https://github.com/rambaarde/varve#readme",
+  "bugs": {
+    "url": "https://github.com/rambaarde/varve/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambaarde/varve.git"
+  },
+  "license": "Apache-2.0",
+  "author": "rambaarde",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "varve": "dist/bin/varve.js",
+    "vrv": "dist/bin/varve.js"
+  },
+  "files": [
+    "dist/bin",
+    "dist/src",
+    "!dist/**/*.map",
+    "!dist/**/*.d.ts",
+    "skills",
+    "store-template",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
