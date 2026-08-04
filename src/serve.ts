@@ -15,7 +15,9 @@
  */
 
 import { createServer } from "node:http";
-import { basename } from "node:path";
+import { readFile } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { exists } from "./store.js";
 import { markdown, escape } from "./markdown.js";
 import { tilde } from "./render.js";
 import { index, projectView, personView, search, age, readLogs } from "./portal.js";
@@ -24,7 +26,7 @@ import type { Hit, Log } from "./portal.js";
 type Index = Awaited<ReturnType<typeof index>>;
 type ProjectView = NonNullable<Awaited<ReturnType<typeof projectView>>>;
 type PersonView = Awaited<ReturnType<typeof personView>>;
-type Active = { project?: string; who?: string; month?: string };
+type Active = { project?: string; who?: string; month?: string; company?: string };
 
 const CSS = `
 :root{--ink:#16150f;--soft:#55524a;--faint:#8a867c;--paper:#faf8f3;--paper2:#f2efe7;
@@ -65,6 +67,9 @@ hr.dbl{border:0;border-top:3px double var(--declined);margin:0 0 .8rem}
 .item .by{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
 .risk{border-left:3px solid var(--risk);padding-left:.8rem;margin:0 0 .7rem;
 font-family:var(--mono);font-size:.8rem}
+.decision{border-left:3px solid var(--soft);padding-left:.8rem;margin:0 0 .9rem}
+.decision .what{font-family:var(--mono);font-size:.82rem;color:var(--ink)}
+.decision .by{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
 table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.78rem}
 td{padding:.3rem .8rem .3rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
 td.d,td.w,td.r{color:var(--faint);white-space:nowrap}
@@ -99,6 +104,11 @@ function rail(idx: Index, active: Active = {}): string {
       .join("")}</ul>`;
   };
   return `<nav class="rail">
+    <h4>Company</h4>
+    <ul>
+      <li class="${active.company === "_company" ? "on" : ""}">${link("/c/_company", "context")}</li>
+      <li class="${active.company === "_standards" ? "on" : ""}">${link("/c/_standards", "standards")}</li>
+    </ul>
     ${group("Projects", idx.projects, "/p/", "project")}
     ${group("People", idx.people, "/who/", "who")}
     ${group("Time", idx.months, "/t/", "month")}
@@ -138,6 +148,10 @@ function renderProject(v: ProjectView): string {
   ${v.handoff ? `<div class="bh"><span>Handoff</span><span class="cnt">${
     escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")
   }</span></div><hr class="thin"><div class="block">${markdown(v.handoff)}</div>` : ""}
+  ${v.decisions.length ? `<div class="bh"><span>Decisions</span><span class="cnt">${v.decisions.length}</span></div>
+  <hr class="thin">
+  <div class="block">${v.decisions.map((d) => `<div class="decision"><div class="what">${escape(d.what)}</div>
+    <div class="by">${escape(d.who)} · ${escape(d.date)}</div></div>`).join("")}</div>` : ""}
   <div class="bh"><span style="color:var(--declined)">Decided against</span><span class="cnt">${v.against.length}</span></div>
   <hr class="dbl">
   <div class="block">${v.against.length
@@ -156,6 +170,10 @@ function renderProject(v: ProjectView): string {
 function renderPerson(v: PersonView): string {
   return `<h1>${escape(v.who)}</h1>
   <p class="sub">projects[${v.projects.length}] ${escape(v.projects.join(", ") || "none")} · ${v.count} log${v.count === 1 ? "" : "s"}</p>
+  ${v.decisions.length ? `<div class="bh"><span>Decisions</span><span class="cnt">${v.decisions.length}</span></div>
+  <hr class="thin">
+  <div class="block">${v.decisions.map((d) => `<div class="decision"><div class="what">${escape(d.what)}</div>
+    <div class="by">${escape(d.project)} · ${escape(d.date)}</div></div>`).join("")}</div>` : ""}
   <div class="bh"><span style="color:var(--declined)">Decided against</span><span class="cnt">${v.against.length}</span></div>
   <hr class="dbl">
   <div class="block">${v.against.length
@@ -229,6 +247,20 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
           `<h1>${escape(found.id)}</h1><p class="sub">${escape(found.who)} · ${escape(found.project)}${
             found.repos.length ? ` · repos[${found.repos.length}] ${escape(found.repos.join(", "))}` : ""
           }</p><div class="log">${markdown(found.body)}</div>`));
+      }
+
+      const company = url.pathname.match(/^\/c\/(_company|_standards)$/);
+      if (company) {
+        const name = company[1] as string;
+        const path = join(memory, `${name}.md`);
+        if (!(await exists(path))) {
+          return send(shell(memory, clone, idx, {}, name, `<p class="empty">no ${name}.md in this memory</p>`), 404);
+        }
+        const text = await readFile(path, "utf8");
+        const title = name === "_company" ? "Company context" : "Engineering standards";
+        return send(shell(memory, clone, idx, { company: name }, title, `<h1>${escape(title)}</h1>
+          <p class="sub">${escape(name)}.md · loaded into every brief, in every project</p>
+          <div class="log">${markdown(text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""))}</div>`));
       }
 
       if (url.pathname === "/search") {

@@ -269,3 +269,39 @@ test("--port 0 asks for any free port, and is not swallowed", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("the vault's own bullet format parses, not just headings", async () => {
+  // The format this design descends from uses labelled bullets under one
+  // heading, not `## Sections`. A heading-only parser read a real 103-day-old
+  // vault and surfaced nothing — every block on the project page came up empty
+  // while the file rendered fine, which is the worst shape of wrong.
+  const log = [
+    "---", "project: acme", "who: ram", "---", "",
+    "# Session Outcome", "",
+    "* **High-Level Summary:** Split 401 and 419 so the client can tell",
+    "  expired from unauthorised.",
+    "* **Important Decisions:** API ships first; the web app follows.",
+    "* **Decided Against:** Raising the shared eviction limit.",
+    "* **Constraints / Blockers:** acme-fe still treats 419 as a logout.",
+    "* **Next Step:** Add the handler, then deploy fe after be.",
+    "* **Notes for Future AI:** Deploy order is a contract.",
+  ].join("\n");
+
+  const p = parseLog(log);
+  assert.match(p.summary, /Split 401 and 419/);
+  assert.match(p.decisions[0] ?? "", /API ships first/);
+  assert.match(p.against[0] ?? "", /Raising the shared eviction limit/);
+  assert.match(p.risks[0] ?? "", /still treats 419/, "Constraints / Blockers must reach risks");
+  assert.match(p.next, /deploy fe after be/);
+  assert.match(p.notes[0] ?? "", /contract/);
+
+  // A wrapped bullet is one thought, not two entries.
+  assert.ok(!p.summary.includes("\n"), "wrapped lines fold into one entry");
+  assert.match(p.summary, /tell expired from unauthorised/);
+});
+
+test("heading form still parses, so either shape works", () => {
+  const p = parseLog("---\nwho: jun\n---\n\n## Decided against\nOptimistic UI.\n\n## Next\nShip it.\n");
+  assert.match(p.against[0] ?? "", /Optimistic UI/);
+  assert.match(p.next, /Ship it/);
+});

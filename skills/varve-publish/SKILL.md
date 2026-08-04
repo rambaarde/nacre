@@ -63,19 +63,34 @@ started: 2026-08-04T16:22:07
 repos: [atlas-api, atlas-web]
 ---
 
-## What changed
-Renamed the rate-limit headers in atlas-api. Verified in production.
+# Session Outcome
 
-## Decided against
-Raising the shared cache eviction limit. Same instance as beacon.
-
-## Next
-Remove the old header path in atlas-web — coordinate with bob first.
+* **High-Level Summary:** Renamed the rate-limit headers in atlas-api and
+  verified them in production.
+* **Important Decisions:** Header rename ships in the API first; the web app
+  follows in a separate deploy.
+* **Decided Against:** Raising the shared cache eviction limit — same instance
+  as beacon, and raising it starves their workers under load.
+* **Constraints / Blockers:** atlas-web still reads the old header name.
+* **Next Step:** Remove the old header path in atlas-web, with bob.
+* **Notes for Future AI:** The deploy order is a contract, not a convention.
 
 <!-- private -->
 Took three days because of a workaround around another dev's refactor.
 <!-- /private -->
 ```
+
+This is the shape that has been running for over a hundred days, kept
+deliberately rather than improved on. **Bullets, not headings** — one
+`# Session Outcome` and a labelled line each — because that is what a person
+actually fills in without it turning into an essay.
+
+One label is added to it: **Decided Against**. The original leaves rejected
+options to a guideline, and a guideline is the first thing dropped on a tired
+Friday. It is the content class this store exists for, so it gets a line of its
+own.
+
+`## Heading` form is read too, so a log written either way parses.
 
 **`repos:` is derived from the paths this session actually touched** — the git
 roots of the files you read and edited, deduplicated. **Never from the working

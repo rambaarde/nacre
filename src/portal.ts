@@ -19,7 +19,9 @@ export interface LogSections {
   body: string;
   summary: string;
   against: string[];
+  decisions: string[];
   risks: string[];
+  notes: string[];
   next: string;
 }
 
@@ -34,12 +36,38 @@ export interface Hit {
   line: string; id: string; rel: string; against: boolean;
 }
 
-/** Sections a session log may carry, and the headings that introduce them. */
-const SECTION = {
-  against: /^#{1,6}\s*decided\s+against\b/i,
-  risk: /^#{1,6}\s*(open\s+)?risks?\b/i,
-  next: /^#{1,6}\s*next\b/i,
+/**
+ * The labels a session log may carry.
+ *
+ * Two shapes are recognised, because the format this design descends from uses
+ * neither exclusively: a `## Heading`, and a `* **Bold label:**` bullet under a
+ * single heading. The bullet form is what a 103-day-old vault actually contains,
+ * and a parser that only understood headings surfaced nothing from it — the
+ * store rendered, but every block on the project page came up empty.
+ */
+const SECTION: Record<string, RegExp> = {
+  summary: /^(high[- ]level\s+)?summary\b|^what\s+changed\b/i,
+  decision: /^(important\s+)?decisions?\b/i,
+  against: /^(decided\s+against|rejected|not\s+doing)\b/i,
+  risk: /^((open\s+)?risks?|constraints?(\s*\/\s*blockers?)?|blockers?)\b/i,
+  next: /^next(\s+steps?)?\b/i,
+  note: /^notes?(\s+for\s+future\s+ai)?\b/i,
 };
+
+/** `## Decided against` → "decided against" */
+const asHeading = (line: string): string | null => {
+  const m = line.match(/^#{1,6}\s+(.*?)\s*$/);
+  return m ? (m[1] as string) : null;
+};
+
+/** `* **Important Decisions:** text` → { label, rest } */
+const asBullet = (line: string): { label: string; rest: string } | null => {
+  const m = line.match(/^\s*[-*+]\s*\*\*(.+?):?\*\*:?\s*(.*)$/);
+  return m ? { label: m[1] as string, rest: (m[2] as string).trim() } : null;
+};
+
+const labelKey = (label: string): string | null =>
+  Object.keys(SECTION).find((k) => (SECTION[k] as RegExp).test(label.trim())) ?? null;
 
 /**
  * Split a log into frontmatter, its titled sections, and the rest.
@@ -51,16 +79,34 @@ const SECTION = {
 export function parseLog(text: string): LogSections {
   const fm = frontmatter(text);
   const body = text.replace(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
-  const sections: Record<string, string[]> = { against: [], risk: [], next: [] };
+  const sections: Record<string, string[]> = {
+    summary: [], against: [], decision: [], risk: [], next: [], note: [],
+  };
   let current: string | null = null;
   const rest: string[] = [];
 
   for (const line of body.split(/\r?\n/)) {
-    const heading = /^#{1,6}\s+/.test(line);
-    if (heading) {
-      current = Object.keys(SECTION).find((k) => (SECTION[k as keyof typeof SECTION]).test(line)) ?? null;
+    // A labelled bullet closes any open section and stands alone, so a list of
+    // them under one heading parses the same as a run of headings.
+    const bullet = asBullet(line);
+    if (bullet) {
+      const key = labelKey(bullet.label);
+      if (key) {
+        if (bullet.rest) (sections[key] as string[]).push(bullet.rest);
+        current = key;
+        continue;
+      }
+      current = null;
+      rest.push(line);
+      continue;
+    }
+
+    const heading = asHeading(line);
+    if (heading !== null) {
+      current = labelKey(heading);
       if (current) continue;
     }
+
     if (current) {
       const bucket = sections[current] as string[];
       if (line.trim()) bucket.push(line.trim());
@@ -68,15 +114,27 @@ export function parseLog(text: string): LogSections {
     } else rest.push(line);
   }
 
+  // A wrapped bullet is one thought across several lines, not several entries.
+  // Blank lines still separate entries; single newlines are just the author's
+  // line width and get folded away.
   const clean = (arr: string[]): string[] =>
-    arr.join("\n").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+    arr
+      .join("\n")
+      .split(/\n{2,}/)
+      .map((block) => block.split(/\n/).map((l) => l.trim()).filter(Boolean).join(" ").trim())
+      .filter(Boolean);
 
+
+  const titled = clean(sections.summary as string[]).join(" ");
   return {
     fm,
     body: body.trim(),
-    summary: rest.join("\n").trim(),
+    // A labelled summary wins; otherwise whatever prose was not under a label.
+    summary: titled || rest.join("\n").trim(),
     against: clean(sections.against as string[]),
+    decisions: clean(sections.decision as string[]),
     risks: clean(sections.risk as string[]),
+    notes: clean(sections.note as string[]),
     next: clean(sections.next as string[]).join(" "),
   };
 }
@@ -187,6 +245,7 @@ export async function projectView(memory: string, project: string) {
     handoff: live.find((l) => l.next)?.next ?? "",
     handoffBy: live.find((l) => l.next) ?? null,
     against: live.flatMap((l) => l.against.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
+    decisions: live.flatMap((l) => l.decisions.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
     risks: live.flatMap((l) => l.risks.map((what) => ({ what, who: l.who, date: l.date, id: l.id }))),
     logs: live,
     count: logs.length,
@@ -200,6 +259,7 @@ export async function personView(memory: string, who: string) {
     who,
     projects: [...new Set(logs.map((l) => l.project))].sort(),
     against: logs.flatMap((l) => l.against.map((what) => ({ what, project: l.project, date: l.date, id: l.id }))),
+    decisions: logs.flatMap((l) => l.decisions.map((what) => ({ what, project: l.project, date: l.date, id: l.id }))),
     logs,
     count: logs.length,
   };
