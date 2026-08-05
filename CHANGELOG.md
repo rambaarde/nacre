@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.16](https://github.com/rambaarde/varve/compare/v0.2.15...v0.2.16) (2026-08-05)
+
+
+### Bug Fixes
+
+* **cli:** standing inside a memory is enough to find it ([81e568f](https://github.com/rambaarde/varve/commit/81e568f06a20b96c4e6597326e3b5869352e3d89))
+* **cli:** standing inside a memory is enough to find it ([#68](https://github.com/rambaarde/varve/issues/68)) ([9185b4d](https://github.com/rambaarde/varve/commit/9185b4d38104351c78c462cdefa3f1c8c2a0c03a))
+
 ## [0.2.15](https://github.com/rambaarde/varve/compare/v0.2.14...v0.2.15) (2026-08-05)
 
 
