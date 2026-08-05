@@ -18,7 +18,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { exists } from "./store.js";
-import { markdown, escape } from "./markdown.js";
+import { markdown, escape, inline } from "./markdown.js";
 import { tilde } from "./render.js";
 import { index, projectView, personView, search, age, readLogs, projectStandards, unfilled } from "./portal.js";
 import type { Hit, Log } from "./portal.js";
@@ -28,96 +28,230 @@ type ProjectView = NonNullable<Awaited<ReturnType<typeof projectView>>>;
 type PersonView = Awaited<ReturnType<typeof personView>>;
 type Active = { project?: string; who?: string; month?: string; company?: string; section?: string };
 
+/**
+ * Design: Obsidian's palette and type, a documentation site's structure.
+ *
+ * Obsidian because the store is a vault of markdown and the portal should not
+ * feel like a different product from the editor people already read it in.
+ * Documentation-site structure — sticky header with search, grouped sidebar,
+ * breadcrumbs, an on-this-page rail — because a memory with three hundred logs
+ * is a reference work, and reference works solved navigation long ago.
+ *
+ * This supersedes thesis §6.4.4 on two points, deliberately and on the author's
+ * instruction: cards and summary tiles are now allowed. What it keeps is what
+ * that section got right — three entry axes, counts in the rail, and
+ * decided-against as first-class colour that is never struck through.
+ */
 const CSS = `
-:root{--ink:#16150f;--soft:#55524a;--faint:#8a867c;--paper:#faf8f3;--paper2:#f2efe7;
---rule:#ddd8cc;--hard:#16150f;--declined:#8c3a2b;--risk:#9a6b12;
---mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
---prose:Iowan Old Style,Palatino,Georgia,serif}
-@media(prefers-color-scheme:dark){:root{--ink:#e8e4d9;--soft:#a6a196;--faint:#6f6a60;
---paper:#14130f;--paper2:#1c1a15;--rule:#2e2b23;--hard:#e8e4d9;--declined:#d97a63;--risk:#d8a53f}}
+:root{
+  color-scheme:light dark;
+  /* Achromatic by default. The only hues in the product are the two that carry
+     meaning — a rejected option and an open risk — so they read as information
+     rather than decoration. A brand colour on every surface is what makes a
+     reference work look like a landing page. */
+  --paper:#fdfdfc; --sunk:#f4f4f1; --ink:#101014; --ink-2:#3c3c44; --ink-3:#6b6b74;
+  --rule:#dcdcd7; --rule-2:#b9b9b2;
+  --declined:#8f3a20; --risk:#7a5a10;
+  --serif:"Iowan Old Style","Charter","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --measure:41rem; --side:15rem; --toc:13rem;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --paper:#101012; --sunk:#191a1d; --ink:#f0f0ed; --ink-2:#b8b8b4; --ink-3:#8a8a91;
+  --rule:#303036; --rule-2:#4a4a52;
+  --declined:#e0906c; --risk:#d4b05a;
+}}
+:root[data-theme=dark]{
+  --paper:#101012; --sunk:#191a1d; --ink:#f0f0ed; --ink-2:#b8b8b4; --ink-3:#8a8a91;
+  --rule:#303036; --rule-2:#4a4a52;
+  --declined:#e0906c; --risk:#d4b05a;
+}
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--prose);font-size:16px;line-height:1.6}
-a{color:inherit}
-.top{display:flex;gap:.8rem;align-items:baseline;flex-wrap:wrap;padding:.7rem 1.1rem;
-border-bottom:2px solid var(--hard);font-family:var(--mono);font-size:.74rem;color:var(--faint)}
-.top .brand{color:var(--ink);font-weight:700;letter-spacing:.05em;text-decoration:none}
-.top .right{margin-left:auto}
-.cols{display:grid;grid-template-columns:1fr}
-@media(min-width:52rem){.cols{grid-template-columns:14rem minmax(0,1fr)}}
-.rail{padding:1rem;font-family:var(--mono);font-size:.76rem;border-bottom:1px solid var(--rule)}
-@media(min-width:52rem){.rail{border-bottom:0;border-right:1px solid var(--rule);min-height:calc(100vh - 3rem)}}
-.rail h4{font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 .4rem;font-weight:600}
-.rail ul{list-style:none;margin:0 0 1.3rem;padding:0}
-.rail li{display:flex;justify-content:space-between;gap:1rem;padding:.12rem 0}
-.rail a{color:var(--soft);text-decoration:none;display:flex;justify-content:space-between;width:100%}
-.rail a:hover{color:var(--ink)}
-.rail .on a,.rail .on{color:var(--ink);font-weight:700}
-.rail .n{color:var(--faint);font-variant-numeric:tabular-nums}
-.pane{padding:1.2rem 1.4rem 3rem;min-width:0}
-.pane h1{font-size:1.5rem;margin:0 0 .1rem;font-weight:600}
-.sub{font-family:var(--mono);font-size:.74rem;color:var(--faint);margin:0 0 1.6rem}
-.bh{font-family:var(--mono);font-size:.67rem;letter-spacing:.15em;text-transform:uppercase;
-display:flex;align-items:baseline;gap:.8rem;margin:0 0 .45rem}
-.bh .cnt{margin-left:auto;color:var(--faint);font-variant-numeric:tabular-nums}
-hr.thin{border:0;border-top:1px solid var(--rule);margin:0 0 .8rem}
-hr.dbl{border:0;border-top:3px double var(--declined);margin:0 0 .8rem}
-.block{margin:0 0 2.1rem;max-width:38rem}
-.item{border-left:3px solid var(--declined);padding-left:.8rem;margin:0 0 .9rem}
-.item .what{font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--declined)}
-.item .by{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
-.risk{border-left:3px solid var(--risk);padding-left:.8rem;margin:0 0 .7rem;
-font-family:var(--mono);font-size:.8rem}
-.decision{border-left:3px solid var(--soft);padding-left:.8rem;margin:0 0 .9rem}
-.decision .what{font-family:var(--mono);font-size:.82rem;color:var(--ink)}
-.decision .by{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.78rem}
-td{padding:.3rem .8rem .3rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
-td.d,td.w,td.r{color:var(--faint);white-space:nowrap}
-td a{text-decoration:none}
-td a:hover{text-decoration:underline}
-.scroll{overflow-x:auto}
-form.q{display:flex;gap:.5rem;font-family:var(--mono);font-size:.8rem;margin:0 0 1.2rem}
-form.q input[type=search]{flex:1;min-width:0;background:var(--paper2);border:1px solid var(--rule);
-color:var(--ink);padding:.35rem .6rem;font:inherit}
-form.q button{background:none;border:1px solid var(--rule);color:var(--soft);padding:.35rem .7rem;font:inherit;cursor:pointer}
-.tabs{display:flex;gap:1.2rem;font-family:var(--mono);font-size:.76rem;
-margin:0 0 1.4rem;border-bottom:1px solid var(--rule);padding-bottom:.45rem}
-.tabs a{color:var(--faint);text-decoration:none;padding-bottom:.45rem;margin-bottom:-.5rem}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+
+/* ---------- masthead ---------- */
+.top{display:flex;align-items:baseline;gap:.8rem;padding:.9rem 1.3rem .7rem;
+border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:20;background:var(--paper)}
+.brand{font-family:var(--serif);font-size:1.12rem;letter-spacing:.01em;font-weight:600}
+.top .repo{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top .grow{flex:1}
+.qbox{position:relative;flex:0 0 auto;width:15rem;max-width:38vw}
+.qbox input{width:100%;font-family:var(--mono);font-size:.74rem;color:var(--ink);
+background:transparent;border:1px solid var(--rule-2);border-radius:2px;
+padding:.22rem 1.6rem .22rem .5rem}
+.qbox input::placeholder{color:var(--ink-3)}
+.qbox input:focus{outline:none;border-color:var(--ink)}
+.qbox kbd{position:absolute;right:.45rem;top:50%;transform:translateY(-50%);
+font-family:var(--mono);font-size:.64rem;color:var(--ink-3);pointer-events:none}
+.tgl{flex:none;background:none;border:0;color:var(--ink-3);cursor:pointer;
+font-family:var(--mono);font-size:.72rem;padding:.1rem .2rem}
+.tgl:hover{color:var(--ink)}
+
+/* ---------- frame ---------- */
+.frame{display:grid;grid-template-columns:1fr}
+@media(min-width:58rem){.frame{grid-template-columns:var(--side) minmax(0,1fr)}}
+@media(min-width:84rem){.frame{grid-template-columns:var(--side) minmax(0,1fr) var(--toc)}}
+
+/* ---------- contents rail ---------- */
+.side{padding:1.4rem 1.1rem 3rem;border-bottom:1px solid var(--rule)}
+@media(min-width:58rem){.side{border-bottom:0;border-right:1px solid var(--rule);
+position:sticky;top:3rem;height:calc(100vh - 3rem);overflow-y:auto}}
+.side h4{margin:1.9rem 0 .45rem;font-family:var(--sans);font-size:.72rem;font-weight:600;
+letter-spacing:.06em;color:var(--ink-3)}
+.side h4:first-child{margin-top:0}
+.side ul{list-style:none;margin:0;padding:0}
+.side li>a{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline;
+padding:.27rem .55rem;margin:0 0 0 -.55rem;border-radius:4px;
+font-size:.88rem;color:var(--ink-2)}
+.side li>a:hover{color:var(--ink);background:var(--sunk)}
+.side li.on>a{color:var(--ink);font-weight:600;background:var(--sunk)}
+.side li{position:relative}
+.side .n{font-family:var(--mono);font-size:.7rem;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.side .none{color:var(--ink-3);font-size:.8rem}
+
+/* ---------- article ---------- */
+.main{padding:2.1rem 1.4rem 6rem;min-width:0}
+@media(min-width:58rem){.main{padding:2.6rem 2.6rem 7rem}}
+.crumbs{font-family:var(--mono);font-size:.7rem;letter-spacing:.02em;
+color:var(--ink-3);margin:0 0 .9rem}
+.crumbs a:hover{color:var(--ink);border-bottom:1px solid var(--rule-2)}
+.crumbs .sl{padding:0 .35rem;color:var(--rule-2)}
+h1{font-family:var(--serif);font-size:2.15rem;line-height:1.14;letter-spacing:-.016em;
+font-weight:600;margin:0 0 .4rem}
+.lede{font-family:var(--mono);font-size:.74rem;color:var(--ink-3);
+margin:0 0 1.1rem;letter-spacing:.01em}
+
+/* ---------- page tabs ---------- */
+.tabs{display:flex;gap:1.5rem;margin:0 0 2.5rem;padding:0 0 .5rem;
+border-bottom:1px solid var(--rule);font-family:var(--sans);font-size:.86rem}
+.tabs a{color:var(--ink-3);padding-bottom:.5rem;margin-bottom:-.5rem;border-bottom:2px solid transparent}
 .tabs a:hover{color:var(--ink)}
-.tabs a.on{color:var(--ink);font-weight:700;border-bottom:2px solid var(--ink)}
-.log,.note{max-width:38rem}
-.auto{font-family:var(--mono);font-size:.76rem;color:var(--faint);max-width:38rem}
-.auto strong{color:var(--soft);font-weight:600}
-.note h1,.note h2{font-size:1.02rem;margin:1.3rem 0 .3rem;font-family:var(--mono);
-letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:600}
-.note li{margin:.15rem 0}
-.log h2,.log h3{font-size:1.05rem;margin:1.4rem 0 .3rem}
-.log pre{background:var(--paper2);padding:.7rem .9rem;overflow-x:auto;font-size:.8rem}
-.log code{font-family:var(--mono);font-size:.86em}
-.empty{font-family:var(--mono);font-size:.78rem;color:var(--faint)}
+.tabs a.on{color:var(--ink);border-bottom-color:var(--ink)}
+
+/* ---------- facts: a definition row, not tiles ---------- */
+.facts{display:flex;flex-wrap:wrap;gap:1rem 3rem;margin:0 0 2.4rem}
+.facts div{min-width:0}
+.facts dt{font-family:var(--sans);font-size:.74rem;color:var(--ink-3);margin:0 0 .1rem}
+.facts dd{margin:0;font-family:var(--sans);font-size:1.05rem;line-height:1.3;
+color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.facts .of{display:block;font-family:var(--mono);font-size:.72rem;font-weight:400;
+line-height:1.5;color:var(--ink-3);margin-top:.15rem;max-width:14rem}
+
+/* ---------- handoff: a rule and a hanging label, no fill ---------- */
+.callout{margin:0 0 2.5rem;padding:.9rem 1.1rem;background:var(--sunk);border-radius:6px}
+.callout .ct{display:flex;align-items:baseline;gap:.7rem;font-family:var(--sans);
+font-size:.8rem;font-weight:650;color:var(--ink);margin:0 0 .35rem}
+.callout .cw{margin-left:auto;font-weight:400;color:var(--ink-3);letter-spacing:.01em}
+.callout .prose{font-family:var(--serif);font-size:1.06rem;line-height:1.5}
+.callout p{margin:0}
+
+/* ---------- sections ---------- */
+.sec{margin:0 0 2.6rem;scroll-margin-top:4.5rem}
+.sec>h2{display:flex;align-items:baseline;gap:.8rem;font-family:var(--sans);
+font-size:1rem;font-weight:600;letter-spacing:-.006em;color:var(--ink);
+margin:0 0 .85rem;padding-bottom:.45rem;border-bottom:1px solid var(--rule)}
+.sec>h2 .cnt{margin-left:auto;font-family:var(--mono);font-size:.7rem;font-weight:400;
+letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+/* ---------- reading column ---------- */
+.prose{max-width:var(--measure);font-family:var(--serif);font-size:1.02rem;line-height:1.62}
+.prose h1,.prose h2{font-family:var(--sans);font-size:.94rem;font-weight:650;
+color:var(--ink);margin:1.7rem 0 .45rem;letter-spacing:-.002em}
+.prose h3,.prose h4{font-family:var(--sans);font-size:.88rem;font-weight:600;
+color:var(--ink-2);margin:1.2rem 0 .25rem}
+.prose p{margin:.6rem 0}
+.prose ul,.prose ol{margin:.55rem 0;padding-left:1.1rem}
+.prose li{margin:.28rem 0}
+.prose li::marker{color:var(--ink-3)}
+.prose strong{font-weight:650}
+.prose code,.prose pre{font-family:var(--mono);font-size:.84em}
+.prose code{background:var(--sunk);padding:.06em .3em}
+.prose pre{background:var(--sunk);border:1px solid var(--rule);padding:.8rem 1rem;overflow-x:auto}
+.prose pre code{background:none;padding:0}
+.prose blockquote{margin:.8rem 0;padding-left:.9rem;border-left:2px solid var(--rule-2);color:var(--ink-2)}
+.prose hr{border:0;border-top:1px solid var(--rule);margin:1.6rem 0}
+.prose a{border-bottom:1px solid var(--rule-2)}
+.prose a:hover{border-bottom-color:var(--ink)}
+
+/* ---------- rows ---------- */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+td{padding:.5rem .9rem .5rem 0;border-bottom:1px solid var(--rule);vertical-align:baseline}
+tr:last-child td{border-bottom:0}
+td.d,td.w,td.r{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);white-space:nowrap}
+td.w{color:var(--ink-2)}
+td.sum{width:100%;font-family:var(--serif);font-size:.99rem;line-height:1.45;padding-right:0}
+td.sum a{border-bottom:1px solid transparent}
+tr:hover td.sum a{border-bottom-color:var(--rule-2)}
+td.sum strong{font-weight:650}
+td.sum code{font-family:var(--mono);font-size:.82em;background:var(--sunk);padding:.05em .28em}
+.flag{color:var(--declined);margin-right:.4rem;font-family:var(--mono)}
+
+/* ---------- contents of this page ---------- */
+.toc{display:none}
+@media(min-width:84rem){.toc{display:block;padding:2.6rem 1.4rem 4rem;
+position:sticky;top:3rem;height:calc(100vh - 3rem);overflow-y:auto}}
+.toc h5{margin:0 0 .55rem;font-family:var(--sans);font-size:.72rem;font-weight:600;
+letter-spacing:.06em;color:var(--ink-3)}
+.toc ul{list-style:none;margin:0;padding:0}
+.toc a{display:block;padding:.24rem 0;font-size:.85rem;color:var(--ink-2)}
+.toc a:hover{color:var(--ink)}
+
+.empty{font-family:var(--serif);font-size:1rem;color:var(--ink-2);margin:.2rem 0;max-width:var(--measure)}
+.empty code{font-family:var(--mono);font-size:.82em;background:var(--sunk);padding:.06em .3em}
 `;
+
+/** Theme choice persists; the default follows the operating system. */
+const THEME_JS = `(function(){var r=document.documentElement,K="varve-theme";
+try{var s=localStorage.getItem(K);if(s)r.setAttribute("data-theme",s)}catch(e){}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-tgl]");if(!b)return;
+  var cur=r.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");
+  var next=cur==="dark"?"light":"dark";r.setAttribute("data-theme",next);
+  try{localStorage.setItem(K,next)}catch(e2){}});
+document.addEventListener("keydown",function(e){
+  var q=document.getElementById("q");if(!q)return;
+  if(e.key==="/"&&!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){e.preventDefault();q.focus();q.select()}
+  if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();q.focus();q.select()}});})();`;
 
 const page = (title: string, body: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escape(title)} · varve</title><style>${CSS}</style></head><body>${body}</body></html>`;
+<title>${escape(title)} · varve</title><style>${CSS}</style></head><body>${body}<script>${THEME_JS}</script></body></html>`;
 
 const link = (href: string, text: string): string => `<a href="${escape(href)}">${escape(text)}</a>`;
+
+/** A heading that the on-this-page rail can point at. */
+interface Anchor { id: string; label: string }
+const slug = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function section(label: string, count: string, inner: string, anchors?: Anchor[]): string {
+  const id = slug(label);
+  anchors?.push({ id, label });
+  return `<section class="sec" id="${id}">
+    <h2>${escape(label)}${count ? `<span class="cnt">${escape(count)}</span>` : ""}</h2>
+    ${inner}
+  </section>`;
+}
 
 function rail(idx: Index, active: Active = {}): string {
   const group = (label: string, entries: Record<string, number>, prefix: string, key: keyof Active): string => {
     const rows = Object.entries(entries).sort(([a], [b]) => a.localeCompare(b));
-    if (!rows.length) return `<h4>${label}</h4><ul><li class="n">none yet</li></ul>`;
+    if (!rows.length) return `<h4>${label}</h4><ul><li><span class="none">none yet</span></li></ul>`;
     return `<h4>${label}</h4><ul>${rows
-      .map(([name, n]) => `<li class="${active[key] === name ? "on" : ""}">${
-        link(`${prefix}${encodeURIComponent(name)}`, name)
-      }<span class="n">${n}</span></li>`)
+      .map(([name, n]) => `<li class="${active[key] === name ? "on" : ""}">
+        <a href="${prefix}${encodeURIComponent(name)}">${escape(name)}<span class="n">${n}</span></a></li>`)
       .join("")}</ul>`;
   };
-  return `<nav class="rail">
+  return `<nav class="side">
     <h4>Company</h4>
     <ul>
-      <li class="${active.company === "_company" ? "on" : ""}">${link("/c/_company", "context")}</li>
-      <li class="${active.company === "_standards" ? "on" : ""}">${link("/c/_standards", "standards")}</li>
+      <li class="${active.company === "_company" ? "on" : ""}"><a href="/c/_company">context</a></li>
+      <li class="${active.company === "_standards" ? "on" : ""}"><a href="/c/_standards">standards</a></li>
     </ul>
     ${group("Projects", idx.projects, "/p/", "project")}
     ${group("People", idx.people, "/who/", "who")}
@@ -125,76 +259,122 @@ function rail(idx: Index, active: Active = {}): string {
   </nav>`;
 }
 
-const shell = (memory: string, clone: string, idx: Index, active: Active, title: string, inner: string): string => page(title, `
-  <div class="top">
-    <a class="brand" href="/">varve</a><span>· ${escape(basename(memory))}</span>
-    <span class="right">${escape(tilde(memory))} · pulled ${escape(clone)}</span>
-  </div>
-  <div class="cols">${rail(idx, active)}<div class="pane">${inner}</div></div>`);
+const crumbs = (trail: [string, string | null][]): string =>
+  `<nav class="crumbs">${trail
+    .map(([label, href], i) =>
+      `${i ? '<span class="sl">/</span>' : ""}${href ? link(href, label) : `<span>${escape(label)}</span>`}`)
+    .join("")}</nav>`;
+
+const shell = (
+  memory: string, clone: string, idx: Index, active: Active,
+  title: string, inner: string, anchors: Anchor[] = [],
+): string => page(title, `
+  <header class="top">
+    <a class="brand" href="/"><span class="mark"></span>varve</a>
+    <span class="sep">/</span>
+    <span class="repo">${escape(basename(memory))} · pulled ${escape(clone)}</span>
+    <span class="grow"></span>
+    <form class="qbox" method="get" action="/search" role="search">
+      <input id="q" type="search" name="q" placeholder="Search…" aria-label="Search">
+      <kbd>/</kbd>
+    </form>
+    <button class="tgl" data-tgl type="button" title="Light or dark" aria-label="Toggle theme">◐</button>
+  </header>
+  <div class="frame">
+    ${rail(idx, active)}
+    <main class="main">${inner}</main>
+    ${anchors.length
+      ? `<aside class="toc"><h5>On this page</h5><ul>${anchors
+          .map((a) => `<li><a href="#${a.id}">${escape(a.label)}</a></li>`).join("")}</ul></aside>`
+      : `<aside class="toc"></aside>`}
+  </div>`);
 
 /** Project-scoped nav. On the page, not the rail — so moving between people and
  *  projects never reflows the sidebar. */
 const tabs = (project: string, on: "overview" | "standards", hasStandards: boolean): string =>
   `<nav class="tabs">
-    <a class="${on === "overview" ? "on" : ""}" href="/p/${encodeURIComponent(project)}">overview</a>
-    ${hasStandards ? `<a class="${on === "standards" ? "on" : ""}" href="/s/${encodeURIComponent(project)}">standards</a>` : ""}
-    <a href="/search?project=${encodeURIComponent(project)}">search</a>
+    <a class="${on === "overview" ? "on" : ""}" href="/p/${encodeURIComponent(project)}">Overview</a>
+    ${hasStandards ? `<a class="${on === "standards" ? "on" : ""}" href="/s/${encodeURIComponent(project)}">Standards</a>` : ""}
+    <a href="/search?project=${encodeURIComponent(project)}">Search</a>
   </nav>`;
 
-const searchForm = (q = "", scope = ""): string => `<form class="q" method="get" action="/search">
-  <input type="search" name="q" value="${escape(q)}" placeholder="search…" autofocus>
-  ${scope ? `<input type="hidden" name="project" value="${escape(scope)}">` : ""}
-  <button type="submit">search</button>
-  ${scope ? `<button type="submit" name="all" value="1">all projects</button>` : ""}
-</form>`;
+/** A fact, stated. Tiles turn three numbers into a dashboard; a definition row
+ *  states them and gets out of the way. */
+const fact = (k: string, v: string, s = ""): string =>
+  `<div><dt>${escape(k)}</dt><dd>${escape(v)}${
+    s ? `<span class="of">${escape(s)}</span>` : ""}</dd></div>`;
+
+/** First written line of a log, with its inline markdown intact.
+ *
+ *  This used to go through escape(), so a summary containing **Deploy after
+ *  atlas-api** rendered the asterisks literally — the one place in the portal
+ *  where markdown was shown as source rather than as text. */
+const firstLine = (l: Log): string => {
+  const raw = l.summary.split("\n").find((x) => x.trim())?.replace(/^#+\s*/, "").trim();
+  if (!raw) return escape(l.id);
+  return inline(raw.length > 130 ? `${raw.slice(0, 130)}…` : raw);
+};
 
 const logRows = (logs: Log[], showProject = false): string => logs.length
   ? `<div class="scroll"><table>${logs.map((l) => `<tr>
       <td class="d">${escape(l.date)}</td>
       <td class="w">${escape(l.who)}</td>
       <td class="r">${escape(showProject ? l.project : (l.repos[0] ?? ""))}</td>
-      <td>${link(`/log/${encodeURIComponent(l.rel)}`, l.summary.split("\n").find((x) => x.trim())?.replace(/^#+\s*/, "").slice(0, 90) || l.id)}</td>
+      <td class="sum"><a href="/log/${escape(encodeURIComponent(l.rel))}">${firstLine(l)}</a></td>
     </tr>`).join("")}</table></div>`
-  : `<p class="empty">no logs yet — run varve-publish at the end of a session</p>`;
+  : `<p class="empty">No logs yet — run <code>varve-publish</code> at the end of a session.</p>`;
+
+/** Rendered page plus the headings its on-this-page rail should point at. */
+interface Rendered { html: string; anchors: Anchor[] }
 
 /** Project page. Order is urgency of not knowing, not recency. */
-function renderProject(v: ProjectView): string {
-  return `<h1>${escape(v.title)}</h1>
-  <p class="sub">repos[${v.repos.length}] ${escape(v.repos.join(", ") || "none linked")}${
-    v.teams.length ? ` · teams[${v.teams.length}] ${escape(v.teams.join(", "))}` : ""
-  } · ${v.count} log${v.count === 1 ? "" : "s"}</p>
+function renderProject(v: ProjectView): Rendered {
+  const a: Anchor[] = [];
+  const html = `${crumbs([["Projects", null], [v.title, null]])}
+  <h1>${escape(v.title)}</h1>
+  <p class="lede">${v.repos.length} repo${v.repos.length === 1 ? "" : "s"} · ${
+    v.teams.length ? `${v.teams.length} team${v.teams.length === 1 ? "" : "s"} · ` : ""
+  }${v.count} log${v.count === 1 ? "" : "s"}${v.superseded ? ` · ${v.superseded} superseded` : ""}</p>
   ${tabs(v.project, "overview", v.hasStandards)}
-  ${searchForm("", v.project)}
-  ${v.handoff ? `<div class="bh"><span>Handoff</span><span class="cnt">${
-    escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")
-  }</span></div><hr class="thin"><div class="block">${markdown(v.handoff)}</div>` : ""}
-  ${v.note
-      ? `<div class="bh"><span>Project note</span><span class="cnt">curated</span></div>
-  <hr class="thin"><div class="block note">${markdown(v.note)}</div>`
-      // Naming the file beats hiding the section: the reader learns the note is
-      // a file someone can write, not a feature that is missing.
-      : `<div class="bh"><span>Project note</span><span class="cnt">not written</span></div>
-  <hr class="thin"><div class="block note"><p class="empty">Nobody has written one yet — it lives in <code>${
-    escape(v.project)
-  }/_project.md</code>. The logs below are still the record either way.</p></div>`}
-  <div class="bh"><span>Recent</span><span class="cnt">${v.count} log${v.count === 1 ? "" : "s"}${
-    v.superseded ? ` · ${v.superseded} superseded` : ""
-  }</span></div>
-  <hr class="thin">${logRows(v.logs)}`;
+  <dl class="facts">
+    ${fact("Repos", String(v.repos.length), v.repos.join(", ") || "none linked")}
+    ${fact("Logs", String(v.count), v.superseded ? `· ${v.superseded} superseded` : "")}
+    ${fact("Teams", String(v.teams.length || 0), v.teams.join(", ") || "devs")}
+  </dl>
+  ${v.handoff
+      ? (a.push({ id: "handoff", label: "Handoff" }), `<div class="callout" id="handoff" style="scroll-margin-top:4.5rem">
+          <div class="ct">Handoff<span class="cw">${
+            escape(v.handoffBy ? `${v.handoffBy.who} · ${v.handoffBy.date}` : "")}</span></div>
+          <div class="prose">${markdown(v.handoff)}</div>
+        </div>`)
+      : ""}
+  ${section("Project note", v.note ? "curated" : "not written",
+      v.note
+        ? `<div class="prose">${markdown(v.note)}</div>`
+        : `<p class="empty">Nobody has written one yet — it lives in <code>${
+            escape(v.project)}/_project.md</code>. The logs below are the record either way.</p>`, a)}
+  ${section("Recent", `${v.count} log${v.count === 1 ? "" : "s"}${
+      v.superseded ? ` · ${v.superseded} superseded` : ""}`, logRows(v.logs), a)}`;
+  return { html, anchors: a };
 }
 
-function renderPerson(v: PersonView): string {
-  return `<h1>${escape(v.who)}</h1>
-  <p class="sub">projects[${v.projects.length}] ${escape(v.projects.join(", ") || "none")} · ${v.count} log${v.count === 1 ? "" : "s"}</p>
-  ${v.profile
-      ? `<div class="bh"><span>Profile</span><span class="cnt">curated</span></div>
-  <hr class="thin"><div class="block note">${markdown(v.profile)}</div>`
-      : `<div class="bh"><span>Profile</span><span class="cnt">not written</span></div>
-  <hr class="thin"><div class="block note"><p class="empty">Not written yet — it lives in <code>_team/_${
-    escape(v.who)
-  }/_profile.md</code>. The logs below are the record either way.</p></div>`}
-  <div class="bh"><span>Logs</span><span class="cnt">${v.count}</span></div>
-  <hr class="thin">${logRows(v.logs, true)}`;
+function renderPerson(v: PersonView): Rendered {
+  const a: Anchor[] = [];
+  const html = `${crumbs([["People", null], [v.who, null]])}
+  <h1>${escape(v.who)}</h1>
+  <p class="lede">${v.projects.length} project${v.projects.length === 1 ? "" : "s"} · ${
+    v.count} log${v.count === 1 ? "" : "s"}</p>
+  <dl class="facts">
+    ${fact("Logs", String(v.count))}
+    ${fact("Projects", String(v.projects.length), v.projects.join(", ") || "none")}
+  </dl>
+  ${section("Profile", v.profile ? "curated" : "not written",
+      v.profile
+        ? `<div class="prose">${markdown(v.profile)}</div>`
+        : `<p class="empty">Not written yet — it lives in <code>_team/_${
+            escape(v.who)}/_profile.md</code>. The logs below are the record either way.</p>`, a)}
+  ${section("Logs", String(v.count), logRows(v.logs, true), a)}`;
+  return { html, anchors: a };
 }
 
 /** At most this many lines from any one session, then this many rows overall. */
@@ -218,25 +398,29 @@ function renderSearch(q: string, hits: Hit[], scope: string, all: boolean): stri
   const shown = spread.slice(0, MAX_ROWS);
   const sessions = perLog.size;
 
-  return `<h1>search</h1>
-  <p class="sub">${escape(q ? `“${q}”` : "")} · scope: ${escape(all ? "all projects" : scope || "all projects")} · ${hits.length} hit${hits.length === 1 ? "" : "s"}${
-    hits.length ? ` across ${sessions} session${sessions === 1 ? "" : "s"}` : ""
-  }</p>
-  ${searchForm(q, scope)}
+  return `${crumbs([["Search", null], [q || "all", null]])}
+  <h1>${q ? escape(q) : "Search"}</h1>
+  <p class="lede">${escape(all ? "all projects" : scope || "all projects")} · ${
+    hits.length} hit${hits.length === 1 ? "" : "s"}${
+    hits.length ? ` across ${sessions} session${sessions === 1 ? "" : "s"}` : ""}</p>
+  <form class="qbox" method="get" action="/search" style="max-width:30rem;margin:0 0 1.6rem">
+    <input type="search" name="q" value="${escape(q)}" placeholder="Search the memory…" autofocus>
+    ${scope ? `<input type="hidden" name="project" value="${escape(scope)}">` : ""}
+  </form>
   ${hits.length
     ? `${shown.length < hits.length
         // Never truncate silently: a list that stops without saying so reads as
         // the whole answer.
-        ? `<p class="empty">showing ${shown.length} of ${hits.length} — at most ${PER_LOG} per session${
+        ? `<p class="empty">Showing ${shown.length} of ${hits.length} — at most ${PER_LOG} per session${
             spread.length > MAX_ROWS ? `, first ${MAX_ROWS} sessions` : ""
           }. Narrow the search, or open a session to read it whole.</p>`
         : ""}
       <div class="scroll"><table>${shown.map((h) => `<tr>
         <td class="d">${escape(h.date)}</td><td class="w">${escape(h.who)}</td>
-        <td class="r">${escape(h.repo)}</td>
-        <td>${h.against ? '<span style="color:var(--declined);font-weight:700">▌</span> ' : ""}${
-          link(`/log/${encodeURIComponent(h.rel)}`, h.line.slice(0, 110))}</td></tr>`).join("")}</table></div>`
-    : q ? `<p class="empty">no hits for “${escape(q)}”</p>` : ""}`;
+        <td class="r">${escape(h.project)}</td>
+        <td class="sum">${h.against ? '<span class="flag">▌</span>' : ""}<a href="/log/${
+          escape(encodeURIComponent(h.rel))}">${inline(h.line.slice(0, 130))}</a></td></tr>`).join("")}</table></div>`
+    : q ? `<p class="empty">No hits for “${escape(q)}”.</p>` : ""}`;
 }
 
 /**
@@ -265,14 +449,16 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
         const name = decodeURIComponent(project[1] as string);
         const v = await projectView(memory, name);
         if (!v) return send(shell(memory, clone, idx, {}, name, `<h1>${escape(name)}</h1><p class="empty">no such project</p>`), 404);
-        return send(shell(memory, clone, idx, { project: name }, v.title, renderProject(v)));
+        const r = renderProject(v);
+        return send(shell(memory, clone, idx, { project: name }, v.title, r.html, r.anchors));
       }
 
       const person = url.pathname.match(/^\/who\/(.+)$/);
       if (person) {
         const who = decodeURIComponent(person[1] as string);
         const v = await personView(memory, who);
-        return send(shell(memory, clone, idx, { who }, who, renderPerson(v)));
+        const r = renderPerson(v);
+        return send(shell(memory, clone, idx, { who }, who, r.html, r.anchors));
       }
 
       const month = url.pathname.match(/^\/t\/(.+)$/);
@@ -351,15 +537,25 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
         const names = Object.keys(idx.projects);
         if (names.length === 1) {
           const v = (await projectView(memory, names[0] as string)) as ProjectView;
-          return send(shell(memory, clone, idx, { project: names[0] as string }, v.title, renderProject(v)));
+          const r = renderProject(v);
+          return send(shell(memory, clone, idx, { project: names[0] as string }, v.title, r.html, r.anchors));
         }
+        const people = Object.keys(idx.people).length;
         return send(shell(memory, clone, idx, {}, basename(memory), `
+          ${crumbs([[basename(memory), null]])}
           <h1>${escape(basename(memory))}</h1>
-          <p class="sub">projects[${names.length}] · ${idx.total} log${idx.total === 1 ? "" : "s"}</p>
-          ${searchForm()}
-          ${names.length
-            ? `<div class="scroll"><table>${names.map((n) => `<tr><td>${link(`/p/${encodeURIComponent(n)}`, n)}</td><td class="d">${idx.projects[n]} log${idx.projects[n] === 1 ? "" : "s"}</td></tr>`).join("")}</table></div>`
-            : '<p class="empty">no projects yet — run varve add &lt;project&gt; &lt;repo-dir&gt;</p>'}`));
+          <p class="lede">the company memory · ${names.length} project${names.length === 1 ? "" : "s"} · ${
+            people} ${people === 1 ? "person" : "people"} · ${idx.total} log${idx.total === 1 ? "" : "s"}</p>
+          <dl class="facts">
+            ${fact("Projects", String(names.length), names.join(", ") || "none yet")}
+            ${fact("People", String(people), Object.keys(idx.people).join(", ") || "none yet")}
+            ${fact("Logs", String(idx.total))}
+          </dl>
+          ${section("Projects", `${names.length}`, names.length
+            ? `<div class="scroll"><table>${names.map((n) => `<tr>
+                <td class="sum"><a href="/p/${escape(encodeURIComponent(n))}">${escape(n)}</a></td>
+                <td class="d">${idx.projects[n]} log${idx.projects[n] === 1 ? "" : "s"}</td></tr>`).join("")}</table></div>`
+            : `<p class="empty">No projects yet — run <code>varve add &lt;project&gt; &lt;repo-dir&gt;</code>.</p>`)}`));
       }
 
       send(shell(memory, clone, idx, {}, "not found", '<p class="empty">not found</p>'), 404);

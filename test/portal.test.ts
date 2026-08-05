@@ -184,7 +184,7 @@ test("the portal serves every axis", async () => {
     assert.ok(!/text-decoration:\s*line-through/.test(project.body),
       "a live constraint must never render as struck through");
 
-    assert.match((await get("/who/alice")).body, /projects\[2\]/);
+    assert.match((await get("/who/alice")).body, /2 projects/);
     assert.match((await get("/t/2026-08")).body, /2026-08/);
     assert.match((await get("/search?q=cache&all=1")).body, /hit/);
     assert.equal((await get("/p/nope")).status, 404);
@@ -388,7 +388,7 @@ test("the rail is identical on every page — only the highlight moves", async (
   try {
     const railOf = async (path: string) => {
       const html = await (await fetch(url + path)).text();
-      const rail = html.match(/<nav class="rail">[\s\S]*?<\/nav>/)?.[0] ?? "";
+      const rail = html.match(/<nav class="side">[\s\S]*?<\/nav>/)?.[0] ?? "";
       // The active-highlight class is the only thing allowed to differ.
       return rail.replace(/class="(on)?"/g, "").replace(/\s+/g, " ");
     };
@@ -557,7 +557,7 @@ test("a search page stays readable when the memory is real-sized", async () => {
     assert.ok(page.length < 400_000, `page was ${(page.length / 1024).toFixed(0)}kb — too heavy to render`);
     // Bounded is not the same as honest: a list that stops without saying so
     // reads as the whole answer.
-    assert.match(page, /showing \d+ of \d+/, "it must say what it dropped");
+    assert.match(page, /showing \d+ of \d+/i, "it must say what it dropped");
     assert.match(page, /per session/, "and why");
   } finally {
     server.close();
