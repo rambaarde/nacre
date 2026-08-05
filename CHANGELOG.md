@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0](https://github.com/rambaarde/varve/compare/v0.3.0...v0.4.0) (2026-08-05)
+
+
+### Features
+
+* **agents:** install for every agent on the machine, and serve MCP ([38ec865](https://github.com/rambaarde/varve/commit/38ec8652ae9f52e05ec56aef67a368afe4d0ae0f))
+* **agents:** install for every agent on the machine, and serve MCP ([8e7b017](https://github.com/rambaarde/varve/commit/8e7b0172c26ee2a3b8954b0bc55b5002b7e63ed7))
+* **cli:** varve brief, and a note that tells any agent to run it ([c2e7229](https://github.com/rambaarde/varve/commit/c2e7229292792ba3dd4a77a8a40c1e3830debbc9))
+* **cli:** varve brief, and a note that tells any agent to run it ([4594649](https://github.com/rambaarde/varve/commit/45946497c1c141ddfe8d37a372a0b46c9814ce96))
+
 ## [0.3.0](https://github.com/rambaarde/varve/compare/v0.2.16...v0.3.0) (2026-08-05)
 
 
