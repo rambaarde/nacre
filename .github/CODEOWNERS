@@ -1,0 +1,8 @@
+# Every path, one owner. With "require review from Code Owners" on main, this is
+# what stops a contributor merging their own pull request: GitHub will not accept
+# their self-approval, and nobody else can approve on the owner's behalf.
+#
+# The repository owner is an admin, and admin enforcement is deliberately OFF on
+# main, so the owner can still merge without a second reviewer. On a
+# single-maintainer repo the alternative is a branch nothing can ever land on.
+* @rambaarde
