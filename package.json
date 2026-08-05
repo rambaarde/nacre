@@ -1,6 +1,6 @@
 {
   "name": "varve-cli",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "One context memory for a whole company — every project, every repo. Plain Markdown in git; agents and people read the same files.",
   "keywords": [
     "ai-memory",
