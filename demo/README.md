@@ -19,9 +19,15 @@ the skill spends its output explaining a failed pull.
 ## Reproducing
 
 ```sh
-vhs session.tape                                   # ~9 minutes, two API calls
-ffmpeg -i session.mp4 -filter:v "setpts=PTS/13" -an fast.mp4
-bash ../../vitrine/scripts/optimize.sh fast.mp4 demo-session.gif 9 900
+vhs session.tape                                   # ~12 minutes, four API calls
+
+# Drop frames where the screen never changed, THEN speed up gently.
+# A spinner running for 90s collapses to nothing; text that appears keeps its
+# reading pace. Uniform speed-up does not work — it compresses the readable
+# output at exactly the same rate as the dead time. 710s -> 88s -> 70s.
+ffmpeg -i session.mp4 -vf "mpdecimate=hi=64*32:lo=64*6:frac=0.002,setpts=N/FRAME_RATE/TB" -an cut.mp4
+ffmpeg -i cut.mp4 -filter:v "setpts=PTS/1.25" -an fast.mp4
+bash ../../vitrine/scripts/optimize.sh fast.mp4 demo-session.gif 6 820
 
 varve serve --port 4174                            # in another shell
 node ../../vitrine/scripts/capture_web.mjs steps.web.json out
