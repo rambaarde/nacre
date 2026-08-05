@@ -13,13 +13,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, rm, access } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 
-import {
-  frontmatter, setFrontmatterKey, repoName, resolveBinding,
-  readRoster, addToRoster, listProjects, logStats, discoverStores,
-} from "../src/store.js";
+import { frontmatter, setFrontmatterKey, repoName, resolveBinding, readRoster, addToRoster, listProjects, logStats, discoverStores, AGENTS } from "../src/store.js";
 import { initStore, addProject, linkRepo, status } from "../src/operations.js";
 
 /** Run a body with HOME pointed at a fresh directory, then clean up. */
@@ -574,4 +571,38 @@ test("standing inside a memory is enough to find it", async () => {
     const outside = await resolveStoreDir();
     assert.notEqual(outside, buried, "standing outside must not reach into a memory");
   });
+});
+
+test("frontmatter reads a folded block scalar, not the '>' marker", () => {
+  // Every skill this project ships uses `description: >`. Reading only the
+  // first line made the description the literal ">", which is the text Cursor
+  // shows a user when deciding whether to run the command.
+  const fm = frontmatter(`---\nname: varve-load\ndescription: >\n  Read the store.\n  Report what the team decided.\nother: plain\n---\n`);
+  assert.equal(fm.description, "Read the store. Report what the team decided.");
+  assert.equal(fm.name, "varve-load");
+  assert.equal(fm.other, "plain");
+});
+
+test("frontmatter keeps line breaks in a literal block scalar", () => {
+  const fm = frontmatter(`---\nbody: |\n  one\n  two\n---\n`);
+  assert.equal(fm.body, "one\ntwo");
+});
+
+test("every known agent installs, in its own format", async () => {
+  const home = await mkdtemp(join(tmpdir(), "varve-agents-"));
+  for (const d of Object.values(AGENTS)) await mkdir(d.home.replace(homedir(), home), { recursive: true });
+  const prev = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    // AGENTS resolved its paths at import time against the real home, so drive
+    // installSkills directly rather than trusting a re-read of the env.
+    assert.ok(Object.keys(AGENTS).length >= 5, "the agent table lost rows");
+    for (const [name, target] of Object.entries(AGENTS)) {
+      assert.ok(target.label, `${name} needs a label`);
+      assert.ok(["skill", "rule"].includes(target.layout), `${name} has an unknown layout`);
+      assert.ok(target.dir.startsWith(target.home), `${name}: dir must sit under home`);
+    }
+  } finally {
+    process.env.HOME = prev;
+  }
 });

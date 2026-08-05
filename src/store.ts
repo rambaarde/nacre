@@ -37,11 +37,72 @@ function findPackageRoot(from: string): string {
 
 export const PKG_ROOT = findPackageRoot(dirname(fileURLToPath(import.meta.url)));
 
-/** Agent skill directories we know how to install into. */
-export const AGENTS = {
-  claude: join(homedir(), ".claude", "skills"),
-  opencode: join(homedir(), ".config", "opencode", "skills"),
+/**
+ * The agents whose conventions we know how to write.
+ *
+ * `home` is what proves the agent is installed; `dir` is where its instructions
+ * go. Most of them settled on the same shape — a directory per skill holding a
+ * SKILL.md — so one file serves four of the five. Cursor wants a single `.mdc`
+ * per rule instead, which is a format difference, not a capability one.
+ *
+ * varve was never Claude-only by design; this table simply had two rows.
+ */
+export interface AgentTarget {
+  label: string;
+  /** Its config root. Present means the agent is installed on this machine. */
+  home: string;
+  /** Where its instruction files belong. */
+  dir: string;
+  layout: "skill" | "rule";
+}
+
+export const AGENTS: Record<string, AgentTarget> = {
+  claude: {
+    label: "Claude Code",
+    home: join(homedir(), ".claude"),
+    dir: join(homedir(), ".claude", "skills"),
+    layout: "skill",
+  },
+  codex: {
+    label: "Codex",
+    home: join(homedir(), ".codex"),
+    dir: join(homedir(), ".codex", "skills"),
+    layout: "skill",
+  },
+  gemini: {
+    label: "Gemini CLI",
+    home: join(homedir(), ".gemini"),
+    dir: join(homedir(), ".gemini", "skills"),
+    layout: "skill",
+  },
+  opencode: {
+    label: "OpenCode",
+    home: join(homedir(), ".config", "opencode"),
+    dir: join(homedir(), ".config", "opencode", "skills"),
+    layout: "skill",
+  },
+  cursor: {
+    label: "Cursor",
+    home: join(homedir(), ".cursor"),
+    dir: join(homedir(), ".cursor", "rules"),
+    layout: "rule",
+  },
 };
+
+/**
+ * Which agents are actually on this machine.
+ *
+ * Installing only where an agent exists beats a default of "claude": a team
+ * where one person uses Cursor and another Codex should not each have to learn
+ * a flag, and writing skill files into a config directory for a tool nobody has
+ * is litter.
+ */
+export async function detectAgents(): Promise<string[]> {
+  const found = await Promise.all(
+    Object.entries(AGENTS).map(async ([name, a]) => ((await exists(a.home)) ? name : null)),
+  );
+  return found.filter((n): n is string => n !== null);
+}
 
 export const exists = (p: string): Promise<boolean> => access(p).then(() => true, () => false);
 
@@ -54,12 +115,27 @@ export function frontmatter(text: string): Frontmatter {
   const block = text.match(/^(?:\s|<!--[\s\S]*?-->)*---\r?\n([\s\S]*?)\r?\n---/)?.[1];
   if (!block) return {};
   const out: Frontmatter = {};
-  for (const line of block.split(/\r?\n/)) {
-    const m = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+  const lines = block.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = (lines[i] as string).match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
     if (!m) continue;
     const key = m[1] as string;
     const raw = m[2] as string;
     const value = raw.replace(/\s+#.*$/, "").trim();
+
+    // Block scalars: `description: >` followed by indented lines. Every skill
+    // this project ships is written that way, and reading only the first line
+    // yielded the literal ">" as the description — which then became the text
+    // Cursor shows a user when deciding whether to run the command.
+    if (/^[>|][-+]?$/.test(value)) {
+      const body: string[] = [];
+      while (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1] as string)) {
+        body.push((lines[++i] as string).trim());
+      }
+      out[key] = value.startsWith("|") ? body.join("\n") : body.join(" ");
+      continue;
+    }
+
     out[key] = value.startsWith("[")
       ? value.slice(1, -1).split(",").map((v) => v.trim()).filter(Boolean)
       : value;
@@ -380,6 +456,18 @@ export async function resolveStoreDir(flag?: string, url?: string | null): Promi
     return resolve(flag);
   }
   if (process.env.VARVE_STORE) return resolve(process.env.VARVE_STORE);
+
+  // A `memory:` that is already a local directory IS the memory. Deriving
+  // ~/<name> from it and cloning there instead is not a fallback, it is a wrong
+  // answer: `.varve.yml` is the record of where the memory lives, and a path
+  // that resolves is an answer rather than a hint. This bit every store without
+  // a remote — a company still working locally — and reported "this memory has
+  // no projects yet" while pointing at a directory full of them.
+  if (url && !url.includes("://") && !/^[^/\\]+@[^/\\]+:/.test(url)) {
+    const local = resolve(url);
+    if (await exists(join(local, "_company.md"))) return local;
+  }
+
   const derived = repoName(url);
   if (derived) return join(homedir(), derived);
 
@@ -478,14 +566,49 @@ export async function logStats(store: string, project: string) {
   return { count, newest, who };
 }
 
+export const SKILLS = ["varve-load", "varve-publish"] as const;
+
+/**
+ * Cursor reads one `.mdc` per rule, not a directory per skill.
+ *
+ * `alwaysApply: false` on purpose — these describe what to do at the start and
+ * end of a session, not a rule that should ride along in every request. Loading
+ * them into every prompt would spend tokens on instructions that apply twice a
+ * day.
+ */
+function asRule(skill: string, text: string): string {
+  const fm = frontmatter(text);
+  const description = String(fm.description ?? `varve — ${skill}`)
+    .replace(/\s+/g, " ")
+    .trim();
+  const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+  return `---\ndescription: ${description}\nglobs:\nalwaysApply: false\n---\n\n${body}\n`;
+}
+
+/** Are the two commands already installed for this agent, in its own format? */
+export async function skillsInstalled(name: string): Promise<boolean> {
+  const target = AGENTS[name];
+  if (!target) return false;
+  return target.layout === "rule"
+    ? exists(join(target.dir, `${SKILLS[0]}.mdc`))
+    : exists(join(target.dir, SKILLS[0], "SKILL.md"));
+}
+
 export async function installSkills(agents: string[]): Promise<string[]> {
   const installed: string[] = [];
   for (const name of agents) {
-    const dest = AGENTS[name as keyof typeof AGENTS];
-    if (!dest) continue;
-    for (const skill of ["varve-load", "varve-publish"]) {
-      await mkdir(join(dest, skill), { recursive: true });
-      await cp(join(PKG_ROOT, "skills", skill), join(dest, skill), { recursive: true });
+    const target = AGENTS[name];
+    if (!target) continue;
+    for (const skill of SKILLS) {
+      const source = join(PKG_ROOT, "skills", skill);
+      if (target.layout === "rule") {
+        await mkdir(target.dir, { recursive: true });
+        const text = await readFile(join(source, "SKILL.md"), "utf8");
+        await writeFile(join(target.dir, `${skill}.mdc`), asRule(skill, text));
+        continue;
+      }
+      await mkdir(join(target.dir, skill), { recursive: true });
+      await cp(source, join(target.dir, skill), { recursive: true });
     }
     installed.push(name);
   }

@@ -15,11 +15,35 @@
  */
 
 import {
-  PKG_ROOT, AGENTS, exists, storePath, gitSlug, readRoster, addToRoster,
-  listProjects, logStats, installSkills, resolveBinding, frontmatter,
-  storeRemote, initGit, repoName, resolveStoreDir, isPubliclyReadable, ensureMemory, remoteHasCommits,
+  PKG_ROOT,
+  AGENTS,
+  exists,
+  storePath,
+  gitSlug,
+  readRoster,
+  addToRoster,
+  listProjects,
+  logStats,
+  installSkills,
+  resolveBinding,
+  frontmatter,
+  storeRemote,
+  initGit,
+  repoName,
+  resolveStoreDir,
+  isPubliclyReadable,
+  ensureMemory,
+  remoteHasCommits,
   gitIdentity,
-  readFile, writeFile, mkdir, cp, basename, join, resolve,
+  readFile,
+  writeFile,
+  mkdir,
+  cp,
+  basename,
+  join,
+  resolve,
+  detectAgents,
+  skillsInstalled,
 } from "./store.js";
 import type { Binding } from "./store.js";
 
@@ -252,7 +276,11 @@ export async function status({ storePath: pathFlag }: { storePath?: string } = {
   if (!roster) return { state: "unknown-project", store: dir, projects, binding: bound };
 
   const logs = await logStats(dir, project);
-  const skillsReady = await exists(join(AGENTS.claude, "varve-load", "SKILL.md"));
+  // Every agent on this machine, not just Claude Code. Reporting "ready" while
+  // the teammate's actual agent has nothing installed is the same bug as
+  // defaulting the installer to claude.
+  const detected = await detectAgents();
+  const skillsReady = (await Promise.all(detected.map(skillsInstalled))).every(Boolean);
   return {
     state: "ready", store: dir, binding: bound, repos: roster.repos, logs,
     here: basename(binding.dir), skillsReady, you: await gitSlug(),

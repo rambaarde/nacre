@@ -16,9 +16,10 @@ import { basename, join } from "node:path";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
-import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, PKG_ROOT } from "../src/store.js";
+import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, detectAgents, PKG_ROOT } from "../src/store.js";
 import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
+import { serve as serveMcp } from "../src/mcp.js";
 
 // PKG_ROOT is imported, not recomputed. This file had its own copy that counted
 // one directory up — correct from bin/ in the repo, wrong from dist/bin/ in the
@@ -51,6 +52,7 @@ const USAGE = `varve — one git-backed memory for a whole company
   varve add  <project> [dir...]  add a project, and its repos  (as needed)
   varve serve                    the portal, from your own clone
   varve search <term>            one search, same ranking as the portal
+  varve mcp                      serve the memory to any MCP client (stdio)
 
   also works as \`vrv\`
 
@@ -61,7 +63,7 @@ Adding repos to an existing project is the same command again:
   --team <name>        team folder       (default: devs)
   --title <name>       display name
   --who <slug>         author slug       (default: from git config)
-  --agents <a,b>       claude,opencode   (default: claude)
+  --agents <a,b>       claude,codex,gemini,opencode,cursor (default: those installed)
   --all                search every project, not just this one
   --port <n>           portal port       (default: 4173)
   --open               open the portal in your browser
@@ -192,8 +194,23 @@ async function main() {
   }
   if (o.help || command === "help") return console.log(USAGE);
 
+  // Before anything else that could print. An MCP client speaks JSON-RPC on this
+  // stdout, and a single stray line of human output corrupts the stream.
+  if (command === "mcp") {
+    const pkg = JSON.parse(await readFile(join(PKG_ROOT, "package.json"), "utf8"));
+    return serveMcp({
+      version: pkg.version as string,
+      memory: o.memory ?? o["memory-path"] ?? o["store-path"],
+    });
+  }
+
   const memoryPath = o.memory ?? o["memory-path"] ?? o["store-path"];
-  const agents = (o.agents ?? "claude").split(",").map((a) => a.trim()).filter(Boolean);
+  // Default to the agents actually installed on this machine, not to Claude
+  // Code. A teammate on Cursor or Codex should not have to discover a flag to
+  // get the same two commands everyone else has.
+  const agents = o.agents
+    ? o.agents.split(",").map((a) => a.trim()).filter(Boolean)
+    : await detectAgents();
 
   try {
     // Bare `varve` shows live state, never a usage dump.
