@@ -93,8 +93,8 @@ function renderStatus(st: Status): void {
 
   if (st.state === "no-store") {
     return say(...brand(""), rule(),
-      row("memory", c.grey(tilde(st.store))),
-      st.reason ? row("", c.grey(st.reason)) : null,
+      row("memory", tilde(st.store)),
+      st.reason ? row("", st.reason) : null,
       blank(), next(`varve ${c.bold("init")} <git-url>`), blank());
   }
   if (st.state === "no-binding") {
@@ -122,10 +122,10 @@ function renderStatus(st: Status): void {
     rule(),
     head(binding.project, summary),
     blank(),
-    row("repos", repos.map((r) => (r === here ? c.bold(r) : c.grey(r))).join("  ") || c.grey("none linked")),
-    logs.newest ? row("last", `${logs.newest.replace(/\.md$/, "")}  ${c.grey(logs.who)}`) : null,
+    row("repos", repos.map((r) => (r === here ? c.bold(r) : c.dim(r))).join("  ") || c.grey("none linked")),
+    logs.newest ? row("last", `${logs.newest.replace(/\.md$/, "")}  ${c.dim(logs.who)}`) : null,
     row("here", here ? c.bold(here) : c.grey("outside a linked repo")),
-    row("you", `${c.bold(you)}  ${c.grey("— logs and your profile file under this")}`),
+    row("you", `${c.bold(you)}  ${c.dim("— logs and your profile file under this")}`),
     blank(),
     skillsReady ? null : warn(`skills not installed · varve add ${binding.project} .`),
     logs.count === 0
@@ -242,7 +242,7 @@ async function main() {
       return say(blank(),
         ok(`memory created  ${c.grey(tilde(r.dir))}`),
         blank(),
-        row("files", c.grey(`_company.md  _standards.md  _team/_${r.who}/`)),
+        row("files", `_company.md  _standards.md  _team/_${r.who}/`),
         row("remote", r.remote ?? c.grey("not set")),
         blank(),
         next(`varve ${c.bold("add")} <project> <repo-dir>`),
@@ -280,8 +280,8 @@ async function main() {
       return say(blank(),
         ok(`${c.bold(r.project)} ${r.created ? "added" : c.grey("already present")}  ${c.grey(tilde(r.dir + "/" + r.project))}`),
         blank(),
-        row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.grey(x))).join("  ") || c.grey("none linked")),
-        row("team", c.grey(r.team)),
+        row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.dim(x))).join("  ") || c.grey("none linked")),
+        row("team", r.team),
         blank(),
         needsPush
           ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .varve.yml in ${fresh.join(", ")}`) : ""}`)
@@ -310,15 +310,27 @@ async function main() {
         const { spawn } = await import("node:child_process");
         try { spawn(opener, [url], { stdio: "ignore", detached: true }).unref(); } catch { /* the URL is above */ }
       }
+      // What is actually in there beats a sentence about what the server is.
+      // "read-only · loopback only" described the program; the reader wants to
+      // know whether they are pointed at the right memory.
+      const { index: readIndex } = await import("../src/portal.js");
+      const idx = await readIndex(memory);
+      const projects = Object.keys(idx.projects).length;
+      const people = Object.keys(idx.people).length;
       if (isTTY()) {
         say(blank(), ok(`portal on ${c.bold(url)}`),
-          row("memory", c.grey(tilde(memory))),
+          // The label is already dim; dimming the value too is what made this
+          // unreadable on a dark terminal.
+          row("memory", tilde(memory)),
+          row("holds", `${projects} project${projects === 1 ? "" : "s"} · ${
+            people} ${people === 1 ? "person" : "people"} · ${idx.total} log${idx.total === 1 ? "" : "s"}`),
           blank(),
-          `  ${c.grey("read-only · loopback only · this stays running until you press ctrl-c")}`,
+          `  ${c.dim("ctrl-c")} to stop`,
           blank());
       } else {
         out(`ok: serving ${url}`, `memory: ${memory}`,
-          "help[]: stays running until ctrl-c · --open launches your browser");
+          `holds: projects[${projects}] · people[${people}] · logs[${idx.total}]`,
+          "help[]: ctrl-c to stop · --open launches your browser");
       }
       return new Promise(() => {}); // hold the process open
     }
