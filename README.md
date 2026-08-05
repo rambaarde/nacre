@@ -34,7 +34,7 @@ varve init git@github.com:acme/acme-context.git
 same idea, one person, no shared repo to set up.
 
 [![npm](https://img.shields.io/npm/v/varve-cli)](https://www.npmjs.com/package/varve-cli)
-![tests](https://img.shields.io/badge/tests-58%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
@@ -136,8 +136,10 @@ varve is what you do about the third one.
 
 ## Two doors, one store
 
-Agents read the memory through the two skills. People read the same bytes in a
-local portal — no login, no database, no build step.
+Agents read the memory through two commands — installed for Claude Code, Codex,
+Gemini CLI, OpenCode and Cursor, each in that agent's own format, and reachable
+over MCP by anything else. People read the same bytes in a local portal — no
+login, no database, no build step.
 
 <div align="center">
   <img src="demo/demo-portal.gif" width="100%" alt="The varve portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
@@ -267,6 +269,54 @@ source.
 Decided-against entries are never struck through. Strikethrough reads as
 *deleted*; these are live constraints, and they are the class of knowledge
 nothing else keeps.
+
+### Whatever your teammates use
+
+A memory only one agent can read is not a team memory, so `varve add` installs the
+two commands **for every agent it finds on the machine** — no flag, nothing to
+choose:
+
+| | writes | as |
+|---|---|---|
+| Claude Code | `~/.claude/skills/` | `SKILL.md` |
+| Codex | `~/.codex/skills/` | `SKILL.md` |
+| Gemini CLI | `~/.gemini/skills/` | `SKILL.md` |
+| OpenCode | `~/.config/opencode/skills/` | `SKILL.md` |
+| Cursor | `~/.cursor/rules/` | `.mdc` |
+
+Same two commands, each in that agent's own format. `--agents claude,cursor`
+overrides the detection if you want fewer.
+
+For anything not in that table, or an editor you'd rather wire up yourself, the
+memory is also an **MCP server**:
+
+```sh
+varve mcp     # stdio JSON-RPC. The client starts this; you never run it yourself.
+```
+
+Register it once:
+
+```sh
+claude mcp add varve -- varve mcp
+```
+
+```jsonc
+// Cursor, Windsurf, Zed, Codex — .mcp.json / mcp.json
+{ "mcpServers": { "varve": { "command": "varve", "args": ["mcp"] } } }
+```
+
+Two tools, and **both only read**:
+
+| | |
+|---|---|
+| `varve_brief` | the project's briefing — company facts, standards, the handoff, what was decided against, open risks, newest sessions |
+| `varve_search` | the same search and the same ranking as the portal |
+
+**Nothing writes.** `/varve-publish` is safe because a person sees the log and
+says yes before it is pushed — and no server can guarantee its client stopped for
+a human first. Exposing publishing here would either weaken *nothing is shared by
+omission* or fake a gate in a loop this process does not control. Writing stays
+human-invoked, through the skill or the CLI, where the gate is real.
 
 ## Write it
 
