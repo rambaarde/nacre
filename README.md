@@ -51,30 +51,31 @@ same idea, one person, no shared repo to set up.
 
 <p align="center"><em>Real Claude Code. One session ends with <code>/varve-publish</code>; the next one starts with <code>/varve-load</code>.</em></p>
 
-**`/varve-publish`** — end of session. The agent composes the log, strips private
-blocks, scans for secrets, and names the calls it made that a person should check:
+Two developers on one project. **Bob** is the one in the recording. **Alice** left
+a note days earlier and never spoke to him.
 
-> Three judgement calls you may want to overrule:
->
-> **`repos: [atlas-web]`, not `[atlas-api, atlas-web]`.** The skill says derive it
-> from paths actually touched, and this session touched only `atlas-web`. The 419
-> decision constrains `atlas-api` and mobile, but I didn't read either, so claiming
-> them in frontmatter would overstate it.
->
-> Push? Nothing has been committed yet.
+### At the end of a session: `/varve-publish`
 
-Bob answers *"both repos, then push"* — the gate costs one line and the log is
-right. Then he exits. The session is gone.
+The agent writes the log. Bob doesn't. Before anything is pushed, it strips any
+`<!-- private -->` blocks, scans for secrets, shows him the exact file, and waits.
 
-**`/varve-load`** — a different session, later. No transcript, no history, nothing
-carried over. It opens with:
+It also flags one of its own calls: it tagged the log to a single repo, because
+that's the only repo the session actually opened. Bob replies *"both repos, then
+push"* — one line of typing, and the log is correct before it lands.
+
+Then he exits. The session is gone.
+
+### At the start of the next session: `/varve-load`
+
+A new session. No transcript, no history, nothing carried over. It opens already
+knowing:
 
 > Remove the old header path in `atlas-web` — alice flagged it 2026-08-01, bob
 > added the new handler 2026-08-04, so it's the last step of that rename and it's
 > been open five days.
 
-Two commands. Nobody searched, nobody opened a portal, and the thread survived the
-session that started it.
+Bob never searched. He never opened a portal. He never learned Alice existed — and
+her five-day-old thread came back anyway.
 
 ---
 
@@ -338,6 +339,52 @@ than repositioned.
 1. Does anyone besides the author care that the memory is human-readable?
 2. With writing human-invoked, will a second person record anything at all?
 3. Is cross-repo memory worth paying for, or merely nice to have?
+
+## Contributing
+
+Contributions are welcome — it's early and there's plenty to sharpen (open an
+issue to see what's in flight).
+
+**Setup & tests:**
+```bash
+git clone https://github.com/rambaarde/varve.git && cd varve
+npm test              # builds, then runs every suite; needs Node >= 20. No other deps.
+```
+
+**How the code is organized:**
+- `bin/varve.ts` — the CLI. Argument parsing and stdout only; no logic lives here.
+- `src/*.ts` — `store.ts` (paths, git, safety), `operations.ts` (init/add/search),
+  `portal.ts` (reads the store into plain data), `serve.ts` (the portal — one file,
+  hand-written HTML/CSS/JS, no framework), `render.ts` + `markdown.ts` (output).
+- `skills/varve-load`, `skills/varve-publish` — the *behavior*. These are prompts,
+  not code, and they are where the product mostly lives.
+- `store-template/` — what `varve init` scaffolds into a new memory.
+
+**Ground rules (please keep these true):**
+- **Zero runtime dependencies.** Dev dependencies are TypeScript and nothing else.
+  A new dependency needs a much better argument than convenience.
+- **One model call, on write only.** Reading is file reads and string matching.
+  Nothing infers, ranks, or summarises at read time.
+- **An index is a cache, never a source.** If something can be derived from the
+  logs, derive it; don't store a second copy that can drift.
+- **Append, never reconcile.** New files only. A correction is a new log, not an
+  edit to an old one, and nothing is ever struck through.
+- **Nothing is shared by omission.** Every path to the store passes the publish
+  gate, and a person sees the content before it is pushed.
+- **Every change adds a test.** Match the existing `test/*.test.ts` style and keep
+  `npm test` green. Prefer a test that runs the real thing over one that asserts a
+  string — most bugs found so far passed a check on a proxy.
+
+**Sending a change:** open an issue for anything non-trivial first, keep PRs
+atomic, explain the *what* and *why*, and note anything you couldn't test.
+
+**Releasing (automatic):** releases run on
+[release-please](https://github.com/googleapis/release-please). Merging
+`feat:`/`fix:` commits to `main` keeps a **release PR** open that bumps the version
+and writes `CHANGELOG.md`; **merge that PR** to tag `vX.Y.Z` and publish to npm via
+OIDC trusted publishing. No manual version bump, tag, or `npm publish` — and no npm
+token exists anywhere. `fix:` → patch, `feat:` → minor, `feat!:`/`BREAKING CHANGE:`
+→ major.
 
 ## License
 
