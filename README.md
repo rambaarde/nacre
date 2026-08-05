@@ -43,42 +43,31 @@ same idea, one person, no shared repo to set up.
 
 ---
 
-## The agent writes it. You do not.
+## A session that already knows
 
-At the end of a session you say one thing, and the log is written for you —
-composed, private blocks stripped, scanned for secrets, and shown to you before
-anything leaves the machine.
-
-<div align="center">
-  <img src="demo/demo-agent.gif" width="100%" alt="A terminal: claude -p invokes the varve-publish skill, which composes and writes a session log to the company memory; varve then reports three logs with the new one as the most recent.">
-</div>
-
-That is a real Claude Code run, not a mock-up. It composed the log, wrote it to
-the memory, and reported the two gate steps it could not finish — the secret
-scan and the pull — rather than claiming them. `varve` then shows the count
-going to **3 logs**, with the one it just wrote as `last`.
-
-Nobody typed markdown. That is the point: a memory people have to hand-write is
-a memory that stops being written.
-
----
-
-## What it is for
-
-Two developers. One never spoke to the other.
+Monday. Bob opens a session on a repo he has just cloned. He has never spoken to
+alice.
 
 <div align="center">
-  <img src="demo/demo-handoff.gif" width="100%" alt="Left: a terminal where bob — new machine, new session — runs varve and varve search, and finds a decision alice made. Right: the portal showing alice's session log, with what she decided against and why.">
+  <img src="demo/demo-session.gif" width="100%" alt="A terminal. Bob asks Claude Code about raising a cache limit; it loads the team memory and answers Stop — alice already decided against this on 2026-08-01, the cache is shared with beacon. Then at the end of the session Claude writes the session log itself.">
 </div>
 
-On the left, **bob** starts a session on a machine that has never seen this
-project. He runs one command and knows what the team decided. On the right, the
-**same memory** as a person reads it — alice's session, why she ruled the change
-out, and what she left for whoever came next.
+He asks about raising a cache limit. The session answers:
 
-Nothing was re-derived and nobody was interrupted. Alice's session ended days
-ago; the reasoning did not end with it, because it was written to a repository
-rather than said in a chat thread.
+> **Stop.** Alice already decided against this on 2026-08-01 — the cache is
+> shared with beacon, so raising eviction starves their workers. Reopen only
+> with beacon's owner.
+
+Bob did not search, did not open a portal, and did not know alice existed. Then
+at the end, he closes the laptop and **the log writes itself** — composed,
+private blocks stripped, scanned, and recorded as `Decided Against` for whoever
+opens the next session.
+
+That is the whole product. Two prompts, no varve commands, and a decision that
+outlived the session it was made in.
+
+*(A real Claude Code run against a real memory — see [`demo/`](demo/). Sped up:
+the model takes two minutes, most of it a spinner.)*
 
 ---
 
