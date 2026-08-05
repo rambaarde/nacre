@@ -1,0 +1,23 @@
+{
+  "type": "cli",
+  "theme": "rose-pine-dawn",
+  "font_size": 19,
+  "width": 1100,
+  "height": 820,
+  "typing_speed_ms": 50,
+  "output": { "gif": "handoff-cli.gif", "mp4": "handoff-cli.mp4" },
+  "require": ["varve"],
+  "setup": [
+    "export VARVE_STORE=/tmp/varve-demo/acme-context",
+    "cd /tmp/varve-demo/atlas-web",
+    "clear"
+  ],
+  "cleanup": [],
+  "steps": [
+    { "cmd": "# bob. new machine, new session, never spoke to alice.", "pause_ms": 1600 },
+    { "cmd": "varve", "wait": "varve-load", "pause_ms": 3600 },
+    { "cmd": "# what has the team already decided here?", "pause_ms": 1300 },
+    { "cmd": "varve search cache --all", "wait": "beacon", "pause_ms": 4800 },
+    { "cmd": "# alice ruled that out on 08-01. bob never had to ask.", "pause_ms": 2600 }
+  ]
+}
