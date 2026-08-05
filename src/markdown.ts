@@ -16,7 +16,7 @@ export const escape = (s: unknown): string =>
     .replaceAll('"', "&quot;");
 
 /** Inline spans: code, bold, italic, links. Escaped first, so tags cannot inject. */
-function inline(text: string): string {
+export function inline(text: string): string {
   return escape(text)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")

@@ -184,7 +184,7 @@ test("the portal serves every axis", async () => {
     assert.ok(!/text-decoration:\s*line-through/.test(project.body),
       "a live constraint must never render as struck through");
 
-    assert.match((await get("/who/alice")).body, /projects\[2\]/);
+    assert.match((await get("/who/alice")).body, /2 projects/);
     assert.match((await get("/t/2026-08")).body, /2026-08/);
     assert.match((await get("/search?q=cache&all=1")).body, /hit/);
     assert.equal((await get("/p/nope")).status, 404);
@@ -388,7 +388,7 @@ test("the rail is identical on every page — only the highlight moves", async (
   try {
     const railOf = async (path: string) => {
       const html = await (await fetch(url + path)).text();
-      const rail = html.match(/<nav class="rail">[\s\S]*?<\/nav>/)?.[0] ?? "";
+      const rail = html.match(/<nav class="side">[\s\S]*?<\/nav>/)?.[0] ?? "";
       // The active-highlight class is the only thing allowed to differ.
       return rail.replace(/class="(on)?"/g, "").replace(/\s+/g, " ");
     };
@@ -557,10 +557,63 @@ test("a search page stays readable when the memory is real-sized", async () => {
     assert.ok(page.length < 400_000, `page was ${(page.length / 1024).toFixed(0)}kb — too heavy to render`);
     // Bounded is not the same as honest: a list that stops without saying so
     // reads as the whole answer.
-    assert.match(page, /showing \d+ of \d+/, "it must say what it dropped");
+    assert.match(page, /showing \d+ of \d+/i, "it must say what it dropped");
     assert.match(page, /per session/, "and why");
   } finally {
     server.close();
   }
   await rm(dir, { recursive: true, force: true });
+});
+
+test("the palette ships every navigable target, so typing costs no round trip", async () => {
+  // ⌘K opens a palette that filters projects, people, months and the company
+  // documents. It answers from a list embedded in the page rather than asking
+  // the server, which is why it can respond on every keystroke — and why the
+  // list has to actually be complete.
+  const dir = await fixture();
+  const { serve } = await import("../src/serve.js");
+  const { server, url } = await serve({ memory: dir, port: 0 });
+  try {
+    const page = await fetch(`${url}/p/atlas`).then((r) => r.text());
+    const raw = page.match(/<script type="application\/json" id="paldata">([\s\S]*?)<\/script>/)?.[1];
+    assert.ok(raw, "the page must embed the palette corpus");
+
+    const rows = JSON.parse(raw as string) as { t: string; g: string; h: string }[];
+    const groups = new Set(rows.map((r) => r.g));
+    for (const g of ["company", "project", "person", "month"]) {
+      assert.ok(groups.has(g), `the palette must offer ${g} targets`);
+    }
+    // Every row has somewhere to go, and nothing points outside the portal.
+    for (const r of rows) {
+      assert.match(r.h, /^\//, `${r.t} must link within the portal`);
+      assert.ok(r.t.length > 0, "every target needs a label");
+    }
+    // The corpus is data in a script tag; a stray "<" would end it early.
+    assert.doesNotMatch(raw as string, /<\/script/i, "the corpus must not be able to close its own tag");
+
+    assert.match(page, /id="pal"/, "and the overlay itself must be present");
+    assert.match(page, /data-side-tgl/, "as must the sidebar toggle it sits beside");
+  } finally {
+    server.close();
+  }
+  await rm(dir, { recursive: true, force: true });
+});
+
+test("the browser script is valid JavaScript, which the compiler cannot check", async () => {
+  // The client script lives in a template literal, so tsc never looks inside it.
+  // A backtick in a code comment — `var` hoists — closed the string, the build
+  // passed, and the portal failed to start. The same shape as the apostrophe
+  // that closed a shell string in a workflow earlier: prose inside a quoted
+  // block is where this hides.
+  const { readFile } = await import("node:fs/promises");
+  const src = await readFile(join(import.meta.dirname, "..", "..", "src", "serve.ts"), "utf8");
+  const block = src.match(/const CLIENT_JS = String\.raw`([\s\S]*?)`;/);
+  assert.ok(block, "the client script must be findable");
+  const js = block[1] as string;
+
+  assert.equal((js.match(/`/g) ?? []).length, 0, "a backtick would close the template literal early");
+  assert.doesNotMatch(js, /\$\{/, "an unescaped ${ would interpolate into the script");
+
+  // And it has to actually parse. Function() compiles without executing.
+  assert.doesNotThrow(() => new Function(js), "the client script must be syntactically valid");
 });
