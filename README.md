@@ -51,28 +51,31 @@ same idea, one person, no shared repo to set up.
 
 <p align="center"><em>Real Claude Code. One session ends with <code>/varve-publish</code>; the next one starts with <code>/varve-load</code>.</em></p>
 
+Two developers on one project. **Bob** is the one in the recording. **Alice** left
+a note days earlier and never spoke to him.
+
 ### At the end of a session: `/varve-publish`
 
-The agent writes the log. You do not. Before anything is pushed it strips any
-`<!-- private -->` blocks, scans for secrets, shows you the exact file, and waits.
+The agent writes the log. Bob doesn't. Before anything is pushed, it strips any
+`<!-- private -->` blocks, scans for secrets, shows him the exact file, and waits.
 
-In the recording it also flags one of its own calls: it tagged the log to a single
-repo, because that is the only repo the session actually opened. Bob answers
-*"both repos, then push"* — one line, and the log is right before it lands.
+It also flags one of its own calls: it tagged the log to a single repo, because
+that's the only repo the session actually opened. Bob replies *"both repos, then
+push"* — one line of typing, and the log is correct before it lands.
 
 Then he exits. The session is gone.
 
 ### At the start of the next session: `/varve-load`
 
-A different session. No transcript, no history, nothing carried over. It opens
-already knowing:
+A new session. No transcript, no history, nothing carried over. It opens already
+knowing:
 
 > Remove the old header path in `atlas-web` — alice flagged it 2026-08-01, bob
 > added the new handler 2026-08-04, so it's the last step of that rename and it's
 > been open five days.
 
-Nobody searched. Nobody opened a portal. Bob never learned alice existed — and a
-five-day-old thread came back anyway.
+Bob never searched. He never opened a portal. He never learned Alice existed — and
+her five-day-old thread came back anyway.
 
 ---
 
