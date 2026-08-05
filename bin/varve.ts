@@ -12,7 +12,7 @@
 import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
@@ -71,6 +71,10 @@ Adding repos to an existing project is the same command again:
 
 Reading and writing memory happen through the skills, not this binary.`;
 
+/** Cut at a word boundary and say so, rather than stopping mid-word. */
+const clip = (text: string, max: number): string =>
+  text.length <= max ? text : `${text.slice(0, text.lastIndexOf(" ", max) > max / 2 ? text.lastIndexOf(" ", max) : max)}…`;
+
 const out = (...lines: (string | null | undefined)[]): void =>
   lines.filter(Boolean).forEach((l) => console.log(l));
 
@@ -93,8 +97,8 @@ function renderStatus(st: Status): void {
 
   if (st.state === "no-store") {
     return say(...brand(""), rule(),
-      row("memory", c.grey(tilde(st.store))),
-      st.reason ? row("", c.grey(st.reason)) : null,
+      row("memory", tilde(st.store)),
+      st.reason ? row("", st.reason) : null,
       blank(), next(`varve ${c.bold("init")} <git-url>`), blank());
   }
   if (st.state === "no-binding") {
@@ -122,10 +126,10 @@ function renderStatus(st: Status): void {
     rule(),
     head(binding.project, summary),
     blank(),
-    row("repos", repos.map((r) => (r === here ? c.bold(r) : c.grey(r))).join("  ") || c.grey("none linked")),
-    logs.newest ? row("last", `${logs.newest.replace(/\.md$/, "")}  ${c.grey(logs.who)}`) : null,
+    row("repos", repos.map((r) => (r === here ? c.bold(r) : c.dim(r))).join("  ") || c.grey("none linked")),
+    logs.newest ? row("last", `${logs.newest.replace(/\.md$/, "")}  ${c.dim(logs.who)}`) : null,
     row("here", here ? c.bold(here) : c.grey("outside a linked repo")),
-    row("you", `${c.bold(you)}  ${c.grey("— logs and your profile file under this")}`),
+    row("you", `${c.bold(you)}  ${c.dim("— logs and your profile file under this")}`),
     blank(),
     skillsReady ? null : warn(`skills not installed · varve add ${binding.project} .`),
     logs.count === 0
@@ -242,7 +246,7 @@ async function main() {
       return say(blank(),
         ok(`memory created  ${c.grey(tilde(r.dir))}`),
         blank(),
-        row("files", c.grey(`_company.md  _standards.md  _team/_${r.who}/`)),
+        row("files", `_company.md  _standards.md  _team/_${r.who}/`),
         row("remote", r.remote ?? c.grey("not set")),
         blank(),
         next(`varve ${c.bold("add")} <project> <repo-dir>`),
@@ -280,8 +284,8 @@ async function main() {
       return say(blank(),
         ok(`${c.bold(r.project)} ${r.created ? "added" : c.grey("already present")}  ${c.grey(tilde(r.dir + "/" + r.project))}`),
         blank(),
-        row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.grey(x))).join("  ") || c.grey("none linked")),
-        row("team", c.grey(r.team)),
+        row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.dim(x))).join("  ") || c.grey("none linked")),
+        row("team", r.team),
         blank(),
         needsPush
           ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .varve.yml in ${fresh.join(", ")}`) : ""}`)
@@ -310,15 +314,54 @@ async function main() {
         const { spawn } = await import("node:child_process");
         try { spawn(opener, [url], { stdio: "ignore", detached: true }).unref(); } catch { /* the URL is above */ }
       }
+      // A developer about to read someone else's reasoning wants to know, in
+      // this order: is this the right memory, is it fresh, what is in it, what
+      // changed last, and where am I standing. The URL alone answers none of
+      // that, and a stale clone reading stale memory is this design's one quiet
+      // failure — so its age is stated rather than left to be assumed.
+      const { index: readIndex, readLogs: readAll, age: cloneAge } = await import("../src/portal.js");
+      const { memoryNeedsPush: needsPush, storeRemote: remoteOf } = await import("../src/store.js");
+      const [idx, logs, since, unpushed, remote] = await Promise.all([
+        readIndex(memory), readAll(memory), cloneAge(memory), needsPush(memory), remoteOf(memory),
+      ]);
+      const bind = await resolveBinding();
+      const newest = logs[0];
+      const named = (m: Record<string, number>, n: number): string =>
+        Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, n)
+          .map(([k, v]) => `${k} ${c.dim(String(v))}`).join(c.dim("  ·  "));
+
       if (isTTY()) {
-        say(blank(), ok(`portal on ${c.bold(url)}`),
-          row("memory", c.grey(tilde(memory))),
+        say(blank(), ok(`portal on ${c.bold(url)}`), blank(),
+          row("memory", `${tilde(memory)}  ${c.dim(`pulled ${since}`)}`),
+          remote ? row("remote", c.dim(remote)) : null,
+          unpushed ? row("", c.yellow("unpushed work here — teammates will not see it yet")) : null,
           blank(),
-          `  ${c.grey("read-only · loopback only · this stays running until you press ctrl-c")}`,
+          row("projects", named(idx.projects, 6) || c.grey("none yet")),
+          row("people", named(idx.people, 6) || c.grey("none yet")),
+          row("logs", `${idx.total}`),
+          newest
+            ? row("latest", `${c.dim(newest.date)}  ${newest.who}  ${c.dim(newest.project)}  ${
+                clip((newest.summary.split("\n").find((x) => x.trim()) ?? newest.id)
+                  .replace(/^#+\s*/, "").replace(/\*\*/g, ""), 58)}`)
+            : null,
+          blank(),
+          bind?.project
+            ? row("here", `${basename(process.cwd())} ${c.dim("→")} ${c.bold(bind.project)}`)
+            : row("here", c.grey("not inside a wired repo")),
+          blank(),
+          `  ${c.dim("⌘K")} in the portal to jump  ${c.dim("·")}  ${c.dim("ctrl-c")} to stop`,
           blank());
       } else {
-        out(`ok: serving ${url}`, `memory: ${memory}`,
-          "help[]: stays running until ctrl-c · --open launches your browser");
+        out(
+          `ok: serving ${url}`,
+          `memory: ${memory} · pulled ${since}${remote ? ` · remote: ${remote}` : ""}`,
+          `projects[${Object.keys(idx.projects).length}]: ${Object.entries(idx.projects).map(([k, v]) => `${k}=${v}`).join(", ") || "none"}`,
+          `people[${Object.keys(idx.people).length}]: ${Object.entries(idx.people).map(([k, v]) => `${k}=${v}`).join(", ") || "none"}`,
+          `logs: ${idx.total}${newest ? ` · latest: ${newest.date} ${newest.who} ${newest.project}` : ""}`,
+          bind?.project ? `here: ${basename(process.cwd())} -> ${bind.project}` : "here: not inside a wired repo",
+          unpushed ? "warn: unpushed work in the memory — teammates will not see it yet" : null,
+          "help[]: ctrl-c to stop · --open launches your browser",
+        );
       }
       return new Promise(() => {}); // hold the process open
     }

@@ -29,7 +29,11 @@ const raw = {
   yellow: code(33, 39),
   blue: code(34, 39),
   cyan: code(36, 39),
-  grey: code(90, 39),
+  // ANSI 90 is "bright black", which on a dark terminal is very nearly the
+  // background — secondary text was unreadable on a real machine. ANSI 2 dims
+  // whatever foreground the reader has chosen rather than picking a colour for
+  // them, so it stays legible on any theme.
+  grey: code(2, 22),
 };
 
 /** Style helpers that become the identity function when output is not a TTY. */
