@@ -598,3 +598,22 @@ test("the palette ships every navigable target, so typing costs no round trip", 
   }
   await rm(dir, { recursive: true, force: true });
 });
+
+test("the browser script is valid JavaScript, which the compiler cannot check", async () => {
+  // The client script lives in a template literal, so tsc never looks inside it.
+  // A backtick in a code comment — `var` hoists — closed the string, the build
+  // passed, and the portal failed to start. The same shape as the apostrophe
+  // that closed a shell string in a workflow earlier: prose inside a quoted
+  // block is where this hides.
+  const { readFile } = await import("node:fs/promises");
+  const src = await readFile(join(import.meta.dirname, "..", "..", "src", "serve.ts"), "utf8");
+  const block = src.match(/const CLIENT_JS = String\.raw`([\s\S]*?)`;/);
+  assert.ok(block, "the client script must be findable");
+  const js = block[1] as string;
+
+  assert.equal((js.match(/`/g) ?? []).length, 0, "a backtick would close the template literal early");
+  assert.doesNotMatch(js, /\$\{/, "an unescaped ${ would interpolate into the script");
+
+  // And it has to actually parse. Function() compiles without executing.
+  assert.doesNotThrow(() => new Function(js), "the client script must be syntactically valid");
+});

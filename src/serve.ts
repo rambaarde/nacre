@@ -247,6 +247,14 @@ background:transparent;border:0;padding:.4rem 0}
 padding:.1rem .4rem;border:1px solid var(--rule);border-radius:3px}
 .find .out{margin:.9rem 0 0}
 .find .hint{font-family:var(--sans);font-size:.86rem;color:var(--ink-3);margin:.9rem 0 0}
+.find .sug{margin:1.1rem 0 0}
+.find .sug h6{margin:0 0 .45rem;font-family:var(--sans);font-size:.74rem;
+font-weight:600;color:var(--ink-3)}
+.find .chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 1.1rem}
+.find .chip{font-family:var(--mono);font-size:.75rem;color:var(--ink-2);
+background:var(--sunk);border:1px solid var(--rule);border-radius:4px;
+padding:.15rem .5rem;cursor:pointer}
+.find .chip:hover{color:var(--ink);border-color:var(--rule-2)}
 
 /* ---------- command palette ---------- */
 .pal[hidden]{display:none}
@@ -361,19 +369,45 @@ if(find){
     find.hidden=!searching;
     if(overview)overview.hidden=searching;
     tabs.forEach(function(t){t.classList.toggle("on",t.getAttribute("data-tab")===name)});
-    if(searching)fq.focus();
+    if(searching){fq.focus();if(!fq.value.trim())idle()}
   }
   tabs.forEach(function(t){t.addEventListener("click",function(e){
     var n=t.getAttribute("data-tab");if(!n)return;e.preventDefault();tab(n);
     history.replaceState(null,"",n==="search"?"#search":location.pathname);});});
-  if(location.hash==="#search")tab("search");
 
   function esc(x){return String(x).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+  // The same inline subset the server renders. Rows built here were showing
+  // **bold** as asterisks while the server-rendered rows above them did not,
+  // which made one list look like a different product from the other.
+  function md(x){return esc(x)
+    .replace(/\u0060([^\u0060]+)\u0060/g,"<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<em>$2</em>")}
+
+  var fd={people:[],repos:[],recent:[]};
+  try{fd=JSON.parse(document.getElementById("finddata").textContent||"{}")}catch(e){}
+
+  function chips(label,arr){
+    if(!arr.length)return"";
+    return '<div class="sug"><h6>'+label+'</h6><div class="chips">'+
+      arr.map(function(x){return '<button class="chip" data-q="'+esc(x)+'" type="button">'+esc(x)+'</button>'}).join("")+
+      '</div></div>';
+  }
+  function idle(){
+    fmeta.textContent="";
+    var rec=fd.recent.length
+      ? '<div class="sug"><h6>Recent sessions</h6><div class="scroll"><table>'+
+        fd.recent.map(function(h){return '<tr><td class="d">'+esc(h.d)+'</td><td class="w">'+esc(h.w)+
+          '</td><td class="sum"><a href="'+h.h+'">'+md(h.l)+'</a></td></tr>'}).join("")+
+        '</table></div></div>'
+      : "";
+    fout.innerHTML=chips("Repos",fd.repos)+chips("People",fd.people)+rec;
+  }
 
   function run(){
     var q=fq.value.trim();
-    if(!q){fout.innerHTML="";fmeta.textContent="";return}
+    if(!q){idle();return}
     fetch("/x/search?q="+encodeURIComponent(q)+"&project="+encodeURIComponent(proj))
       .then(function(r){return r.json()})
       .then(function(d){
@@ -382,16 +416,24 @@ if(find){
         fout.innerHTML='<div class="scroll"><table>'+d.rows.map(function(h){
           return '<tr><td class="d">'+esc(h.d)+'</td><td class="w">'+esc(h.w)+'</td>'+
             '<td class="sum">'+(h.a?'<span class="flag">▌</span>':"")+
-            '<a href="'+h.h+'">'+esc(h.l)+'</a></td></tr>';}).join("")+'</table></div>'+
+            '<a href="'+h.h+'">'+md(h.l)+'</a></td></tr>';}).join("")+'</table></div>'+
           (d.total>d.rows.length?'<p class="hint">Showing '+d.rows.length+' of '+d.total+
             ' — at most 3 per session. <a href="/search?q='+encodeURIComponent(q)+
             '&project='+encodeURIComponent(proj)+'">Open the full results</a>.</p>':"");
       })
       .catch(function(){fout.innerHTML='<p class="hint">Could not reach the memory.</p>'});
   }
+  fout.addEventListener("click",function(e){
+    var c=e.target.closest(".chip");if(!c)return;
+    fq.value=c.getAttribute("data-q");fq.focus();run();});
   fq.addEventListener("input",function(){clearTimeout(timer);timer=setTimeout(run,120)});
   fq.addEventListener("keydown",function(e){
     if(e.key==="Escape"){e.preventDefault();if(fq.value){fq.value="";run()}else tab("overview")}});
+
+  // Last, not first: opening the panel renders the suggestions, and those need
+  // the data and the helpers above to exist. A var declaration hoists; the
+  // value assigned to it does not.
+  if(location.hash==="#search")tab("search");
 }
 document.addEventListener("click",function(e){if(e.target.closest("[data-pal]")){e.preventDefault();open()}});
 })();`;
@@ -499,6 +541,24 @@ const tabs = (project: string, on: "overview" | "standards", hasStandards: boole
     <a href="/search?project=${encodeURIComponent(project)}" data-tab="search">Search</a>
   </nav>`;
 
+/**
+ * What the panel offers before you have typed anything.
+ *
+ * Every suggestion is drawn from this project's own logs — the repos it names,
+ * the people who wrote in it, the sessions themselves. Nothing is invented, so
+ * a suggestion that returns no hits is not possible.
+ */
+function findData(v: ProjectView): string {
+  const people = [...new Set(v.logs.map((l) => l.who))].sort();
+  const repos = [...new Set(v.logs.flatMap((l) => l.repos).concat(v.repos))].filter(Boolean).sort();
+  const recent = v.logs.slice(0, 8).map((l) => ({
+    d: l.date, w: l.who,
+    l: (l.summary.split("\n").find((x) => x.trim()) ?? l.id).replace(/^#+\s*/, "").slice(0, 150),
+    h: `/log/${encodeURIComponent(l.rel)}`,
+  }));
+  return JSON.stringify({ people, repos, recent }).replace(/</g, "\\u003c");
+}
+
 /** Searching a project should not cost the page you were reading. The link
  *  still works with scripting off; with it on, the panel opens in place. */
 const findPanel = (project: string): string => `
@@ -551,6 +611,7 @@ function renderProject(v: ProjectView): Rendered {
   }${v.count} log${v.count === 1 ? "" : "s"}${v.superseded ? ` · ${v.superseded} superseded` : ""}</p>
   ${tabs(v.project, "overview", v.hasStandards)}
   ${findPanel(v.project)}
+  <script type="application/json" id="finddata">${findData(v)}</script>
   <div id="overview">
   <dl class="facts">
     ${fact("Repos", String(v.repos.length), v.repos.join(", ") || "none linked")}
