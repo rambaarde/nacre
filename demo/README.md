@@ -1,71 +1,59 @@
 # Demo recordings
 
-Every GIF here is a recording of the real product. `claude -p` drives real Claude
-Code sessions, VHS drives a real shell, Playwright drives the real portal.
+Both GIFs are the real product. `demo-session.gif` is an unedited Claude Code
+session driven by VHS; `demo-portal.gif` is the real portal driven by Playwright.
 Nothing is mocked, restyled, or re-typed.
 
 | file | what it shows |
 |---|---|
-| `demo-session.gif` | **the product.** A new session loads the team memory and stops a developer from re-opening a decision made four days earlier; then writes its own session log at the end. Two prompts, no varve commands. |
-| `demo-cli.gif` | the plumbing underneath: resolve, report, search across projects, and every session as a git commit |
+| `demo-session.gif` | a developer typing `/varve-load` and `/varve-publish` in Claude Code — the session reads the team memory, and writes itself down at the end |
 | `demo-portal.gif` | the human door: project page, in-place search, a session log, the ⌘K palette |
 
 ## The memory they read
 
 Built under `/tmp/varve-demo` from the fictional `acme-context` — fictional
-company, fictional projects — with **one commit per session**, so the history is
-real rather than staged.
-
-```sh
-varve serve --port 4174     # against the demo memory, for the web capture
-```
+company, fictional projects — with one commit per session, so the history is real
+rather than staged. The store needs an upstream (`git branch -u origin/main`) or
+the skill spends its output explaining a failed pull.
 
 ## Reproducing
 
 ```sh
-V=../../vitrine
+vhs session.tape                                   # ~9 minutes, two API calls
+ffmpeg -i session.mp4 -filter:v "setpts=PTS/13" -an fast.mp4
+bash ../../vitrine/scripts/optimize.sh fast.mp4 demo-session.gif 9 900
 
-# the session loop — two takes, joined
-vhs session-1-load.tape
-vhs session-2-publish.tape
-printf "file '$PWD/beat1.mp4'\nfile '$PWD/beat2.mp4'\n" > join.txt
-ffmpeg -f concat -safe 0 -i join.txt -c copy joined.mp4
-ffmpeg -i joined.mp4 -filter:v "setpts=PTS/5.5,crop=1240:560:0:0" -an fast.mp4
-bash $V/scripts/optimize.sh fast.mp4 demo-session.gif 11 1100
-
-# the plumbing
-python3 $V/scripts/render_tape.py steps.cli.json > demo-cli.tape && vhs demo-cli.tape
-
-# the portal
-node $V/scripts/capture_web.mjs steps.web.json out
-bash $V/scripts/optimize.sh out/raw.webm demo-portal.gif 10 1000
+varve serve --port 4174                            # in another shell
+node ../../vitrine/scripts/capture_web.mjs steps.web.json out
+bash ../../vitrine/scripts/optimize.sh out/raw.webm demo-portal.gif 10 1000
 ```
 
 Recorded with [vitrine](https://github.com/rhyumiranda/vitrine).
 
-## Four things that cost a take each
+## Five things that each cost a take
 
-**Pipe the prompt into `claude`, never pass it positionally.** `--add-dir` is
-variadic, so `--add-dir $STORE 'prompt'` swallows the prompt as a second
-directory and claude errors with *"Input must be provided…"*. It reports that on
-**stderr**, which `2>/dev/null` hides — so it reads as a slow call, not a failed
-one, for as many takes as you have patience for.
+**Answer the publish gate.** `/varve-publish` composes the log and then *stops*,
+asking whether to push. That is the skill working — nothing reaches a shared repo
+without a person saying so — but a tape that never presses Enter records a
+session that wrote nothing. The tape sends `Enter` after the compose.
 
-**Wait on structure, not prose.** `Wait /starves/` waits on wording the model
-invents fresh every run. `/rejected/` and `/atlas-2026/` come from the report
-shapes the skills specify and survive re-recording.
+**`bypassPermissions`, not `acceptEdits`.** The latter only auto-approves edits,
+so the skill's `git pull` stalls on an approval prompt the tape cannot answer.
 
-**Never wait on text the demo already contains.** `Wait /alice/` matched instantly
-because "alice" was in the comment line typed a moment earlier, so the take ended
-before the call began.
+**Give each step far more time than feels necessary.** `/varve-load` took ~140s.
+A keystroke that lands while the model is still working goes into a busy input
+and corrupts the rest of the run.
+
+**Wait on structure, never on prose.** For non-TUI takes: the report shapes the
+skills specify (`rejected[`, a log filename) survive re-recording. Wording the
+model invents does not. And never wait on text the demo has already typed on
+screen — `/alice/` matched the comment line and ended the take before the call
+began.
 
 **Capture at the size it will be read at.** The first portal recording was
-2560x1440 squeezed into a 900px README image and every word was illegible. The
-terminal GIF read fine only because its font was enormous relative to the frame,
-which is exactly why the problem hid.
+2560x1440 squeezed into a 900px README image and every word was illegible.
 
 ## Cost
 
-The session recording makes two real API calls and takes about 150 seconds, most
-of it a spinner — hence the 5.5x speed-up. Re-running produces a **different
-log**, because the model writes it fresh each time.
+The session recording is a real ~9-minute Claude Code session. Re-running it
+produces a **different log**, because the model writes it fresh.

@@ -43,57 +43,84 @@ same idea, one person, no shared repo to set up.
 
 ---
 
-## A session that already knows
-
-Monday. Bob opens a session on a repo he has just cloned. He has never spoken to
-alice.
+## The two commands
 
 <div align="center">
-  <img src="demo/demo-session.gif" width="100%" alt="A terminal. Bob asks Claude Code about raising a cache limit; it loads the team memory and answers Stop — alice already decided against this on 2026-08-01, the cache is shared with beacon. Then at the end of the session Claude writes the session log itself.">
+  <img src="demo/demo-session.gif" width="100%" alt="Real Claude Code. A developer types /varve-load and the session reads the team memory, surfacing a decision alice recorded four days earlier. At the end they type /varve-publish; the agent composes the session log, states what it did not verify, and stops for confirmation before anything is pushed.">
 </div>
 
-He asks about raising a cache limit. The session answers:
+<p align="center"><em>Real Claude Code. <code>/varve-load</code> at the start, <code>/varve-publish</code> at the end — nothing else.</em></p>
 
-> **Stop.** Alice already decided against this on 2026-08-01 — the cache is
-> shared with beacon, so raising eviction starves their workers. Reopen only
-> with beacon's owner.
+**`/varve-load`** — the session opens knowing what the team decided. Bob asks about
+raising a cache limit and is told, before he writes a line:
 
-Bob did not search, did not open a portal, and did not know alice existed. Then
-at the end, he closes the laptop and **the log writes itself** — composed,
-private blocks stripped, scanned, and recorded as `Decided Against` for whoever
-opens the next session.
+> The thing you're about to do is the top rejected item. Alice's 2026-08-01 log,
+> verbatim: *Raising the shared cache eviction limit. Same instance as beacon, so
+> raising it starves their workers under load.* That's a live constraint, not
+> history.
 
-That is the whole product. Two prompts, no varve commands, and a decision that
-outlived the session it was made in.
+**`/varve-publish`** — the session writes itself down. The agent composes the log,
+says what it did *not* verify, and stops:
 
-*(A real Claude Code run against a real memory — see [`demo/`](demo/). Sped up:
-the model takes two minutes, most of it a spinner.)*
+> I did not re-measure beacon under load; I took alice's rationale as given. That
+> line stays in deliberately — it stops the next reader treating this as
+> independent confirmation when it isn't.
+>
+> Confirm and I'll commit and push. There is no undo once it's pushed.
+
+Two commands. Bob never searched, never opened a portal, never learned alice
+existed.
+
+---
+
+## Why now
+
+Team memory has been a good idea and a dead letter for twenty years. Three things
+changed at once.
+
+1. **Agents now produce reasoning worth keeping.** A session discovers a
+   constraint, rejects three approaches, and explains why. That output used to be
+   a junior's scratch notes. It is now the most valuable artifact of the day, and
+   it is thrown away at the end of it.
+
+2. **Adoption went individual-first.** Every developer has an agent. Each one
+   starts blind. The context that would help the next person sits in a chat
+   thread nobody else can read and no future session inherits.
+
+3. **Writing it down stopped being a human cost.** This is the one that matters.
+   Every previous attempt at team memory died because *somebody had to write it*
+   — and at 6pm, nobody does. The agent that produced the reasoning can write the
+   log. The tax that killed the idea is gone.
+
+varve is what you do about the third one.
+
+---
+
+## Before and after
+
+| | Before | With varve |
+|---|---|---|
+| where reasoning lives | a chat thread that scrolls away | a file in a repo your team already clones |
+| a new session | starts blind, re-derives what is known | opens knowing what was decided, and why |
+| a rejected approach | rediscovered — sometimes re-shipped, re-broken | recorded, dated, attributed, never struck through |
+| a constraint owned by two repos | someone's head, or a Slack thread | the project's memory, which is above both |
+| who writes it down | nobody, honestly | the agent, at the end of the session |
+| reading it as a person | ask whoever remembers | `varve serve` — the same files, in a browser |
+| the day someone leaves | it goes with them | it is in the history, on every clone |
 
 ---
 
 ## Two doors, one store
 
-An agent reads the memory at the start of a session. Nothing is inferred — these
-are file reads.
-
-<div align="center">
-  <img src="demo/demo-cli.gif" width="100%" alt="A terminal: one file says which memory this repo belongs to; varve reports the project, its repos and the last session; a search for cache finds a decision made in atlas because of beacon; git log shows every session as its own commit.">
-</div>
-
-The last two commands are the point. `varve search cache` finds a decision made
-in **atlas** *because of* **beacon** — a constraint owned by two projects and
-living in neither. And `git log` shows why it survives: **every session is a
-commit.**
-
-A person reads exactly the same files.
+Agents read the memory through the two skills. People read the same bytes in a
+local portal — no login, no database, no build step.
 
 <div align="center">
   <img src="demo/demo-portal.gif" width="100%" alt="The varve portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
 </div>
 
-`varve serve` renders your own clone. No login, no database, no build step — and
-`⌘K` jumps anywhere in the memory. Every recording here is the real product; see
-[`demo/`](demo/) to reproduce them.
+`⌘K` jumps anywhere in the memory. Underneath, it is markdown you can read in a
+pull request — see [`demo/`](demo/) to reproduce every recording here.
 
 ---
 
