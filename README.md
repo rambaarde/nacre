@@ -144,7 +144,8 @@ local portal — no login, no database, no build step.
 </div>
 
 `⌘K` jumps anywhere in the memory. Underneath, it is markdown you can read in a
-pull request — see [`demo/`](demo/) to reproduce every recording here.
+pull request. Both recordings are the real product — nothing here is mocked,
+restyled, or re-typed.
 
 ---
 
