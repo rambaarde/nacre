@@ -5,6 +5,7 @@ Playwright drives the real portal. Nothing is mocked, restyled, or re-typed.
 
 | file | what it shows |
 |---|---|
+| `demo-agent.gif` | **a real Claude Code run** invoking `varve-publish` — it composes the log, writes it to the memory, and reports the gate steps it could not finish rather than claiming them |
 | `demo-handoff.gif` | the value proposition — bob picks up alice's reasoning from a session that ended days ago, agent side and human side of the same memory |
 | `demo-cli.gif` | the agent door: resolve, report, search across projects, and the git history underneath |
 | `demo-portal.gif` | the human door: project page, in-place search, a session log, the ⌘K palette |
@@ -25,6 +26,7 @@ varve serve --port 4174     # against the demo memory, for the web captures
 V=../../vitrine
 python3 $V/scripts/render_tape.py steps.cli.json > demo-cli.tape && vhs demo-cli.tape
 python3 $V/scripts/render_tape.py steps.handoff.json > handoff-cli.tape && vhs handoff-cli.tape
+python3 $V/scripts/render_tape.py steps.agent.json    > agent.tape       && vhs agent.tape
 
 node $V/scripts/capture_web.mjs steps.web.json out
 bash $V/scripts/optimize.sh out/raw.webm demo-portal.gif 10 1000
@@ -50,6 +52,12 @@ navigation demo whose navigation is unreadable is not a demo.
 **VHS's `Wait` stopped matching once the screen had scrolled**, so the `serve`
 step waits on a fixed pause instead. The command was never at fault — a
 screenshot of that exact frame shows it printing correctly.
+
+**The agent recording is real and therefore slow.** `claude -p` takes over two
+minutes, most of it a spinner, so the tape gives that step 150s and the result is
+sped up 7x in post — the typing, the write and the proof stay legible, the
+waiting does not. Re-running it costs a real API call and will produce a
+different log, because the model writes it fresh.
 
 **Capture at the size it will be read at.** The first portal recording was
 2560x1440 squeezed into a 900px README image and the text was illegible. These

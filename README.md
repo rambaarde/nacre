@@ -43,6 +43,26 @@ same idea, one person, no shared repo to set up.
 
 ---
 
+## The agent writes it. You do not.
+
+At the end of a session you say one thing, and the log is written for you —
+composed, private blocks stripped, scanned for secrets, and shown to you before
+anything leaves the machine.
+
+<div align="center">
+  <img src="demo/demo-agent.gif" width="100%" alt="A terminal: claude -p invokes the varve-publish skill, which composes and writes a session log to the company memory; varve then reports three logs with the new one as the most recent.">
+</div>
+
+That is a real Claude Code run, not a mock-up. It composed the log, wrote it to
+the memory, and reported the two gate steps it could not finish — the secret
+scan and the pull — rather than claiming them. `varve` then shows the count
+going to **3 logs**, with the one it just wrote as `last`.
+
+Nobody typed markdown. That is the point: a memory people have to hand-write is
+a memory that stops being written.
+
+---
+
 ## What it is for
 
 Two developers. One never spoke to the other.
