@@ -564,3 +564,36 @@ test("a search page stays readable when the memory is real-sized", async () => {
   }
   await rm(dir, { recursive: true, force: true });
 });
+
+test("the palette ships every navigable target, so typing costs no round trip", async () => {
+  // ⌘K opens a palette that filters projects, people, months and the company
+  // documents. It answers from a list embedded in the page rather than asking
+  // the server, which is why it can respond on every keystroke — and why the
+  // list has to actually be complete.
+  const dir = await fixture();
+  const { serve } = await import("../src/serve.js");
+  const { server, url } = await serve({ memory: dir, port: 0 });
+  try {
+    const page = await fetch(`${url}/p/atlas`).then((r) => r.text());
+    const raw = page.match(/<script type="application\/json" id="paldata">([\s\S]*?)<\/script>/)?.[1];
+    assert.ok(raw, "the page must embed the palette corpus");
+
+    const rows = JSON.parse(raw as string) as { t: string; g: string; h: string }[];
+    const groups = new Set(rows.map((r) => r.g));
+    for (const g of ["company", "project", "person", "month"]) {
+      assert.ok(groups.has(g), `the palette must offer ${g} targets`);
+    }
+    // Every row has somewhere to go, and nothing points outside the portal.
+    for (const r of rows) {
+      assert.match(r.h, /^\//, `${r.t} must link within the portal`);
+      assert.ok(r.t.length > 0, "every target needs a label");
+    }
+    // The corpus is data in a script tag; a stray "<" would end it early.
+    assert.doesNotMatch(raw as string, /<\/script/i, "the corpus must not be able to close its own tag");
+
+    assert.match(page, /id="pal"/, "and the overlay itself must be present");
+  } finally {
+    server.close();
+  }
+  await rm(dir, { recursive: true, force: true });
+});

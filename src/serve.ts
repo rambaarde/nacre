@@ -80,14 +80,13 @@ border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:20;background:
 .top .repo{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);
 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .top .grow{flex:1}
-.qbox{position:relative;flex:0 0 auto;width:15rem;max-width:38vw}
-.qbox input{width:100%;font-family:var(--mono);font-size:.74rem;color:var(--ink);
-background:transparent;border:1px solid var(--rule-2);border-radius:2px;
-padding:.22rem 1.6rem .22rem .5rem}
-.qbox input::placeholder{color:var(--ink-3)}
-.qbox input:focus{outline:none;border-color:var(--ink)}
-.qbox kbd{position:absolute;right:.45rem;top:50%;transform:translateY(-50%);
-font-family:var(--mono);font-size:.64rem;color:var(--ink-3);pointer-events:none}
+.qbox{display:flex;align-items:center;gap:.7rem;flex:0 0 auto;width:15rem;max-width:42vw;
+background:var(--sunk);border:1px solid var(--rule);border-radius:6px;
+padding:.3rem .5rem .3rem .65rem;cursor:pointer;font:inherit;text-align:left}
+.qbox:hover{border-color:var(--rule-2)}
+.qbox .qph{flex:1;font-family:var(--sans);font-size:.8rem;color:var(--ink-3);
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qbox kbd{font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
 .tgl{flex:none;background:none;border:0;color:var(--ink-3);cursor:pointer;
 font-family:var(--mono);font-size:.72rem;padding:.1rem .2rem}
 .tgl:hover{color:var(--ink)}
@@ -202,26 +201,104 @@ letter-spacing:.06em;color:var(--ink-3)}
 .toc a{display:block;padding:.24rem 0;font-size:.85rem;color:var(--ink-2)}
 .toc a:hover{color:var(--ink)}
 
+/* ---------- command palette ---------- */
+.pal[hidden]{display:none}
+.pal{position:fixed;inset:0;z-index:100;display:flex;justify-content:center;
+align-items:flex-start;padding:12vh 1rem 1rem;background:rgba(16,16,20,.42);
+backdrop-filter:blur(2px)}
+.palbox{width:100%;max-width:34rem;background:var(--paper);border:1px solid var(--rule-2);
+border-radius:10px;box-shadow:0 18px 50px -12px rgba(0,0,0,.34);overflow:hidden}
+.palbox input{width:100%;font-family:var(--sans);font-size:1rem;color:var(--ink);
+background:transparent;border:0;border-bottom:1px solid var(--rule);padding:.85rem 1rem}
+.palbox input::placeholder{color:var(--ink-3)}
+.palbox input:focus{outline:none}
+.palist{list-style:none;margin:0;padding:.35rem;max-height:52vh;overflow-y:auto}
+.palist li{border-radius:6px}
+.palist a{display:flex;align-items:baseline;gap:.7rem;padding:.45rem .65rem;
+font-size:.9rem;color:var(--ink-2)}
+.palist li[aria-selected=true]{background:var(--sunk)}
+.palist li[aria-selected=true] a{color:var(--ink)}
+.palist .g{font-family:var(--mono);font-size:.68rem;color:var(--ink-3);
+text-transform:uppercase;letter-spacing:.08em;min-width:5.2rem}
+.palist .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palist .n{font-family:var(--mono);font-size:.7rem;color:var(--ink-3)}
+.palfoot{display:flex;gap:1rem;padding:.5rem 1rem;border-top:1px solid var(--rule);
+font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
+.palfoot b{font-weight:400;color:var(--ink-2)}
+
 .empty{font-family:var(--serif);font-size:1rem;color:var(--ink-2);margin:.2rem 0;max-width:var(--measure)}
 .empty code{font-family:var(--mono);font-size:.82em;background:var(--sunk);padding:.06em .3em}
 `;
 
-/** Theme choice persists; the default follows the operating system. */
-const THEME_JS = `(function(){var r=document.documentElement,K="varve-theme";
+/**
+ * Theme persistence, and the command palette.
+ *
+ * The palette filters a list the server already had — every project, person,
+ * month and company document — so opening it costs no request and typing costs
+ * no round trip. Anything it cannot answer locally falls through to full-text
+ * search, which is the one thing that genuinely needs the server.
+ */
+const CLIENT_JS = String.raw`(function(){
+var r=document.documentElement,K="varve-theme";
 try{var s=localStorage.getItem(K);if(s)r.setAttribute("data-theme",s)}catch(e){}
 document.addEventListener("click",function(e){
   var b=e.target.closest("[data-tgl]");if(!b)return;
   var cur=r.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");
   var next=cur==="dark"?"light":"dark";r.setAttribute("data-theme",next);
   try{localStorage.setItem(K,next)}catch(e2){}});
+
+var pal=document.getElementById("pal"),inp=document.getElementById("palq"),
+    list=document.getElementById("pallist"),
+    items=JSON.parse(document.getElementById("paldata").textContent||"[]"),
+    sel=0,shown=[];
+
+function score(hay,q){
+  hay=hay.toLowerCase();
+  if(!q)return 1;
+  var i=hay.indexOf(q);
+  if(i===0)return 1000;
+  if(i>0)return 500-i;
+  // subsequence: every character of the query in order
+  var k=0;for(var n=0;n<hay.length&&k<q.length;n++)if(hay[n]===q[k])k++;
+  return k===q.length?100:0;
+}
+function render(){
+  var q=(inp.value||"").trim().toLowerCase();
+  shown=items.map(function(it){return {it:it,s:score(it.t+" "+it.g,q)}})
+    .filter(function(x){return x.s>0})
+    .sort(function(a,b){return b.s-a.s}).slice(0,40).map(function(x){return x.it});
+  if(q)shown.push({t:'Search all logs for "'+inp.value.trim()+'"',g:"search",h:"/search?q="+encodeURIComponent(inp.value.trim())});
+  if(sel>=shown.length)sel=Math.max(0,shown.length-1);
+  list.innerHTML=shown.map(function(it,n){
+    return '<li aria-selected="'+(n===sel)+'"><a href="'+it.h+'">'+
+      '<span class="g">'+it.g+'</span><span class="t">'+it.t+'</span>'+
+      (it.n!=null?'<span class="n">'+it.n+'</span>':'')+'</a></li>';}).join("");
+  var on=list.children[sel];if(on&&on.scrollIntoView)on.scrollIntoView({block:"nearest"});
+}
+function open(){pal.hidden=false;inp.value="";sel=0;render();inp.focus()}
+function close(){pal.hidden=true;inp.blur()}
+function go(){var it=shown[sel];if(it)location.href=it.h}
+
 document.addEventListener("keydown",function(e){
-  var q=document.getElementById("q");if(!q)return;
-  if(e.key==="/"&&!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){e.preventDefault();q.focus();q.select()}
-  if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();q.focus();q.select()}});})();`;
+  var typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(((e.metaKey||e.ctrlKey)&&e.key==="k")||(e.key==="/"&&!typing)){e.preventDefault();open();return}
+  if(pal.hidden)return;
+  if(e.key==="Escape"){e.preventDefault();close()}
+  else if(e.key==="ArrowDown"){e.preventDefault();sel=Math.min(sel+1,shown.length-1);render()}
+  else if(e.key==="ArrowUp"){e.preventDefault();sel=Math.max(sel-1,0);render()}
+  else if(e.key==="Enter"){e.preventDefault();go()}
+});
+inp.addEventListener("input",function(){sel=0;render()});
+list.addEventListener("mousemove",function(e){
+  var li=e.target.closest("li");if(!li)return;
+  var n=[].indexOf.call(list.children,li);if(n!==sel){sel=n;render()}});
+pal.addEventListener("mousedown",function(e){if(e.target===pal)close()});
+document.addEventListener("click",function(e){if(e.target.closest("[data-pal]")){e.preventDefault();open()}});
+})();`;
 
 const page = (title: string, body: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escape(title)} · varve</title><style>${CSS}</style></head><body>${body}<script>${THEME_JS}</script></body></html>`;
+<title>${escape(title)} · varve</title><style>${CSS}</style></head><body>${body}<script>${CLIENT_JS}</script></body></html>`;
 
 const link = (href: string, text: string): string => `<a href="${escape(href)}">${escape(text)}</a>`;
 
@@ -259,6 +336,20 @@ function rail(idx: Index, active: Active = {}): string {
   </nav>`;
 }
 
+/** Every navigable target, for the palette to filter without a round trip. */
+function paletteData(idx: Index): string {
+  const rows: { t: string; g: string; h: string; n?: number }[] = [
+    { t: "Company context", g: "company", h: "/c/_company" },
+    { t: "Engineering standards", g: "company", h: "/c/_standards" },
+  ];
+  for (const [n, c] of Object.entries(idx.projects)) rows.push({ t: n, g: "project", h: `/p/${encodeURIComponent(n)}`, n: c });
+  for (const [n, c] of Object.entries(idx.people)) rows.push({ t: n, g: "person", h: `/who/${encodeURIComponent(n)}`, n: c });
+  for (const [n, c] of Object.entries(idx.months)) rows.push({ t: n, g: "month", h: `/t/${encodeURIComponent(n)}`, n: c });
+  // Escaped as JSON inside a <script type="application/json">, so the only
+  // sequence that could break out is the closing tag itself.
+  return JSON.stringify(rows).replace(/</g, "\\u003c");
+}
+
 const crumbs = (trail: [string, string | null][]): string =>
   `<nav class="crumbs">${trail
     .map(([label, href], i) =>
@@ -274,10 +365,9 @@ const shell = (
     <span class="sep">/</span>
     <span class="repo">${escape(basename(memory))} · pulled ${escape(clone)}</span>
     <span class="grow"></span>
-    <form class="qbox" method="get" action="/search" role="search">
-      <input id="q" type="search" name="q" placeholder="Search…" aria-label="Search">
-      <kbd>/</kbd>
-    </form>
+    <button class="qbox" data-pal type="button" aria-label="Search and jump to">
+      <span class="qph">Search or jump to…</span><kbd>⌘K</kbd>
+    </button>
     <button class="tgl" data-tgl type="button" title="Light or dark" aria-label="Toggle theme">◐</button>
   </header>
   <div class="frame">
@@ -287,7 +377,15 @@ const shell = (
       ? `<aside class="toc"><h5>On this page</h5><ul>${anchors
           .map((a) => `<li><a href="#${a.id}">${escape(a.label)}</a></li>`).join("")}</ul></aside>`
       : `<aside class="toc"></aside>`}
-  </div>`);
+  </div>
+  <div class="pal" id="pal" hidden role="dialog" aria-modal="true" aria-label="Search and jump to">
+    <div class="palbox">
+      <input id="palq" type="text" placeholder="Search or jump to…" autocomplete="off" spellcheck="false">
+      <ul class="palist" id="pallist"></ul>
+      <div class="palfoot"><span><b>↑↓</b> move</span><span><b>↵</b> open</span><span><b>esc</b> close</span></div>
+    </div>
+  </div>
+  <script type="application/json" id="paldata">${paletteData(idx)}</script>`);
 
 /** Project-scoped nav. On the page, not the rail — so moving between people and
  *  projects never reflows the sidebar. */
