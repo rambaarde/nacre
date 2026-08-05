@@ -351,6 +351,25 @@ export async function discoverStores(): Promise<string[]> {
 }
 
 /** Resolve which store to use: flag → env → store URL → discovery. */
+/**
+ * Walk up from `from` looking for a directory that IS a memory.
+ *
+ * Standing inside one is the plainest possible statement of which memory you
+ * mean, and it was the one thing resolution never checked: `varve serve` run
+ * from the root of a memory reported "no memory here, and nothing says where it
+ * lives" — while standing in one — because discovery only ever looked directly
+ * under the home directory.
+ */
+async function findMemoryUp(from: string): Promise<string | null> {
+  let dir = resolve(from);
+  for (;;) {
+    if (await exists(join(dir, "_company.md"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
 export async function resolveStoreDir(flag?: string, url?: string | null): Promise<string> {
   if (flag) {
     // A bare name means "the memory called that", not a directory under cwd.
@@ -363,6 +382,12 @@ export async function resolveStoreDir(flag?: string, url?: string | null): Promi
   if (process.env.VARVE_STORE) return resolve(process.env.VARVE_STORE);
   const derived = repoName(url);
   if (derived) return join(homedir(), derived);
+
+  // Checked before discovery: a memory you are standing in beats one found by
+  // scanning, and it removes the "several memories found" prompt in the one case
+  // where the answer is unambiguous.
+  const here = await findMemoryUp(process.cwd());
+  if (here) return here;
 
   const found = await discoverStores();
   if (found.length === 1) return found[0] as string;
