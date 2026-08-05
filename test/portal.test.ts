@@ -592,6 +592,7 @@ test("the palette ships every navigable target, so typing costs no round trip", 
     assert.doesNotMatch(raw as string, /<\/script/i, "the corpus must not be able to close its own tag");
 
     assert.match(page, /id="pal"/, "and the overlay itself must be present");
+    assert.match(page, /data-side-tgl/, "as must the sidebar toggle it sits beside");
   } finally {
     server.close();
   }

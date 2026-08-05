@@ -76,6 +76,15 @@ a{color:inherit;text-decoration:none}
 /* ---------- masthead ---------- */
 .top{display:flex;align-items:baseline;gap:.8rem;padding:.9rem 1.3rem .7rem;
 border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:20;background:var(--paper)}
+.sidetgl{flex:none;background:none;border:1px solid transparent;border-radius:5px;
+color:var(--ink-3);cursor:pointer;font:inherit;font-size:.9rem;line-height:1;
+padding:.25rem .4rem;margin-left:-.25rem}
+.sidetgl:hover{color:var(--ink);background:var(--sunk);border-color:var(--rule)}
+.sidetgl .bar{display:block;width:.95rem;height:.72rem;border:1.5px solid currentColor;
+border-radius:2px;position:relative}
+.sidetgl .bar::before{content:"";position:absolute;left:2.5px;top:0;bottom:0;
+width:1.5px;background:currentColor}
+:root[data-side=off] .sidetgl .bar::before{opacity:.28}
 .brand{font-family:var(--serif);font-size:1.12rem;letter-spacing:.01em;font-weight:600}
 .top .repo{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);
 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -95,6 +104,13 @@ font-family:var(--mono);font-size:.72rem;padding:.1rem .2rem}
 .frame{display:grid;grid-template-columns:1fr}
 @media(min-width:58rem){.frame{grid-template-columns:var(--side) minmax(0,1fr)}}
 @media(min-width:84rem){.frame{grid-template-columns:var(--side) minmax(0,1fr) var(--toc)}}
+/* Collapsed: the column goes, and the reading measure stays put rather than
+   stretching to fill the space — a longer line is not the reward for hiding
+   the navigation. */
+:root[data-side=off] .side{display:none}
+@media(min-width:58rem){:root[data-side=off] .frame{grid-template-columns:minmax(0,1fr)}}
+@media(min-width:84rem){:root[data-side=off] .frame{grid-template-columns:minmax(0,1fr) var(--toc)}}
+:root[data-side=off] .main{max-width:64rem;margin:0 auto;width:100%}
 
 /* ---------- contents rail ---------- */
 .side{padding:1.4rem 1.1rem 3rem;border-bottom:1px solid var(--rule)}
@@ -247,6 +263,13 @@ document.addEventListener("click",function(e){
   var next=cur==="dark"?"light":"dark";r.setAttribute("data-theme",next);
   try{localStorage.setItem(K,next)}catch(e2){}});
 
+var SK="varve-side";
+try{var sv=localStorage.getItem(SK);if(sv)r.setAttribute("data-side",sv)}catch(e){}
+function side(next){r.setAttribute("data-side",next);try{localStorage.setItem(SK,next)}catch(e){}}
+function toggleSide(){side(r.getAttribute("data-side")==="off"?"on":"off")}
+document.addEventListener("click",function(e){
+  if(e.target.closest("[data-side-tgl]")){e.preventDefault();toggleSide()}});
+
 var pal=document.getElementById("pal"),inp=document.getElementById("palq"),
     list=document.getElementById("pallist"),
     items=JSON.parse(document.getElementById("paldata").textContent||"[]"),
@@ -281,6 +304,7 @@ function go(){var it=shown[sel];if(it)location.href=it.h}
 
 document.addEventListener("keydown",function(e){
   var typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if((e.metaKey||e.ctrlKey)&&e.key==="b"){e.preventDefault();toggleSide();return}
   if(((e.metaKey||e.ctrlKey)&&e.key==="k")||(e.key==="/"&&!typing)){e.preventDefault();open();return}
   if(pal.hidden)return;
   if(e.key==="Escape"){e.preventDefault();close()}
@@ -361,7 +385,9 @@ const shell = (
   title: string, inner: string, anchors: Anchor[] = [],
 ): string => page(title, `
   <header class="top">
-    <a class="brand" href="/"><span class="mark"></span>varve</a>
+    <button class="sidetgl" data-side-tgl type="button" title="Show or hide the sidebar (⌘B)"
+      aria-label="Toggle sidebar"><span class="bar"></span></button>
+    <a class="brand" href="/">varve</a>
     <span class="sep">/</span>
     <span class="repo">${escape(basename(memory))} · pulled ${escape(clone)}</span>
     <span class="grow"></span>
