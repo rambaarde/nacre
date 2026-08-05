@@ -43,6 +43,33 @@ same idea, one person, no shared repo to set up.
 
 ---
 
+## Two doors, one store
+
+An agent reads the memory at the start of a session. Nothing is inferred — these
+are file reads.
+
+<div align="center">
+  <img src="demo/demo-cli.gif" alt="A terminal: one file says which memory this repo belongs to; varve reports the project, its repos and the last session; a search for 'cache' finds a decision made in atlas because of beacon; git log shows every session as its own commit." width="100%">
+</div>
+
+The last two commands are the point. `varve search cache` finds a decision made
+in **atlas** *because of* **beacon** — a constraint owned by two projects and
+living in neither. And `git log` shows why it survives: **every session is a
+commit.** Close the terminal, lose the laptop, start a new agent — the reasoning
+is still in the repository, because it was never in a chat thread.
+
+A person reads exactly the same files.
+
+<div align="center">
+  <img src="demo/demo-portal.gif" alt="The varve portal: a project page with its handoff, curated note and sessions; the Search tab filtering the project's logs in place; the command palette jumping between projects." width="100%">
+</div>
+
+`varve serve` renders your own clone. No login, no database, no build step — and
+`⌘K` jumps anywhere in the memory. Both recordings are the real product; see
+[`demo/`](demo/) to reproduce them.
+
+---
+
 ## The problem
 
 The code lands. The reasoning dies with the session.

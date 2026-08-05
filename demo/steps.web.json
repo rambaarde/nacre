@@ -1,0 +1,19 @@
+{
+  "type": "web",
+  "url": "http://127.0.0.1:4174",
+  "viewport": { "width": 2560, "height": 1440 },
+  "device_scale_factor": 2,
+  "output": { "gif": "demo-portal.gif", "mp4": "demo-portal.mp4" },
+  "steps": [
+    { "action": "goto", "url": "/", "pause_ms": 1600 },
+    { "action": "click", "selector": "a[href='/p/atlas']", "pause_ms": 2200 },
+    { "action": "click", "selector": "[data-tab=search]", "pause_ms": 1000 },
+    { "action": "type", "selector": "#findq", "text": "cache", "delay_ms": 110 },
+    { "action": "wait", "selector": "#findout tr", "timeout_ms": 8000 },
+    { "action": "pause", "pause_ms": 2600 },
+    { "action": "click", "selector": ".qbox", "pause_ms": 900 },
+    { "action": "type", "selector": "#palq", "text": "beacon", "delay_ms": 120 },
+    { "action": "pause", "pause_ms": 1800 },
+    { "action": "click", "selector": "#pallist li:first-child a", "pause_ms": 2600 }
+  ]
+}
