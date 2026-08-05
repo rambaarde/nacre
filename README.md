@@ -34,7 +34,7 @@ varve init git@github.com:acme/acme-context.git
 same idea, one person, no shared repo to set up.
 
 [![npm](https://img.shields.io/npm/v/varve-cli)](https://www.npmjs.com/package/varve-cli)
-![tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-83%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
@@ -251,9 +251,16 @@ Every command also works as **`vrv`**.
 ## Read it
 
 ```sh
-varve serve            # the portal, from your own clone. No login.
+varve brief            # what the team already decided, before you start
 varve search 419       # the same search the portal uses, same ranking
+varve serve            # the portal, from your own clone. No login.
 ```
+
+**`varve brief` is the door that needs no setup at all.** No skill, no MCP client,
+no prior knowledge of varve — any agent that can run a shell command can be told
+one line and get the same briefing everything else reads. `varve add` also leaves
+a short note in the repo's `AGENTS.md` saying exactly that, so an agent that has
+never heard of varve still finds it.
 
 Three ways in — **project · person · time** — over one store. The project page
 leads with the **handoff**: the next step from the most recent session that named
