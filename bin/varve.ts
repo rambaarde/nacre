@@ -16,10 +16,11 @@ import { basename, join } from "node:path";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
-import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, detectAgents, PKG_ROOT } from "../src/store.js";
+import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, detectAgents, exists, PKG_ROOT } from "../src/store.js";
 import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 import { serve as serveMcp } from "../src/mcp.js";
+import { brief } from "../src/brief.js";
 
 // PKG_ROOT is imported, not recomputed. This file had its own copy that counted
 // one directory up — correct from bin/ in the repo, wrong from dist/bin/ in the
@@ -51,6 +52,7 @@ const USAGE = `varve — one git-backed memory for a whole company
   varve init <git-url>           create the company memory     (once)
   varve add  <project> [dir...]  add a project, and its repos  (as needed)
   varve serve                    the portal, from your own clone
+  varve brief                    what the team already decided, before you start
   varve search <term>            one search, same ranking as the portal
   varve mcp                      serve the memory to any MCP client (stdio)
 
@@ -279,8 +281,9 @@ async function main() {
         project: arg, title: o.title, team: o.team, repos: positionals.slice(2),
         storePath: memoryPath, who: o.who,
       });
-      if (!o["no-skills"] && r.linked.length) await installSkills(agents);
+      const ready = !o["no-skills"] && r.linked.length ? await installSkills(agents) : [];
       const fresh = r.linked.filter((l) => l.wrote).map((l) => l.name);
+      const noted = r.linked.filter((l) => l.noted).map((l) => l.name);
       // "teammates then need nothing" is true of .varve.yml and false of the
       // memory, which no remote has seen yet. Promising the first while the
       // second sits unpushed is how someone clones a wired repo and finds an
@@ -290,6 +293,8 @@ async function main() {
         return out(
           `ok: ${r.project} ${r.created ? "added" : "already present"} · ${r.dir}/${r.project}`,
           `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
+          ready.length ? `agents[${ready.length}]: ${ready.join(", ")}` : null,
+          noted.length ? `AGENTS.md: ${noted.join(", ")} — so an agent that has never heard of varve still finds it` : null,
           needsPush
             ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .varve.yml in ${fresh.join(", ")}` : ""}`
             : fresh.length
@@ -303,6 +308,8 @@ async function main() {
         blank(),
         row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.dim(x))).join("  ") || c.grey("none linked")),
         row("team", r.team),
+        ready.length ? row("agents", ready.map((a) => c.dim(a)).join("  ")) : null,
+        noted.length ? row("AGENTS.md", c.grey(`${noted.join(", ")} — how an unfamiliar agent finds varve`)) : null,
         blank(),
         needsPush
           ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .varve.yml in ${fresh.join(", ")}`) : ""}`)
@@ -381,6 +388,21 @@ async function main() {
         );
       }
       return new Promise(() => {}); // hold the process open
+    }
+
+    // The read door that needs no skill, no MCP client, and no prior knowledge
+    // of varve. An agent that has never heard of this project can be told one
+    // shell command and get the same briefing everything else reads.
+    if (command === "brief" || command === "load") {
+      const binding = await resolveBinding();
+      const project = arg ?? binding?.project;
+      if (!project) {
+        fail("no project here · run varve add <project> . in this repo, or varve brief <project>");
+      }
+      const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
+      if (!(await exists(memory))) fail(`no memory at ${memory} · varve init <git-url>`);
+      console.log(await brief(memory, project as string));
+      return;
     }
 
     if (command === "search") {

@@ -61,6 +61,8 @@ export interface LinkInput {
 }
 export interface LinkResult {
   dir: string; name: string; file: string; wrote: boolean;
+  /** Whether AGENTS.md gained or refreshed the varve block. */
+  noted: boolean;
   project: string; store: string; roster: { added: string[]; repos: string[] } | null;
 }
 
@@ -231,8 +233,65 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
     wrote = true;
   }
 
+  const noted = await writeAgentsNote(dir, project as string);
+
   const roster = skipRoster ? null : await addToRoster(storeDir, project as string, [name]);
-  return { dir, name, file, wrote, project: project as string, store: remote as string, roster };
+  return { dir, name, file, wrote, noted, project: project as string, store: remote as string, roster };
+}
+
+const NOTE_START = "<!-- varve:start -->";
+const NOTE_END = "<!-- varve:end -->";
+
+/**
+ * Tell any agent, including one that has never heard of varve, what to run.
+ *
+ * A skill only fires for an agent that already knows the skill exists, and an
+ * MCP tool only for a client someone configured. `AGENTS.md` is the one file
+ * nearly every coding agent reads on its own, so it is where the memory
+ * announces itself. Without this, a new teammate's agent sits next to a full
+ * team memory and never asks for it.
+ *
+ * Kept short on purpose: this text is loaded into every session in the repo, so
+ * it is charged for constantly and read once.
+ */
+async function writeAgentsNote(dir: string, project: string): Promise<boolean> {
+  const file = join(dir, "AGENTS.md");
+  const block = [
+    NOTE_START,
+    "## Team memory",
+    "",
+    `This repo is part of the **${project}** project, which keeps a shared memory of`,
+    "what the team has decided.",
+    "",
+    "**At the start of a session, run this and read the output:**",
+    "",
+    "```sh",
+    "varve brief",
+    "```",
+    "",
+    "It reports the project's rules, what was **decided against**, open risks, and the",
+    "newest session logs from every teammate. Plain file reads — no model call.",
+    "",
+    "`varve search <term>` looks through the same memory. To record what this session",
+    "decided, run the `varve-publish` skill; a person confirms before anything is pushed.",
+    NOTE_END,
+    "",
+  ].join("\n");
+
+  let text = (await exists(file)) ? await readFile(file, "utf8") : "";
+  const from = text.indexOf(NOTE_START);
+  const to = text.indexOf(NOTE_END);
+  if (from !== -1 && to > from) {
+    // Replace in place. Re-running `varve add` is normal — adding a repo later is
+    // the same command — and each run appending another copy would grow the file
+    // that every session pays for.
+    const next = text.slice(0, from) + block.trimEnd() + text.slice(to + NOTE_END.length);
+    if (next === text) return false;
+    await writeFile(file, next);
+    return true;
+  }
+  await writeFile(file, text ? `${text.replace(/\s*$/, "")}\n\n${block}` : block);
+  return true;
 }
 
 export interface LogStats { count: number; newest: string | null; who: string | null }

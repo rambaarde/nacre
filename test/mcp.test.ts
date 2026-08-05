@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 
-import { TOOLS, brief, handle, searchText } from "../src/mcp.js";
+import { TOOLS, handle } from "../src/mcp.js";
+import { brief, searchText } from "../src/brief.js";
 import { resolveStoreDir } from "../src/store.js";
 
 /** A memory with two projects, one shared constraint, one decided-against. */

@@ -606,3 +606,56 @@ test("every known agent installs, in its own format", async () => {
     process.env.HOME = prev;
   }
 });
+
+test("linking a repo leaves a note any agent can find", async () => {
+  // A skill only fires for an agent that already knows it exists, and MCP only
+  // for a client someone configured. AGENTS.md is the file nearly every agent
+  // reads on its own, so it is where the memory announces itself. Without this,
+  // a new teammate's agent sits beside a full memory and never asks for it.
+  await withHome(async (home: string) => {
+    const repo = join(home, "atlas-web");
+    await mkdir(repo, { recursive: true });
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await addProject({ project: "atlas", who: "alice" });
+    const linked = await linkRepo({ repo, project: "atlas" });
+
+    assert.ok(linked.noted);
+    const note = await readFile(join(repo, "AGENTS.md"), "utf8");
+    assert.match(note, /varve brief/);
+    assert.match(note, /atlas/);
+  });
+});
+
+test("the note is replaced, never appended twice", async () => {
+  // `varve add` is meant to be re-run — adding a repo later is the same command
+  // — and AGENTS.md is loaded into every session in the repo.
+  await withHome(async (home: string) => {
+    const repo = join(home, "atlas-web");
+    await mkdir(repo, { recursive: true });
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await addProject({ project: "atlas", who: "alice" });
+
+    await linkRepo({ repo, project: "atlas" });
+    const second = await linkRepo({ repo, project: "atlas" });
+    await linkRepo({ repo, project: "atlas" });
+
+    const note = await readFile(join(repo, "AGENTS.md"), "utf8");
+    assert.equal(note.match(/varve:start/g)?.length, 1, note);
+    assert.equal(second.noted, false, "an unchanged note should not report a write");
+  });
+});
+
+test("an existing AGENTS.md keeps everything it already said", async () => {
+  await withHome(async (home: string) => {
+    const repo = join(home, "atlas-web");
+    await mkdir(repo, { recursive: true });
+    await writeFile(join(repo, "AGENTS.md"), "# my-service\n\nRun the tests with `make test`.\n");
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await addProject({ project: "atlas", who: "alice" });
+    await linkRepo({ repo, project: "atlas" });
+
+    const note = await readFile(join(repo, "AGENTS.md"), "utf8");
+    assert.match(note, /make test/, "clobbered the repo's own instructions");
+    assert.match(note, /varve brief/);
+  });
+});
