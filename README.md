@@ -46,7 +46,7 @@ same idea, one person, no shared repo to set up.
 ## The two commands
 
 <div align="center">
-  <img src="demo/demo-session.gif" width="100%" alt="Real Claude Code, two sessions. In the first, bob works through a decision about a session-expiry response and types /varve-publish; the agent composes the log, runs the gate, names a judgment call it made, and stops for confirmation before pushing. He exits. A second session starts cold, types /varve-load, and reconstructs a thread alice opened five days earlier.">
+  <img src="demo/demo-session.gif" width="100%" alt="Real Claude Code, two sessions. In the first, bob works through a decision about a session-expiry response and types /varve-publish; the agent composes the log, scans it, names a judgment call it made, and stops for confirmation before pushing. He exits. A second session starts cold, types /varve-load, reconstructs a thread alice opened five days earlier, and then stops him from raising a shared cache limit that would starve another product's workers.">
 </div>
 
 <p align="center"><em>Real Claude Code. One session ends with <code>/varve-publish</code>; the next one starts with <code>/varve-load</code>.</em></p>
@@ -80,6 +80,20 @@ rules, everything **decided against**, the open risks, and the newest session lo
 
 Bob never searched. He never opened a portal. He never learned Alice existed — and
 her five-day-old thread came back anyway.
+
+### And the part no single repo can tell him
+
+Bob then says he wants to raise the cache eviction limit in `atlas-api`. The
+session stops him:
+
+> **One Redis instance, two products.** `atlas-api` and `beacon-api` share it with
+> no per-product isolation, so raising atlas's share starves beacon's workers —
+> measured by alice 2026-07-28, not theorised. **Neither product's tests will catch
+> it.**
+
+Beacon is a different product, with a different team, in a different repo. Bob has
+never worked on it. That constraint belongs to two products and lives in neither's
+code — which is the whole reason varve's unit is the company and not the repo.
 
 ---
 

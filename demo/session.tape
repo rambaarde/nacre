@@ -74,6 +74,9 @@ Type "/varve-load"
 Enter
 Sleep 210s
 
-Type "So what should I pick up?"
+# A question whose answer lives in another team's work. beacon's logs are not
+# loaded here — varve-load is project-scoped — so this can only come from
+# _company.md, which is what that file exists for.
+Type "Next I want to raise the cache eviction limit in atlas-api. Any reason not to?"
 Enter
-Sleep 100s
+Sleep 120s
