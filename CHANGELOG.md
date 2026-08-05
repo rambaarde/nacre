@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/rambaarde/varve/compare/v0.2.16...v0.3.0) (2026-08-05)
+
+
+### Features
+
+* **portal:** redesign as a reference work, not a dashboard ([#71](https://github.com/rambaarde/varve/issues/71)) ([d3c3ba1](https://github.com/rambaarde/varve/commit/d3c3ba1c9c8e28a7cdf7fa20bcaf8cb13897e985))
+* **portal:** redesign, command palette, and in-page project search ([0988f30](https://github.com/rambaarde/varve/commit/0988f3056a3b3aedefe64359c324eda7e6c9f784))
+
 ## [0.2.16](https://github.com/rambaarde/varve/compare/v0.2.15...v0.2.16) (2026-08-05)
 
 
