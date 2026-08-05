@@ -74,12 +74,13 @@ font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 
 /* ---------- masthead ---------- */
-.top{display:flex;align-items:baseline;gap:.8rem;padding:.9rem 1.3rem .7rem;
+.top{display:flex;align-items:center;gap:.8rem;padding:.55rem 1.1rem;
 border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:20;background:var(--paper)}
-.sidetgl{flex:none;background:none;border:1px solid transparent;border-radius:5px;
-color:var(--ink-3);cursor:pointer;font:inherit;font-size:.9rem;line-height:1;
-padding:.25rem .4rem;margin-left:-.25rem}
+.sidetgl{flex:none;display:inline-flex;align-items:center;justify-content:center;
+width:2rem;height:2rem;background:none;border:1px solid transparent;border-radius:6px;
+color:var(--ink-2);cursor:pointer;font:inherit;line-height:1;padding:0;margin-left:-.35rem}
 .sidetgl:hover{color:var(--ink);background:var(--sunk);border-color:var(--rule)}
+.sidetgl:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 .sidetgl .bar{display:block;width:.95rem;height:.72rem;border:1.5px solid currentColor;
 border-radius:2px;position:relative}
 .sidetgl .bar::before{content:"";position:absolute;left:2.5px;top:0;bottom:0;
@@ -89,16 +90,26 @@ width:1.5px;background:currentColor}
 .top .repo{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);
 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .top .grow{flex:1}
-.qbox{display:flex;align-items:center;gap:.7rem;flex:0 0 auto;width:15rem;max-width:42vw;
-background:var(--sunk);border:1px solid var(--rule);border-radius:6px;
-padding:.3rem .5rem .3rem .65rem;cursor:pointer;font:inherit;text-align:left}
-.qbox:hover{border-color:var(--rule-2)}
+.qbox{display:flex;align-items:center;gap:.7rem;flex:0 0 auto;width:16rem;max-width:44vw;
+height:2rem;background:var(--sunk);border:1px solid var(--rule);border-radius:6px;
+padding:0 .5rem 0 .7rem;cursor:pointer;font:inherit;text-align:left}
+.qbox:hover{border-color:var(--rule-2);color:var(--ink)}
+.qbox:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 .qbox .qph{flex:1;font-family:var(--sans);font-size:.8rem;color:var(--ink-3);
 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qbox kbd{font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
-.tgl{flex:none;background:none;border:0;color:var(--ink-3);cursor:pointer;
-font-family:var(--mono);font-size:.72rem;padding:.1rem .2rem}
-.tgl:hover{color:var(--ink)}
+.tgl{flex:none;display:inline-flex;align-items:center;justify-content:center;
+width:2rem;height:2rem;background:none;border:1px solid transparent;border-radius:6px;
+color:var(--ink-2);cursor:pointer;font-size:1rem;line-height:1;padding:0}
+.tgl:hover{color:var(--ink);background:var(--sunk);border-color:var(--rule)}
+.tgl:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+/* Show the moon in light mode and the sun in dark: the control offers what you
+   would get, not what you already have. */
+.tgl .sun{display:none}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .tgl .sun{display:inline}
+  :root:not([data-theme=light]) .tgl .moon{display:none}}
+:root[data-theme=dark] .tgl .sun{display:inline}
+:root[data-theme=dark] .tgl .moon{display:none}
 
 /* ---------- frame ---------- */
 .frame{display:grid;grid-template-columns:1fr}
@@ -217,6 +228,26 @@ letter-spacing:.06em;color:var(--ink-3)}
 .toc a{display:block;padding:.24rem 0;font-size:.85rem;color:var(--ink-2)}
 .toc a:hover{color:var(--ink)}
 
+/* ---------- in-page search ---------- */
+.find[hidden]{display:none}
+.find{margin:0 0 2.4rem}
+.find .row{display:flex;align-items:center;gap:.7rem;
+border:1px solid var(--rule-2);border-radius:6px;padding:0 .7rem;height:2.4rem}
+.find .row:focus-within{border-color:var(--ink)}
+.find input{flex:1;min-width:0;font-family:var(--sans);font-size:.94rem;color:var(--ink);
+background:transparent;border:0;padding:.4rem 0}
+.find input:focus{outline:none}
+/* Chrome's native clear control is the only saturated pixel on the page, and
+   escape already clears the field. */
+.find input::-webkit-search-cancel-button,
+.palbox input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.find input::placeholder{color:var(--ink-3)}
+.find .meta{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);white-space:nowrap}
+.find .scope{font-family:var(--mono);font-size:.7rem;color:var(--ink-3);
+padding:.1rem .4rem;border:1px solid var(--rule);border-radius:3px}
+.find .out{margin:.9rem 0 0}
+.find .hint{font-family:var(--sans);font-size:.86rem;color:var(--ink-3);margin:.9rem 0 0}
+
 /* ---------- command palette ---------- */
 .pal[hidden]{display:none}
 .pal{position:fixed;inset:0;z-index:100;display:flex;justify-content:center;
@@ -317,6 +348,51 @@ list.addEventListener("mousemove",function(e){
   var li=e.target.closest("li");if(!li)return;
   var n=[].indexOf.call(list.children,li);if(n!==sel){sel=n;render()}});
 pal.addEventListener("mousedown",function(e){if(e.target===pal)close()});
+
+/* ---- in-page project search ---- */
+var find=document.getElementById("find");
+if(find){
+  var fq=document.getElementById("findq"),fout=document.getElementById("findout"),
+      fmeta=document.getElementById("findmeta"),overview=document.getElementById("overview"),
+      proj=find.getAttribute("data-project"),tabs=document.querySelectorAll("[data-tab]"),timer;
+
+  function tab(name){
+    var searching=name==="search";
+    find.hidden=!searching;
+    if(overview)overview.hidden=searching;
+    tabs.forEach(function(t){t.classList.toggle("on",t.getAttribute("data-tab")===name)});
+    if(searching)fq.focus();
+  }
+  tabs.forEach(function(t){t.addEventListener("click",function(e){
+    var n=t.getAttribute("data-tab");if(!n)return;e.preventDefault();tab(n);
+    history.replaceState(null,"",n==="search"?"#search":location.pathname);});});
+  if(location.hash==="#search")tab("search");
+
+  function esc(x){return String(x).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+  function run(){
+    var q=fq.value.trim();
+    if(!q){fout.innerHTML="";fmeta.textContent="";return}
+    fetch("/x/search?q="+encodeURIComponent(q)+"&project="+encodeURIComponent(proj))
+      .then(function(r){return r.json()})
+      .then(function(d){
+        fmeta.textContent=d.total+" hit"+(d.total===1?"":"s")+" · "+d.sessions+" session"+(d.sessions===1?"":"s");
+        if(!d.rows.length){fout.innerHTML='<p class="hint">No hits for “'+esc(q)+'” in '+esc(proj)+'.</p>';return}
+        fout.innerHTML='<div class="scroll"><table>'+d.rows.map(function(h){
+          return '<tr><td class="d">'+esc(h.d)+'</td><td class="w">'+esc(h.w)+'</td>'+
+            '<td class="sum">'+(h.a?'<span class="flag">▌</span>':"")+
+            '<a href="'+h.h+'">'+esc(h.l)+'</a></td></tr>';}).join("")+'</table></div>'+
+          (d.total>d.rows.length?'<p class="hint">Showing '+d.rows.length+' of '+d.total+
+            ' — at most 3 per session. <a href="/search?q='+encodeURIComponent(q)+
+            '&project='+encodeURIComponent(proj)+'">Open the full results</a>.</p>':"");
+      })
+      .catch(function(){fout.innerHTML='<p class="hint">Could not reach the memory.</p>'});
+  }
+  fq.addEventListener("input",function(){clearTimeout(timer);timer=setTimeout(run,120)});
+  fq.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){e.preventDefault();if(fq.value){fq.value="";run()}else tab("overview")}});
+}
 document.addEventListener("click",function(e){if(e.target.closest("[data-pal]")){e.preventDefault();open()}});
 })();`;
 
@@ -394,7 +470,8 @@ const shell = (
     <button class="qbox" data-pal type="button" aria-label="Search and jump to">
       <span class="qph">Search or jump to…</span><kbd>⌘K</kbd>
     </button>
-    <button class="tgl" data-tgl type="button" title="Light or dark" aria-label="Toggle theme">◐</button>
+    <button class="tgl" data-tgl type="button" title="Light or dark theme" aria-label="Toggle theme"
+      ><span class="moon">☾</span><span class="sun">☀</span></button>
   </header>
   <div class="frame">
     ${rail(idx, active)}
@@ -417,10 +494,23 @@ const shell = (
  *  projects never reflows the sidebar. */
 const tabs = (project: string, on: "overview" | "standards", hasStandards: boolean): string =>
   `<nav class="tabs">
-    <a class="${on === "overview" ? "on" : ""}" href="/p/${encodeURIComponent(project)}">Overview</a>
+    <a class="${on === "overview" ? "on" : ""}" href="/p/${encodeURIComponent(project)}" data-tab="overview">Overview</a>
     ${hasStandards ? `<a class="${on === "standards" ? "on" : ""}" href="/s/${encodeURIComponent(project)}">Standards</a>` : ""}
-    <a href="/search?project=${encodeURIComponent(project)}">Search</a>
+    <a href="/search?project=${encodeURIComponent(project)}" data-tab="search">Search</a>
   </nav>`;
+
+/** Searching a project should not cost the page you were reading. The link
+ *  still works with scripting off; with it on, the panel opens in place. */
+const findPanel = (project: string): string => `
+  <div class="find" id="find" hidden data-project="${escape(project)}">
+    <div class="row">
+      <input id="findq" type="search" autocomplete="off" spellcheck="false"
+        placeholder="Search ${escape(project)} logs…" aria-label="Search this project">
+      <span class="scope">${escape(project)}</span>
+      <span class="meta" id="findmeta"></span>
+    </div>
+    <div class="out" id="findout"></div>
+  </div>`;
 
 /** A fact, stated. Tiles turn three numbers into a dashboard; a definition row
  *  states them and gets out of the way. */
@@ -460,6 +550,8 @@ function renderProject(v: ProjectView): Rendered {
     v.teams.length ? `${v.teams.length} team${v.teams.length === 1 ? "" : "s"} · ` : ""
   }${v.count} log${v.count === 1 ? "" : "s"}${v.superseded ? ` · ${v.superseded} superseded` : ""}</p>
   ${tabs(v.project, "overview", v.hasStandards)}
+  ${findPanel(v.project)}
+  <div id="overview">
   <dl class="facts">
     ${fact("Repos", String(v.repos.length), v.repos.join(", ") || "none linked")}
     ${fact("Logs", String(v.count), v.superseded ? `· ${v.superseded} superseded` : "")}
@@ -478,7 +570,8 @@ function renderProject(v: ProjectView): Rendered {
         : `<p class="empty">Nobody has written one yet — it lives in <code>${
             escape(v.project)}/_project.md</code>. The logs below are the record either way.</p>`, a)}
   ${section("Recent", `${v.count} log${v.count === 1 ? "" : "s"}${
-      v.superseded ? ` · ${v.superseded} superseded` : ""}`, logRows(v.logs), a)}`;
+      v.superseded ? ` · ${v.superseded} superseded` : ""}`, logRows(v.logs), a)}
+  </div>`;
   return { html, anchors: a };
 }
 
@@ -647,6 +740,26 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
             ? markdown(body)
             : `<p class="empty">Not written yet — it lives in <code>${escape(name)}.md</code> at the root of the memory.</p>`
           }</div>`));
+      }
+
+      // Scoped search as JSON. The palette answers navigation from data already
+      // in the page; this answers "what did we say about X" — which needs the
+      // logs, and those are the one thing too large to embed.
+      if (url.pathname === "/x/search") {
+        const q = url.searchParams.get("q") ?? "";
+        const scope = url.searchParams.get("project") ?? "";
+        const hits = q.trim() ? await search(memory, q, { project: scope, all: !scope }) : [];
+        const perLog = new Map<string, number>();
+        const rows = hits
+          .filter((h) => {
+            const n = (perLog.get(h.id) ?? 0) + 1;
+            perLog.set(h.id, n);
+            return n <= 3;
+          })
+          .slice(0, 60)
+          .map((h) => ({ d: h.date, w: h.who, r: h.project, l: h.line.slice(0, 160), h: `/log/${encodeURIComponent(h.rel)}`, a: h.against }));
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        return res.end(JSON.stringify({ total: hits.length, sessions: perLog.size, rows }));
       }
 
       if (url.pathname === "/search") {
