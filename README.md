@@ -54,13 +54,14 @@ same idea, one person, no shared repo to set up.
 **`/varve-publish`** — end of session. The agent composes the log, strips private
 blocks, scans for secrets, and names the calls it made that a person should check:
 
-> `repos: [atlas-web]`, **not both.** The rule derives it from git roots actually
-> touched, and this session only ever opened `atlas-web`. `atlas-api` was
-> discussed, never read. If you'd rather it read `[atlas-api, atlas-web]` because
-> the decision spans the seam, say so.
+> Three judgement calls you may want to overrule:
 >
-> Confirm and I'll commit as `log(atlas): expiry stays 419; api deploys before web`
-> and push.
+> **`repos: [atlas-web]`, not `[atlas-api, atlas-web]`.** The skill says derive it
+> from paths actually touched, and this session touched only `atlas-web`. The 419
+> decision constrains `atlas-api` and mobile, but I didn't read either, so claiming
+> them in frontmatter would overstate it.
+>
+> Push? Nothing has been committed yet.
 
 Bob answers *"both repos, then push"* — the gate costs one line and the log is
 right. Then he exits. The session is gone.
