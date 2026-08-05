@@ -46,30 +46,34 @@ same idea, one person, no shared repo to set up.
 ## The two commands
 
 <div align="center">
-  <img src="demo/demo-session.gif" width="100%" alt="Real Claude Code. A developer types /varve-load and the session reads the team memory, surfacing a decision alice recorded four days earlier. At the end they type /varve-publish; the agent composes the session log, states what it did not verify, and stops for confirmation before anything is pushed.">
+  <img src="demo/demo-session.gif" width="100%" alt="Real Claude Code, two sessions. In the first, bob works through a decision about a session-expiry response and types /varve-publish; the agent composes the log, runs the gate, names a judgment call it made, and stops for confirmation before pushing. He exits. A second session starts cold, types /varve-load, and reconstructs a thread alice opened five days earlier.">
 </div>
 
-<p align="center"><em>Real Claude Code. <code>/varve-load</code> at the start, <code>/varve-publish</code> at the end — nothing else.</em></p>
+<p align="center"><em>Real Claude Code. One session ends with <code>/varve-publish</code>; the next one starts with <code>/varve-load</code>.</em></p>
 
-**`/varve-load`** — the session opens knowing what the team decided. Bob asks about
-raising a cache limit and is told, before he writes a line:
+**`/varve-publish`** — end of session. The agent composes the log, strips private
+blocks, scans for secrets, and names the calls it made that a person should check:
 
-> The thing you're about to do is the top rejected item. Alice's 2026-08-01 log,
-> verbatim: *Raising the shared cache eviction limit. Same instance as beacon, so
-> raising it starves their workers under load.* That's a live constraint, not
-> history.
-
-**`/varve-publish`** — the session writes itself down. The agent composes the log,
-says what it did *not* verify, and stops:
-
-> I did not re-measure beacon under load; I took alice's rationale as given. That
-> line stays in deliberately — it stops the next reader treating this as
-> independent confirmation when it isn't.
+> `repos: [atlas-web]`, **not both.** The rule derives it from git roots actually
+> touched, and this session only ever opened `atlas-web`. `atlas-api` was
+> discussed, never read. If you'd rather it read `[atlas-api, atlas-web]` because
+> the decision spans the seam, say so.
 >
-> Confirm and I'll commit and push. There is no undo once it's pushed.
+> Confirm and I'll commit as `log(atlas): expiry stays 419; api deploys before web`
+> and push.
 
-Two commands. Bob never searched, never opened a portal, never learned alice
-existed.
+Bob answers *"both repos, then push"* — the gate costs one line and the log is
+right. Then he exits. The session is gone.
+
+**`/varve-load`** — a different session, later. No transcript, no history, nothing
+carried over. It opens with:
+
+> Remove the old header path in `atlas-web` — alice flagged it 2026-08-01, bob
+> added the new handler 2026-08-04, so it's the last step of that rename and it's
+> been open five days.
+
+Two commands. Nobody searched, nobody opened a portal, and the thread survived the
+session that started it.
 
 ---
 
