@@ -33,3 +33,9 @@ build/
 # Build output. npx runs the published dist; the repo holds source only.
 dist/
 node_modules/
+
+# demo intermediates — the GIFs are committed, the sources they came from are not
+demo/out/
+demo/*.mp4
+demo/*.webm
+demo/*.png
