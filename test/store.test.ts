@@ -513,3 +513,28 @@ test("no apostrophe hides inside a single-quoted shell block in a workflow", asy
     }
   }
 });
+
+test("the README test badge matches reality", async () => {
+  // The badge has been wrong three times in one day — 34, then 44, then 54 —
+  // because it is a number maintained by hand in a file nobody edits when they
+  // add a test. A README that overstates the suite is a small lie in the most
+  // read file in the repo, so let it fail here instead of aging quietly.
+  const { readdir } = await import("node:fs/promises");
+  const testDir = join(import.meta.dirname, "..", "..", "test");
+  const files = (await readdir(testDir)).filter((f) => f.endsWith(".test.ts"));
+
+  let declared = 0;
+  for (const f of files) {
+    const src = await readFile(join(testDir, f), "utf8");
+    declared += (src.match(/^test\(/gm) ?? []).length;
+  }
+
+  const readme = await readFile(join(import.meta.dirname, "..", "..", "README.md"), "utf8");
+  const badge = readme.match(/tests-(\d+)%20passing/);
+  assert.ok(badge, "the README must carry a test badge");
+  assert.equal(
+    Number(badge[1]),
+    declared,
+    `README says ${badge[1]} tests, ${declared} are declared — update the badge`,
+  );
+});
