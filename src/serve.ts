@@ -77,8 +77,13 @@ a{color:inherit;text-decoration:none}
 .top{display:flex;align-items:center;gap:.8rem;padding:.55rem 1.1rem;
 border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:20;background:var(--paper)}
 .sidetgl{flex:none;display:inline-flex;align-items:center;justify-content:center;
-width:2rem;height:2rem;background:none;border:1px solid transparent;border-radius:6px;
-color:var(--ink-2);cursor:pointer;font:inherit;line-height:1;padding:0;margin-left:-.35rem}
+width:1.75rem;height:1.75rem;background:none;border:1px solid transparent;border-radius:6px;
+color:var(--ink-3);cursor:pointer;font:inherit;line-height:1;padding:0}
+/* One control, two homes: inside the sidebar while it is open, and in the
+   masthead once it is not — otherwise hiding the sidebar hides the only way
+   to bring it back. */
+.top .sidetgl{margin-left:-.35rem;display:none}
+:root[data-side=off] .top .sidetgl{display:inline-flex}
 .sidetgl:hover{color:var(--ink);background:var(--sunk);border-color:var(--rule)}
 .sidetgl:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 .sidetgl .bar{display:block;width:.95rem;height:.72rem;border:1.5px solid currentColor;
@@ -130,6 +135,9 @@ position:sticky;top:3rem;height:calc(100vh - 3rem);overflow-y:auto}}
 .side h4{margin:1.9rem 0 .45rem;font-family:var(--sans);font-size:.72rem;font-weight:600;
 letter-spacing:.06em;color:var(--ink-3)}
 .side h4:first-child{margin-top:0}
+.sidehead{display:flex;align-items:center;justify-content:space-between;
+gap:.5rem;margin:0 0 1.1rem}
+.sidelbl{font-family:var(--sans);font-size:.72rem;font-weight:600;color:var(--ink-3)}
 .side ul{list-style:none;margin:0;padding:0}
 .side li>a{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline;
 padding:.27rem .55rem;margin:0 0 0 -.55rem;border-radius:4px;
@@ -467,6 +475,11 @@ function rail(idx: Index, active: Active = {}): string {
       .join("")}</ul>`;
   };
   return `<nav class="side">
+    <div class="sidehead">
+      <span class="sidelbl">Contents</span>
+      <button class="sidetgl" data-side-tgl type="button"
+        title="Hide the sidebar (⌘B)" aria-label="Hide sidebar"><span class="bar"></span></button>
+    </div>
     <h4>Company</h4>
     <ul>
       <li class="${active.company === "_company" ? "on" : ""}"><a href="/c/_company">context</a></li>
