@@ -16,10 +16,18 @@ the **product**, and above it the **company**.
 
 No vectors. No API key. No service to run. Markdown you can read in a pull request.
 
+</div>
+
+<!-- Outside the centred block on purpose: align="center" centres every LINE of
+     a code fence, so a short first line sits indented and the block reads as
+     mis-typed code rather than as something to paste. -->
+
 ```sh
 npm i -g varve-cli
 varve init git@github.com:acme/acme-context.git
 ```
+
+<div align="center">
 
 **Working alone?** You want
 [create-ai-memory](https://github.com/rambaarde/create-ai-memory) instead —
