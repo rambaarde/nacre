@@ -67,8 +67,12 @@ Then he exits. The session is gone.
 
 ### At the start of the next session: `/varve-load`
 
-A new session. No transcript, no history, nothing carried over. It opens already
-knowing:
+A fresh Claude Code session starts blind — the previous chat is gone, and nothing
+about it carries over on its own.
+
+`/varve-load` is what fills that in. It reads the team's memory: the project's
+rules, everything **decided against**, the open risks, and the newest session logs
+— Bob's own and everyone else's. So the session opens already knowing:
 
 > Remove the old header path in `atlas-web` — alice flagged it 2026-08-01, bob
 > added the new handler 2026-08-04, so it's the last step of that rename and it's
