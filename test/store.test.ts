@@ -538,3 +538,40 @@ test("the README test badge matches reality", async () => {
     `README says ${badge[1]} tests, ${declared} are declared — update the badge`,
   );
 });
+
+test("standing inside a memory is enough to find it", async () => {
+  // `varve serve` run from the root of a memory reported "no memory here, and
+  // nothing says where it lives" — while standing in one — because discovery
+  // only ever scanned directly under the home directory, and a memory kept
+  // anywhere else was invisible. Being inside it is the plainest possible
+  // statement of which memory you mean.
+  await withHome(async (home: string) => {
+    const buried = join(home, "Documents", "work", "acme-context");
+    await mkdir(join(buried, "atlas"), { recursive: true });
+    await writeFile(join(buried, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+
+    const { resolveStoreDir } = await import("../src/store.js");
+    const { realpath } = await import("node:fs/promises");
+    // macOS puts the temp dir behind a /var -> /private/var symlink, and
+    // process.cwd() reports the resolved path.
+    const real = await realpath(buried);
+
+    process.chdir(buried);
+    assert.equal(await resolveStoreDir(), real, "the memory itself resolves");
+
+    // And from a subdirectory of it, which is where a person actually stands.
+    process.chdir(join(buried, "atlas"));
+    assert.equal(await resolveStoreDir(), real, "a subdirectory resolves to its root");
+
+    // An explicit flag still wins — being somewhere is weaker than saying so.
+    const other = join(home, "other-context");
+    await mkdir(other, { recursive: true });
+    await writeFile(join(other, "_company.md"), "---\ntype: varve-company\n---\n");
+    assert.equal(await resolveStoreDir(other), other, "--memory overrides where you stand");
+
+    // Outside any memory it must not invent one.
+    process.chdir(home);
+    const outside = await resolveStoreDir();
+    assert.notEqual(outside, buried, "standing outside must not reach into a memory");
+  });
+});
