@@ -1,29 +1,56 @@
 # Demo recordings
 
-Both GIFs are recordings of the real product — VHS drives a real shell for the
-terminal, Playwright drives the real portal for the browser. Nothing is mocked or
-restyled; the pixels are varve's own output.
+Every GIF here is a recording of the real product. VHS drives a real shell;
+Playwright drives the real portal. Nothing is mocked, restyled, or re-typed.
+
+| file | what it shows |
+|---|---|
+| `demo-handoff.gif` | the value proposition — bob picks up alice's reasoning from a session that ended days ago, agent side and human side of the same memory |
+| `demo-cli.gif` | the agent door: resolve, report, search across projects, and the git history underneath |
+| `demo-portal.gif` | the human door: project page, in-place search, a session log, the ⌘K palette |
+
+## The memory they read
+
+Built under `/tmp/varve-demo` from the fictional `acme-context` — fictional
+company, fictional projects — with **one commit per session**, so the history in
+the terminal recording is real rather than staged.
+
+```sh
+varve serve --port 4174     # against the demo memory, for the web captures
+```
 
 ## Reproducing
 
-The memory they read is built from `acme-context` — fictional company, fictional
-projects — under `/tmp/varve-demo`, with one commit per session so the git
-history in the terminal recording is real rather than staged.
+```sh
+V=../../vitrine
+python3 $V/scripts/render_tape.py steps.cli.json > demo-cli.tape && vhs demo-cli.tape
+python3 $V/scripts/render_tape.py steps.handoff.json > handoff-cli.tape && vhs handoff-cli.tape
+
+node $V/scripts/capture_web.mjs steps.web.json out
+bash $V/scripts/optimize.sh out/raw.webm demo-portal.gif 10 1000
+```
+
+The split screen is two recordings stacked, with the shorter one holding its last
+frame so both panes end together:
 
 ```sh
-# terminal
-python3 ../../vitrine/scripts/render_tape.py steps.cli.json > demo-cli.tape
-vhs demo-cli.tape
-
-# portal (needs `varve serve --port 4174` against the demo memory)
-node ../../vitrine/scripts/capture_web.mjs steps.web.json out
-bash ../../vitrine/scripts/optimize.sh out/raw.webm demo-portal.gif 10 900
+ffmpeg -i out2/raw.webm -vf "tpad=stop_mode=clone:stop_duration=13,crop=1100:680:0:0" web.mp4
+ffmpeg -i handoff-cli.mp4 -vf "crop=1100:680:0:0" cli.mp4
+ffmpeg -i cli.mp4 -i web.mp4 -filter_complex "[0:v][1:v]hstack=inputs=2" handoff.mp4
 ```
 
 Recorded with [vitrine](https://github.com/rhyumiranda/vitrine).
 
-## Notes
+## Two things worth knowing before re-running
 
-The portal recording uses the raw full-frame capture rather than vitrine's
-cinematic zoom layer: the zoom cropped the sidebar to a column of orphaned
-numbers, and a navigation demo whose navigation is unreadable is not a demo.
+**The portal captures use vitrine's raw full-frame video, not its cinematic zoom
+layer.** The zoom cropped the sidebar to a column of orphaned numbers, and a
+navigation demo whose navigation is unreadable is not a demo.
+
+**VHS's `Wait` stopped matching once the screen had scrolled**, so the `serve`
+step waits on a fixed pause instead. The command was never at fault — a
+screenshot of that exact frame shows it printing correctly.
+
+**Capture at the size it will be read at.** The first portal recording was
+2560x1440 squeezed into a 900px README image and the text was illegible. These
+capture at 1100-1280 wide so the pixels survive the trip.

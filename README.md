@@ -43,29 +43,47 @@ same idea, one person, no shared repo to set up.
 
 ---
 
+## What it is for
+
+Two developers. One never spoke to the other.
+
+<div align="center">
+  <img src="demo/demo-handoff.gif" width="100%" alt="Left: a terminal where bob — new machine, new session — runs varve and varve search, and finds a decision alice made. Right: the portal showing alice's session log, with what she decided against and why.">
+</div>
+
+On the left, **bob** starts a session on a machine that has never seen this
+project. He runs one command and knows what the team decided. On the right, the
+**same memory** as a person reads it — alice's session, why she ruled the change
+out, and what she left for whoever came next.
+
+Nothing was re-derived and nobody was interrupted. Alice's session ended days
+ago; the reasoning did not end with it, because it was written to a repository
+rather than said in a chat thread.
+
+---
+
 ## Two doors, one store
 
 An agent reads the memory at the start of a session. Nothing is inferred — these
 are file reads.
 
 <div align="center">
-  <img src="demo/demo-cli.gif" alt="A terminal: one file says which memory this repo belongs to; varve reports the project, its repos and the last session; a search for 'cache' finds a decision made in atlas because of beacon; git log shows every session as its own commit." width="100%">
+  <img src="demo/demo-cli.gif" width="100%" alt="A terminal: one file says which memory this repo belongs to; varve reports the project, its repos and the last session; a search for cache finds a decision made in atlas because of beacon; git log shows every session as its own commit.">
 </div>
 
 The last two commands are the point. `varve search cache` finds a decision made
 in **atlas** *because of* **beacon** — a constraint owned by two projects and
 living in neither. And `git log` shows why it survives: **every session is a
-commit.** Close the terminal, lose the laptop, start a new agent — the reasoning
-is still in the repository, because it was never in a chat thread.
+commit.**
 
 A person reads exactly the same files.
 
 <div align="center">
-  <img src="demo/demo-portal.gif" alt="The varve portal: a project page with its handoff, curated note and sessions; the Search tab filtering the project's logs in place; the command palette jumping between projects." width="100%">
+  <img src="demo/demo-portal.gif" width="100%" alt="The varve portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
 </div>
 
 `varve serve` renders your own clone. No login, no database, no build step — and
-`⌘K` jumps anywhere in the memory. Both recordings are the real product; see
+`⌘K` jumps anywhere in the memory. Every recording here is the real product; see
 [`demo/`](demo/) to reproduce them.
 
 ---
