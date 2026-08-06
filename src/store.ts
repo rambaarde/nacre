@@ -336,8 +336,49 @@ export async function isPubliclyReadable(url: string): Promise<boolean | null> {
  * Never interactive. Without credentials git would sit waiting for a password
  * and hang the session, which is a worse first impression than a clear message.
  */
+/**
+ * `git@github.com:acme/acme-context.git` → `acme/acme-context`.
+ *
+ * Null for anything that is not a GitHub remote — a self-hosted memory is
+ * legitimate, and guessing a collaborator API for it would fail confusingly.
+ */
+export function githubSlug(remote?: string | null): string | null {
+  if (!remote) return null;
+  const m = remote.trim().match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/i);
+  return m ? (m[1] as string) : null;
+}
+
+/**
+ * Invite someone to the memory.
+ *
+ * This is the one step that cannot be automated away and is not optional: the
+ * memory is private, so a teammate reads nothing and pushes nothing until they
+ * are on it. It was also the only part of onboarding that lived entirely in a
+ * browser, which is why it sat between "clone the repo" and "start warm".
+ *
+ * `gh` is used when present and never installed — this package has no runtime
+ * dependencies, and a tool that quietly installs a second CLI is not one.
+ */
+export async function invite(remote: string | null, who: string): Promise<
+  { ok: true; via: "gh" } | { ok: false; url: string | null; reason: string }
+> {
+  const slug = githubSlug(remote);
+  const url = slug ? `https://github.com/${slug}/settings/access` : null;
+  if (!slug) return { ok: false, url, reason: `${remote ?? "the memory"} is not a GitHub remote — add them however it is hosted` };
+
+  try {
+    await run("gh", ["api", "--method", "PUT", `repos/${slug}/collaborators/${who}`, "-f", "permission=push"], {
+      timeout: 30_000,
+    });
+    return { ok: true, via: "gh" };
+  } catch (error) {
+    const text = String((error as { stderr?: string })?.stderr ?? error).trim().split("\n").pop();
+    return { ok: false, url, reason: text ?? "gh failed" };
+  }
+}
+
 export async function ensureMemory(dir: string, remote?: string | null): Promise<
-  { ok: true; cloned: boolean } | { ok: false; reason: string }
+  { ok: true; cloned: boolean } | { ok: false; reason: string; denied?: boolean }
 > {
   if (await exists(join(dir, "_company.md"))) return { ok: true, cloned: false };
   if (!remote) return { ok: false, reason: "no memory here, and nothing says where it lives" };
@@ -348,7 +389,22 @@ export async function ensureMemory(dir: string, remote?: string | null): Promise
       timeout: 60_000,
     });
   } catch (error) {
-    const text = String((error as { stderr?: string })?.stderr ?? error).trim().split("\n").pop();
+    const raw = String((error as { stderr?: string })?.stderr ?? error).trim();
+    const text = raw.split("\n").pop();
+
+    // Being denied is not the same as being broken, and it is the likeliest
+    // failure a new teammate hits: the memory is private, and nobody has added
+    // them yet. Saying "could not clone" sends them to debug git; saying who to
+    // ask is the whole fix.
+    if (/permission denied|access rights|authentication failed|not found|could not read from remote|repository not found/i.test(raw)) {
+      return {
+        ok: false,
+        denied: true,
+        reason:
+          `no access to ${remote} — the memory is private and you are not on it yet. ` +
+          "Ask whoever set it up to run: varve invite <your-github-username>",
+      };
+    }
     return { ok: false, reason: `could not clone ${remote} — ${text}` };
   }
 
