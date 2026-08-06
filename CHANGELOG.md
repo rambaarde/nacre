@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.2](https://github.com/rambaarde/varve/compare/v0.5.1...v0.5.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* **onboarding:** a teammate needs no install, and n=2 no longer collides ([c869bb7](https://github.com/rambaarde/varve/commit/c869bb79ff3fe80d0693f2f2aa7f4d4334840190))
+* **onboarding:** a teammate needs no install, and n=2 no longer collides ([1e81571](https://github.com/rambaarde/varve/commit/1e815714281e2ce325ee0dab124a7582ff9a1f51))
+
 ## [0.5.1](https://github.com/rambaarde/varve/compare/v0.5.0...v0.5.1) (2026-08-06)
 
 
