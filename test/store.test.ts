@@ -747,3 +747,32 @@ test("the publish skill still documents the retry", async () => {
   assert.match(skill, /pull --rebase --autostash/);
   assert.match(skill, /Never force-push/i);
 });
+
+test("a GitHub memory yields a slug; anything else is left alone", async () => {
+  const { githubSlug } = await import("../src/store.js");
+  assert.equal(githubSlug("git@github.com:acme/acme-context.git"), "acme/acme-context");
+  assert.equal(githubSlug("https://github.com/acme/acme-context"), "acme/acme-context");
+  assert.equal(githubSlug("https://github.com/acme/acme-context.git"), "acme/acme-context");
+  // Self-hosted memories are legitimate. Guessing a collaborator API for one
+  // would fail in a way that reads as varve being broken.
+  assert.equal(githubSlug("git@gitlab.com:acme/x.git"), null);
+  assert.equal(githubSlug("/tmp/local/memory"), null);
+  assert.equal(githubSlug(null), null);
+});
+
+test("a non-GitHub remote points at the hosting instead of failing blankly", async () => {
+  const { invite } = await import("../src/store.js");
+  const r = await invite("git@gitlab.com:acme/x.git", "dana");
+  assert.equal(r.ok, false);
+  assert.match((r as { reason: string }).reason, /not a GitHub remote/);
+});
+
+test("brief fetches the memory rather than telling a teammate to init", async () => {
+  // Running `init` on a bound repo builds a SECOND memory whose history has
+  // nothing in common with the team's. The library was fixed for this; `varve
+  // brief` was later wired straight to the filesystem and reintroduced it.
+  const bin = await readFile(fileURLToPath(new URL("../../bin/varve.ts", import.meta.url)), "utf8");
+  const cmd = bin.slice(bin.indexOf('command === "brief"'), bin.indexOf('command === "search"'));
+  assert.ok(cmd.includes("ensureMemory"), "brief must fetch the memory");
+  assert.ok(!/varve init/.test(cmd), "brief must never send a bound repo to init");
+});

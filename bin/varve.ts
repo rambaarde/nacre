@@ -16,7 +16,7 @@ import { basename, join } from "node:path";
 import { initStore, addProject, status, installSkills } from "../src/operations.js";
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
-import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, detectAgents, exists, PKG_ROOT } from "../src/store.js";
+import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, detectAgents, exists, invite, storeRemote, PKG_ROOT } from "../src/store.js";
 import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 import { serve as serveMcp } from "../src/mcp.js";
@@ -56,6 +56,7 @@ const USAGE = `varve — one git-backed memory for a whole company
   varve add  <project> [dir...]  add a project, and its repos  (as needed)
   varve serve                    the portal, from your own clone
   varve brief                    what the team already decided, before you start
+  varve invite <github-user>     give a teammate access to the memory
   varve notify                   announce the newest log to $VARVE_NOTIFY_URL
   varve search <term>            one search, same ranking as the portal
   varve mcp                      serve the memory to any MCP client (stdio)
@@ -405,7 +406,12 @@ async function main() {
         fail("no project here · run varve add <project> . in this repo, or varve brief <project>");
       }
       const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
-      if (!(await exists(memory))) fail(`no memory at ${memory} · varve init <git-url>`);
+      // Fetch it, never tell a teammate to `init`. Running init on a bound repo
+      // builds a SECOND memory whose history has nothing in common with the one
+      // the team is writing to — the failure this repo already has a test for,
+      // reintroduced here because brief was wired straight to the filesystem.
+      const got = await ensureMemory(memory, binding?.store);
+      if (!got.ok) fail(got.reason);
       console.log(await brief(memory, project as string));
       return;
     }
@@ -413,10 +419,34 @@ async function main() {
     // Outbound only, and only after a person already confirmed the push. A
     // failure here is reported but never fails the command: the log is already
     // safe, and a red exit would send someone hunting a problem that is not there.
+    // The one onboarding step that cannot be automated away: a private memory
+    // gives a teammate nothing until they are on it. It used to live entirely
+    // in a browser, which is why it sat between "clone the repo" and "warm".
+    if (command === "invite") {
+      if (!arg) fail("missing argument: varve invite <github-username>");
+      const binding = await resolveBinding();
+      const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
+      const remote = binding?.store ?? (await storeRemote(memory));
+      const r = await invite(remote ?? null, arg);
+      if (r.ok) {
+        return out(
+          `ok: invited ${arg} — write access to ${remote}`,
+          `next: tell them to clone any repo in the project and run: npx -y varve-cli brief`,
+        );
+      }
+      return out(
+        `not invited: ${r.reason}`,
+        r.url ? `next: add them here — ${r.url}` : null,
+        r.url ? "help[]: gh auth login, then varve invite <github-username>" : null,
+      );
+    }
+
     if (command === "notify") {
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
-      if (!(await exists(memory))) fail(`no memory at ${memory} · varve init <git-url>`);
+      // Same rule as brief: fetch, never send a bound repo to `init`.
+      const have = await ensureMemory(memory, binding?.store);
+      if (!have.ok) fail(have.reason);
       const [newest] = await readLogs(memory, arg ?? binding?.project);
       if (!newest) {
         return out("no logs yet — nothing to announce", "next: varve-publish at the end of a session");
