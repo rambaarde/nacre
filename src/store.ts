@@ -179,7 +179,12 @@ export async function resolveBinding(start: string = process.cwd()): Promise<Bin
 /** The repo name from a git URL: git@host:acme/acme-context.git → acme-context */
 export function repoName(url?: string | null): string | null {
   if (!url) return null;
-  const last = url.trim().replace(/\.git$/, "").split(/[/:]/).pop();
+  // Backslash is a separator too. Without it a Windows memory path —
+  // `C:\\work\\acme-context.git` — yielded a "name" containing separators,
+  // which isSafeName then rejected, so resolution fell through to scanning the
+  // home directory and could return SOMEONE ELSE'S memory. That is the one
+  // failure this design refuses to allow.
+  const last = url.trim().replace(/\.git$/, "").split(/[/:\\]/).pop();
   // A remote path is allowed to contain spaces and non-Latin characters; only a
   // name that is not a single directory name is unusable. `[\w.-]+` rejected
   // `acme context.git` and silently fell back to the default directory, so two
@@ -449,7 +454,13 @@ async function findMemoryUp(from: string): Promise<string | null> {
 export async function resolveStoreDir(flag?: string, url?: string | null): Promise<string> {
   if (flag) {
     // A bare name means "the memory called that", not a directory under cwd.
-    if (!flag.includes("/") && !flag.startsWith(".")) {
+    // Backslash and a drive letter count as "this is a path": on Windows
+    // `C:\\memories\\acme` contains no forward slash, so it was read as a name
+    // and joined onto the home directory — pointing at somewhere that does not
+    // exist while looking like it worked.
+    const looksLikePath =
+      flag.includes("/") || flag.includes("\\") || /^[A-Za-z]:/.test(flag) || flag.startsWith(".");
+    if (!looksLikePath) {
       const named = join(homedir(), flag);
       if (await exists(join(named, "_company.md"))) return named;
     }

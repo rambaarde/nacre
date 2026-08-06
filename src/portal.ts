@@ -10,7 +10,7 @@
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { exists, frontmatter, readRoster, listProjects, isSafeName } from "./store.js";
 import type { Frontmatter } from "./store.js";
 
@@ -176,7 +176,10 @@ export async function readLogs(memory: string, project?: string): Promise<Log[]>
           logs.push({
             project: p, team: team.name, who: person.name,
             file: name, id: name.replace(/\.md$/, ""), path,
-            rel: relative(memory, path),
+            // Forward slashes always: `rel` is used as a portal URL and as an
+            // identifier, and relative() yields backslashes on Windows — which
+            // would produce links no route matches.
+            rel: relative(memory, path).split(sep).join("/"),
             date: name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? "",
             // Sort on the timestamp alone. The filename starts with the project
             // slug, so sorting by name would order company-wide reads

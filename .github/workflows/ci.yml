@@ -31,6 +31,59 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # A teammate on Windows is the case that fails for a path-separator reason and
+  # teaches nothing about whether shared memory works. Nobody had ever run this
+  # there.
+  #
+  # Its own job rather than an OS axis on `test`: adding one renames every check
+  # ("test (20)" becomes "test (20, ubuntu-latest)"), and main's required checks
+  # name the old ones — so every PR would wait forever on a check that no longer
+  # exists.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  # ubuntu-latest is one distro with one libc. These are the differences that
+  # actually bite a zero-dependency Node tool: musl instead of glibc, and a base
+  # image with no git until it is installed — varve shells out to git for every
+  # read, so an image without it is a real user's first five minutes.
+  #
+  # Names stay off the `test` job for the same reason as `windows`: main's
+  # required checks reference "test (20|22|24)" exactly.
+  distros:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: node:22-alpine # musl
+            setup: apk add --no-cache git
+          - image: node:22-slim # debian, minimal
+            setup: apt-get update && apt-get install -y --no-install-recommends git ca-certificates
+          - image: fedora:latest # rpm, and Node from the distro rather than nodejs.org
+            setup: dnf install -y nodejs npm git
+    container: ${{ matrix.image }}
+    steps:
+      - name: prepare the image
+        run: ${{ matrix.setup }}
+      - uses: actions/checkout@v4
+      - name: git must trust a checkout it did not create
+        # Containers run as a different user than the one that wrote the files,
+        # so git refuses the directory as "dubious ownership" — and every git
+        # call varve makes fails with an error about the repo, not about varve.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: node --version && npm --version && git --version
+      - run: npm ci
+      - run: npm test
+
   no-dependencies:
     runs-on: ubuntu-latest
     steps:

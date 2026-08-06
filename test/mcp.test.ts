@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 import { TOOLS, handle } from "../src/mcp.js";
@@ -11,7 +12,7 @@ import { resolveStoreDir } from "../src/store.js";
 
 /** A memory with two projects, one shared constraint, one decided-against. */
 async function memory(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "varve-mcp-"));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-mcp-")));
   await writeFile(
     join(dir, "_company.md"),
     `---\ntype: varve-company\ncompany: Acme\n---\n\n<!-- a comment that must not survive -->\n# Shared Infrastructure\n\n* **Redis:** one instance, shared by atlas and beacon.\n`,
@@ -143,7 +144,7 @@ test("a traversing project name is refused", async () => {
 test("a failure is content the model can read, not a vanished call", async () => {
   // Run somewhere with no .varve.yml above it and no project given.
   const cwd = process.cwd();
-  process.chdir(await mkdtemp(join(tmpdir(), "varve-nowhere-")));
+  process.chdir(await realpath(await mkdtemp(join(tmpdir(), "varve-nowhere-"))));
   try {
     const r = await call("varve_brief");
     assert.equal((r?.result as { isError: boolean }).isError, true);
@@ -164,7 +165,7 @@ test("the server speaks JSON-RPC on stdio and writes nothing else", async () => 
   // spawn, not execFile: promisified execFile has no `input` option (that is
   // execFileSync), so the child's stdin never closes, the read loop never ends,
   // and the test hangs rather than fails.
-  const child = spawn(process.execPath, ["dist/bin/varve.js", "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [fileURLToPath(new URL("../bin/varve.js", import.meta.url)), "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");
@@ -209,6 +210,6 @@ test("a local memory path in .varve.yml is used directly, not re-derived", async
 
 test("a remote URL still resolves under home, not as a local path", async () => {
   const resolved = await resolveStoreDir(undefined, "git@github.com:acme/acme-context.git");
-  assert.ok(resolved.endsWith("/acme-context"), resolved);
+  assert.equal(basename(resolved), "acme-context", resolved);
   assert.ok(!resolved.startsWith("git@"), resolved);
 });

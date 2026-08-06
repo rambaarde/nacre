@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
@@ -20,7 +20,7 @@ const LOG = {
 };
 
 async function company(frontmatter: string): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "varve-notify-"));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-notify-")));
   await writeFile(join(dir, "_company.md"), `---\ntype: varve-company\n${frontmatter}---\n\n# Company\n`);
   return dir;
 }
