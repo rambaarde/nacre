@@ -190,8 +190,20 @@ too long to read, that is a bug in composing it, not a reason to wave it through
 **4. Push** only on explicit confirmation:
 
 ```bash
-git -C <store> add <path> && git -C <store> commit -m "log(atlas): rate-limit headers verified in prod" && git -C <store> push
+git -C <store> add <path> && git -C <store> commit -m "log(atlas): rate-limit headers verified in prod" && \
+  { git -C <store> push || { git -C <store> pull --rebase --autostash && git -C <store> push; }; }
 ```
+
+**The retry is not optional.** The pull in step 1 happened before composing and
+before a person read the draft — minutes ago. A teammate who published inside that
+window makes this push non-fast-forward, and a bare `push` fails at the exact
+moment two people were both doing the thing this store exists for.
+
+Rebasing is safe here *because* the store is append-only: a session writes one new
+file, so there is nothing for two logs to conflict over. If a rebase reports a
+conflict anyway, **stop and show it** — that means something edited an existing
+file, which is not what publishing does. Never force-push to recover; that is the
+one operation that can silently drop a teammate's commits.
 
 A scan finding blocks the push. Overriding is per-finding and explicit — never
 "proceed anyway" for the whole file.

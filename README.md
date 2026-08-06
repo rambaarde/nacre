@@ -34,7 +34,7 @@ varve init git@github.com:acme/acme-context.git
 same idea, one person, no shared repo to set up.
 
 [![npm](https://img.shields.io/npm/v/varve-cli)](https://www.npmjs.com/package/varve-cli)
-![tests](https://img.shields.io/badge/tests-102%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-104%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
@@ -233,8 +233,10 @@ Adding a repo later is the same command again:
 varve add atlas ../atlas-worker
 ```
 
-**Everyone after that runs nothing.** They clone a repo that already carries
-`.varve.yml`, and their next session starts warm.
+**Everyone after that installs nothing.** They clone a repo that already carries
+`.varve.yml` and an `AGENTS.md` note, and their agent reads the memory with
+`npx varve-cli brief` — no global install, no setup, nothing to remember. A global
+`npm i -g varve-cli` only makes the command shorter.
 
 Unsure where you are? Run `varve` with no arguments — it reports live state and
 names the one command that applies next.
