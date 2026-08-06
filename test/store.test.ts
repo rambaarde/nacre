@@ -14,6 +14,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, rm, access } from "node:fs/promises";
 import { tmpdir, homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 import { frontmatter, setFrontmatterKey, repoName, resolveBinding, readRoster, addToRoster, listProjects, logStats, discoverStores, AGENTS } from "../src/store.js";
@@ -23,9 +24,14 @@ import { initStore, addProject, linkRepo, status } from "../src/operations.js";
 async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
   const home = await mkdtemp(join(tmpdir(), "varve-test-"));
   const realHome = process.env.HOME as string;
+  // os.homedir() reads USERPROFILE on Windows and HOME on POSIX. Setting only
+  // HOME left every Windows run resolving against the runner's REAL home —
+  // the suite silently escaped its own sandbox and wrote there.
+  const realProfile = process.env.USERPROFILE;
   const realStore = process.env.VARVE_STORE;
   const cwd = process.cwd();
   process.env.HOME = home;
+  process.env.USERPROFILE = home;
   delete process.env.VARVE_STORE;
   // Also move into the temp home. Binding resolution walks up from the working
   // directory by design, so a .varve.yml anywhere above the repo would leak in
@@ -36,8 +42,12 @@ async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
   } finally {
     process.chdir(cwd);
     process.env.HOME = realHome;
+    if (realProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = realProfile;
     if (realStore) process.env.VARVE_STORE = realStore;
-    await rm(home, { recursive: true, force: true });
+    // Windows holds handles briefly after close, and refuses to remove the
+    // working directory — cwd is already restored above.
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 }
 
@@ -275,7 +285,7 @@ test("piped output carries no escape codes", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
+  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
   const { stdout } = await run(process.execPath, [bin, "--help"]);
   const ESC = String.fromCharCode(27);
   assert.ok(!stdout.includes(ESC), "styling must never reach a pipe");
