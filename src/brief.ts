@@ -60,8 +60,20 @@ function cap(text: string, limit: number, note = ""): string {
     `${note}\`varve search <term>\` reads the rest.]`;
   const room = Math.max(0, limit - notice(text.length).length);
   const cut = text.slice(0, room);
-  const at = cut.lastIndexOf("\n");
-  const kept = cut.slice(0, at > 0 ? at : room);
+
+  // Prefer a line break, then a word break, then take the room as given.
+  //
+  // Backing up to the last newline unconditionally destroyed any section
+  // written as one long paragraph — and markdown paragraphs are routinely a
+  // single line. A 9,000-character `_standards.md` rendered as its heading and
+  // nothing else: the newline it retreated to was the one after the heading.
+  // Losing a few words at the edge is a rounding error; losing the section is
+  // the failure this file exists to prevent.
+  const half = room / 2;
+  const nl = cut.lastIndexOf("\n");
+  const sp = cut.lastIndexOf(" ");
+  const edge = nl > half ? nl : sp > half ? sp : room;
+  const kept = cut.slice(0, edge).trimEnd();
   return kept + notice(text.length - kept.length);
 }
 
@@ -278,7 +290,14 @@ export async function brief(memory: string, project: string): Promise<string> {
   // reading. They are the recoverable part: recent work is the work a session is
   // likeliest to already know about.
   const recent = view.logs.slice(0, 5).map((l) => {
-    const line = (l.summary || l.summaryOnly).split(/\r?\n/).find((s) => s.trim()) ?? "";
+    // Skip headings. A log with no `## Summary` fell back to the body, whose
+    // first line is a heading — so the rail read "## Decided against" as though
+    // that were what the session did.
+    const line =
+      (l.summary || l.summaryOnly)
+        .split(/\r?\n/)
+        .map((t) => t.trim())
+        .find((t) => t && !t.startsWith("#")) ?? "";
     return `- ${l.date} · ${l.who} — ${line.replace(/^[-*]\s*/, "").trim()}`;
   });
   if (recent.length && BRIEF_CHARS - parts.join("\n\n").length > 240) {

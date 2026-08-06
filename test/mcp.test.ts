@@ -333,3 +333,36 @@ test("past the floor it drops the newest, keeps the oldest, and says so", async 
   assert.match(out, /varve search/);
   assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
 });
+
+test("a section written as one long paragraph is not reduced to its heading", async () => {
+  // cap() backed up to the last newline unconditionally. Markdown paragraphs are
+  // routinely a single line, so a long _standards.md rendered as its heading and
+  // nothing else — the newline it retreated to was the one after the heading.
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-oneline-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: varve-company\n---\n\n# Snapshot\n\nWe ship on Fridays.\n");
+  await writeFile(
+    join(dir, "_standards.md"),
+    `---\ntype: varve-standards\n---\n\n# Standards\n\nMARKER ${"every rule on one line ".repeat(500)}\n`,
+  );
+  await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
+  await writeFile(join(dir, "atlas", "_project.md"),
+    "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
+
+  const out = await brief(dir, "atlas");
+  assert.match(out, /MARKER every rule on one line/, "the body must survive, not just the heading");
+  assert.ok(out.length <= 8_000, `brief was ${out.length} chars`);
+});
+
+test("a log with no summary section does not report a heading as its summary", async () => {
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-nosum-")));
+  await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
+  await writeFile(join(dir, "atlas", "_project.md"),
+    "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
+  await writeFile(join(dir, "atlas", "devs", "bob", "atlas-2026-09-01_10-00-00.md"),
+    "---\nproject: atlas\nwho: bob\n---\n\n## Decided against\n\n* Reverting to 401.\n");
+
+  const out = await brief(dir, "atlas");
+  const recent = out.slice(out.indexOf("## Recent sessions"));
+  assert.ok(!/—\s*#/.test(recent), `a heading leaked in as a summary:\n${recent}`);
+  assert.match(recent, /Reverting to 401/);
+});
