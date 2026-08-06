@@ -449,7 +449,13 @@ async function findMemoryUp(from: string): Promise<string | null> {
 export async function resolveStoreDir(flag?: string, url?: string | null): Promise<string> {
   if (flag) {
     // A bare name means "the memory called that", not a directory under cwd.
-    if (!flag.includes("/") && !flag.startsWith(".")) {
+    // Backslash and a drive letter count as "this is a path": on Windows
+    // `C:\\memories\\acme` contains no forward slash, so it was read as a name
+    // and joined onto the home directory — pointing at somewhere that does not
+    // exist while looking like it worked.
+    const looksLikePath =
+      flag.includes("/") || flag.includes("\\") || /^[A-Za-z]:/.test(flag) || flag.startsWith(".");
+    if (!looksLikePath) {
       const named = join(homedir(), flag);
       if (await exists(join(named, "_company.md"))) return named;
     }

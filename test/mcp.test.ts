@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 import { TOOLS, handle } from "../src/mcp.js";
@@ -164,7 +165,7 @@ test("the server speaks JSON-RPC on stdio and writes nothing else", async () => 
   // spawn, not execFile: promisified execFile has no `input` option (that is
   // execFileSync), so the child's stdin never closes, the read loop never ends,
   // and the test hangs rather than fails.
-  const child = spawn(process.execPath, ["dist/bin/varve.js", "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [fileURLToPath(new URL("../bin/varve.js", import.meta.url)), "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");
@@ -209,6 +210,6 @@ test("a local memory path in .varve.yml is used directly, not re-derived", async
 
 test("a remote URL still resolves under home, not as a local path", async () => {
   const resolved = await resolveStoreDir(undefined, "git@github.com:acme/acme-context.git");
-  assert.ok(resolved.endsWith("/acme-context"), resolved);
+  assert.equal(basename(resolved), "acme-context", resolved);
   assert.ok(!resolved.startsWith("git@"), resolved);
 });

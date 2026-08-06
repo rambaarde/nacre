@@ -11,6 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 import { parseLog, readLogs, search, projectView, personView, index, unfilled, projectStandards } from "../src/portal.js";
@@ -47,6 +48,20 @@ Added the new handler. Deploy after atlas-api.
 `;
 
 /** A memory with two people, two projects, and a cross-project fact. */
+/**
+ * Remove a temp directory safely on every platform.
+ *
+ * Windows refuses to delete the process's working directory, and holds file
+ * handles briefly after close — so restore cwd first and let rm retry. On POSIX
+ * both are no-ops, which is exactly why this stayed broken until CI ran on
+ * Windows.
+ */
+const HOME_BASE = tmpdir();
+export async function drop(dir: string): Promise<void> {
+  if (process.cwd().startsWith(dir)) process.chdir(HOME_BASE);
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+}
+
 async function fixture(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "varve-portal-"));
   // Same isolation as store.test: nothing above the repo may influence a read.
@@ -88,7 +103,7 @@ test("readLogs walks team and person folders, newest first", async () => {
   assert.equal(logs.length, 3);
   assert.equal(logs[0]?.who, "bob", "newest first, and filenames sort");
   assert.deepEqual(await readLogs(dir, "beacon").then((l) => l.map((x) => x.who)), ["alice"]);
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("search ranks live constraints above ordinary hits", async () => {
@@ -98,7 +113,7 @@ test("search ranks live constraints above ordinary hits", async () => {
   assert.equal(hits[0]?.against, true, "a decided-against must not sort below prose");
   assert.ok(hits.some((h) => h.project === "_company"),
     "the company-level fact is the row a per-repo tool cannot produce");
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("search scoped to one project never returns another's", async () => {
@@ -106,7 +121,7 @@ test("search scoped to one project never returns another's", async () => {
   const scoped = await search(dir, "cache", { project: "atlas" });
   assert.ok(scoped.every((h) => h.project === "atlas" || h.project === "_company"));
   assert.ok(!scoped.some((h) => h.project === "beacon"));
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("a superseding log replaces the one it supersedes", async () => {
@@ -125,7 +140,7 @@ test("a superseding log replaces the one it supersedes", async () => {
   assert.equal(v.superseded, 1, "the correction is reported, not silently hidden");
   assert.equal(v.count + v.superseded, 3, "both files remain — nothing is overwritten");
   assert.equal(v.count, v.logs.length, "the count must describe what is listed");
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("projectView orders by urgency of not knowing", async () => {
@@ -139,7 +154,7 @@ test("projectView orders by urgency of not knowing", async () => {
   // onto this page — a project with 99 logs would otherwise render 92 of them.
   assert.ok(!("against" in v), "the project page must not aggregate log content");
   assert.ok(!("risks" in v));
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("personView spans projects", async () => {
@@ -149,7 +164,7 @@ test("personView spans projects", async () => {
   assert.equal(v.count, 2);
   assert.ok(!("against" in v), "nor the person page");
   assert.ok(!("decisions" in v));
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("index counts all three axes", async () => {
@@ -158,7 +173,7 @@ test("index counts all three axes", async () => {
   assert.deepEqual(i.projects, { atlas: 2, beacon: 1 });
   assert.deepEqual(i.people, { alice: 2, bob: 1 });
   assert.equal(i.total, 3);
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("markdown escapes anything that could inject", () => {
@@ -191,7 +206,7 @@ test("the portal serves every axis", async () => {
     assert.equal((await get("/nowhere")).status, 404);
   } finally {
     server.close();
-    await rm(dir, { recursive: true, force: true });
+    await drop(dir);
   }
 });
 
@@ -202,7 +217,7 @@ test("the CLI and the portal rank a query identically", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
+  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
 
   const engine = await search(dir, "cache", { all: true });
   const { stdout } = await run(process.execPath,
@@ -213,7 +228,7 @@ test("the CLI and the portal rank a query identically", async () => {
   const engineOrder = engine.slice(0, cliOrder.length)
     .map((h) => [h.date, h.who, h.project].join(","));
   assert.deepEqual(cliOrder, engineOrder, "ranking is the engine's job, truncation the adapter's");
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("company-wide reads sort by time, not by project name", async () => {
@@ -225,7 +240,7 @@ test("company-wide reads sort by time, not by project name", async () => {
   const stamps = logs.map((l) => l.stamp);
   assert.deepEqual([...stamps].sort().reverse(), stamps, "newest first, across every project");
   assert.equal(logs[0]?.who, "bob");
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("varve search and varve serve work as commands, not just as functions", async () => {
@@ -235,7 +250,7 @@ test("varve search and varve serve work as commands, not just as functions", asy
   const { execFile, spawn } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
+  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
 
   const { stdout } = await run(process.execPath, [bin, "search", "cache", "--all", "--memory", dir]);
   assert.match(stdout, /^hits\[\d+\]\{date,who,project,line\}:/m, "AXI shape on stdout");
@@ -255,7 +270,7 @@ test("varve search and varve serve work as commands, not just as functions", asy
     assert.match(line, /ok: serving http:\/\/127\.0\.0\.1:\d+/);
   } finally {
     child.kill();
-    await rm(dir, { recursive: true, force: true });
+    await drop(dir);
   }
 });
 
@@ -264,7 +279,7 @@ test("--port 0 asks for any free port, and is not swallowed", async () => {
   // to ask the OS for a free port, and it is what a second instance needs.
   const dir = await fixture();
   const { spawn } = await import("node:child_process");
-  const bin = new URL("../bin/varve.js", import.meta.url).pathname;
+  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
   const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
   try {
     const line: string = await new Promise<string>((resolve, reject) => {
@@ -276,7 +291,7 @@ test("--port 0 asks for any free port, and is not swallowed", async () => {
     assert.ok(port > 0);
   } finally {
     child.kill();
-    await rm(dir, { recursive: true, force: true });
+    await drop(dir);
   }
 });
 
@@ -346,7 +361,7 @@ test("a project can carry its own standards, and they stay scoped to it", async 
     assert.match(await beacon.text(), /company standards apply/);
   } finally {
     server.close();
-    await rm(dir, { recursive: true, force: true });
+    await drop(dir);
   }
 });
 
@@ -371,7 +386,7 @@ test("the project page carries the curated note and does not grow with the log",
     assert.doesNotMatch(body, /Decided against<\/span>/i);
   } finally {
     server.close();
-    await rm(dir, { recursive: true, force: true });
+    await drop(dir);
   }
 });
 
@@ -409,7 +424,7 @@ test("the rail is identical on every page — only the highlight moves", async (
     assert.equal((await fetch(`${url}/favicon.ico`)).status, 204);
   } finally {
     server.close();
-    await rm(dir, { recursive: true, force: true });
+    await drop(dir);
   }
 });
 
@@ -524,7 +539,7 @@ test("a project name is one directory name, never a path", async () => {
   // and the legitimate name still works
   assert.ok(await projectView(memory, "atlas"), "a real project still resolves");
 
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("a search page stays readable when the memory is real-sized", async () => {
@@ -562,7 +577,7 @@ test("a search page stays readable when the memory is real-sized", async () => {
   } finally {
     server.close();
   }
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("the palette ships every navigable target, so typing costs no round trip", async () => {
@@ -596,7 +611,7 @@ test("the palette ships every navigable target, so typing costs no round trip", 
   } finally {
     server.close();
   }
-  await rm(dir, { recursive: true, force: true });
+  await drop(dir);
 });
 
 test("the browser script is valid JavaScript, which the compiler cannot check", async () => {

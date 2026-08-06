@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 /**
  * Terminal rendering.
  *
@@ -45,7 +46,9 @@ export const s: Record<keyof typeof raw, Style> = new Proxy(raw, {
 
 /** Collapse `$HOME` to `~` — the full path is noise in a header. */
 export const tilde = (p: string): string => {
-  const home = process.env.HOME;
+  // homedir(), not $HOME: Windows sets USERPROFILE and leaves HOME unset, so
+  // reading the variable directly meant every path printed in full there.
+  const home = homedir();
   return home && p.startsWith(home) ? `~${p.slice(home.length)}` : p;
 };
 
