@@ -15,6 +15,9 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, rm, access, realpath } from "node:fs/promises";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+
+/** The repo root, from the compiled test in dist/test/. */
+const PKG_ROOT_FOR_TEST = fileURLToPath(new URL("../..", import.meta.url));
 import { join } from "node:path";
 
 import { frontmatter, setFrontmatterKey, repoName, resolveBinding, readRoster, addToRoster, listProjects, logStats, discoverStores, AGENTS } from "../src/store.js";
@@ -681,4 +684,66 @@ test("a Windows memory path yields a name, not a fall-through to discovery", () 
   assert.equal(repoName("git@github.com:acme/acme-context.git"), "acme-context");
   assert.equal(repoName("https://github.com/acme/acme-context.git"), "acme-context");
   assert.equal(repoName("/home/alice/acme-context"), "acme-context");
+});
+
+test("two people publishing in the same window both survive", async () => {
+  // The pull in the publish skill happens before composing and before a human
+  // reads the draft — minutes before the push. A teammate publishing inside
+  // that window makes the push non-fast-forward. This is n=2, which is the
+  // entire point of a shared memory, so it must not need a human to untangle.
+  await withHome(async (home: string) => {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+    const origin = join(home, "origin.git");
+    await git("git", ["init", "-q", "--bare", "-b", "main", origin]);
+
+    const clone = async (name: string) => {
+      const dir = join(home, name);
+      await git("git", ["clone", "-q", origin, dir]);
+      await git("git", ["-C", dir, "config", "user.email", `${name}@acme.dev`]);
+      await git("git", ["-C", dir, "config", "user.name", name]);
+      return dir;
+    };
+
+    const alice = await clone("alice");
+    await writeFile(join(alice, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await git("git", ["-C", alice, "add", "-A"]);
+    await git("git", ["-C", alice, "commit", "-qm", "seed"]);
+    await git("git", ["-C", alice, "push", "-q"]);
+
+    const bob = await clone("bob");
+
+    // Both compose against the same base, as two real sessions would.
+    for (const [dir, who] of [[alice, "alice"], [bob, "bob"]] as const) {
+      await writeFile(join(dir, `atlas-${who}.md`), `---\nwho: ${who}\n---\n\nlog\n`);
+      await git("git", ["-C", dir, "add", "-A"]);
+      await git("git", ["-C", dir, "commit", "-qm", `log(atlas): ${who}`]);
+    }
+
+    await git("git", ["-C", alice, "push", "-q"]);
+
+    // Bob loses the race.
+    await assert.rejects(git("git", ["-C", bob, "push", "-q"]), "the race must actually happen");
+
+    // The documented recovery, exactly as the skill writes it.
+    await git("git", ["-C", bob, "pull", "--rebase", "--autostash", "-q"]);
+    await git("git", ["-C", bob, "push", "-q"]);
+
+    const check = join(home, "check");
+    await git("git", ["clone", "-q", origin, check]);
+    await access(join(check, "atlas-alice.md"));
+    await access(join(check, "atlas-bob.md"));
+
+    const { stdout } = await git("git", ["-C", check, "log", "--oneline"]);
+    assert.equal(stdout.trim().split("\n").length, 3, "linear history, nothing lost");
+  });
+});
+
+test("the publish skill still documents the retry", async () => {
+  // Cheap guard on an expensive lesson: without this line a bare push fails
+  // the first time two teammates publish within minutes of each other.
+  const skill = await readFile(join(PKG_ROOT_FOR_TEST, "skills/varve-publish/SKILL.md"), "utf8");
+  assert.match(skill, /pull --rebase --autostash/);
+  assert.match(skill, /Never force-push/i);
 });

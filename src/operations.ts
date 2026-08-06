@@ -266,14 +266,21 @@ async function writeAgentsNote(dir: string, project: string): Promise<boolean> {
     "**At the start of a session, run this and read the output:**",
     "",
     "```sh",
-    "varve brief",
+    // npx, not a bare `varve`. Whoever set this project up has varve installed;
+    // the teammate who just cloned this repo does not, and telling their agent
+    // to run a command that is not there fails at the exact moment the memory
+    // was supposed to help. `npx` needs no install and resolves to the global
+    // one when it exists.
+    "npx -y varve-cli brief",
     "```",
     "",
     "It reports the project's rules, what was **decided against**, open risks, and the",
     "newest session logs from every teammate. Plain file reads — no model call.",
     "",
-    "`varve search <term>` looks through the same memory. To record what this session",
-    "decided, run the `varve-publish` skill; a person confirms before anything is pushed.",
+    "Installed globally (`npm i -g varve-cli`), the same command is just `varve brief`,",
+    "and `varve search <term>` looks through the same memory. To record what this",
+    "session decided, run the `varve-publish` skill; a person confirms before anything",
+    "is pushed.",
     NOTE_END,
     "",
   ].join("\n");
