@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.3](https://github.com/rambaarde/varve/compare/v0.5.2...v0.5.3) (2026-08-06)
+
+
+### Bug Fixes
+
+* **brief:** stop dropping old constraints on the floor ([bf03007](https://github.com/rambaarde/varve/commit/bf03007c71160b8bcd4db34bf542e604f99bed8f))
+* **brief:** stop dropping old constraints on the floor ([fc5c152](https://github.com/rambaarde/varve/commit/fc5c152609a6a2425153c44d67bf72dff713735a))
+
 ## [0.5.2](https://github.com/rambaarde/varve/compare/v0.5.1...v0.5.2) (2026-08-06)
 
 
