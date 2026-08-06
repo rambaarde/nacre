@@ -40,6 +40,10 @@ jobs:
   # name the old ones — so every PR would wait forever on a check that no longer
   # exists.
   windows:
+    # Only for main. These found real defects once, and then found nothing on
+    # every subsequent develop push while costing over two minutes each time.
+    # A cross-platform bug cannot reach a user without passing through here.
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +63,7 @@ jobs:
   # Names stay off the `test` job for the same reason as `windows`: main's
   # required checks reference "test (20|22|24)" exactly.
   distros:
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -68,8 +73,10 @@ jobs:
             setup: apk add --no-cache git
           - image: node:22-slim # debian, minimal
             setup: apt-get update && apt-get install -y --no-install-recommends git ca-certificates
-          - image: fedora:latest # rpm, and Node from the distro rather than nodejs.org
-            setup: dnf install -y nodejs npm git
+          - image: fedora:latest # rpm base
+            # -y and a minimal transaction: the job proves varve runs on an rpm
+            # distro, not that dnf can build a full Node toolchain each time.
+            setup: dnf install -y --setopt=install_weak_deps=False nodejs npm git
     container: ${{ matrix.image }}
     steps:
       - name: prepare the image
