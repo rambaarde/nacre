@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/rambaarde/varve/compare/v0.4.0...v0.5.0) (2026-08-06)
+
+
+### Features
+
+* **integrations:** announce to a channel, link the issue tracker ([30a88d9](https://github.com/rambaarde/varve/commit/30a88d9b08a0d4dde38cfc2b424ba8bf162f180a))
+* **integrations:** announce to a channel, link the issue tracker ([3970f70](https://github.com/rambaarde/varve/commit/3970f700343673414687c9a168776133d0e14071))
+
 ## [0.4.0](https://github.com/rambaarde/varve/compare/v0.3.0...v0.4.0) (2026-08-05)
 
 
