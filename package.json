@@ -1,6 +1,6 @@
 {
   "name": "varve-cli",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "One shared memory for your whole company — plain Markdown in git that your agent loads at session start and your team reads in a browser.",
   "keywords": [
     "ai-memory",
