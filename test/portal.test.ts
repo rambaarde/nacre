@@ -9,7 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -63,7 +63,7 @@ export async function drop(dir: string): Promise<void> {
 }
 
 async function fixture(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "varve-portal-"));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-portal-")));
   // Same isolation as store.test: nothing above the repo may influence a read.
   process.chdir(dir);
   await writeFile(join(dir, "_company.md"), "---\ntype: varve-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
@@ -521,7 +521,7 @@ test("a project name is one directory name, never a path", async () => {
   // _standards.md from outside the memory entirely, and /p/ did the same with
   // _project.md. Guarding the two routes would have left the next route to
   // rediscover it, so the check lives where a name becomes a file.
-  const dir = await mkdtemp(join(tmpdir(), "varve-trav-"));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-trav-")));
   const outside = join(dir, "outside");
   const memory = join(dir, "memory");
   await mkdir(outside, { recursive: true });
@@ -551,7 +551,7 @@ test("a search page stays readable when the memory is real-sized", async () => {
   // Breadth before depth, as the CLI already did: cap each session first, so one
   // thorough log cannot crowd out every other session that discussed the same
   // thing.
-  const dir = await mkdtemp(join(tmpdir(), "varve-scale-"));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-scale-")));
   await mkdir(join(dir, "ledger", "devs", "dana"), { recursive: true });
   await writeFile(join(dir, "ledger", "_project.md"), "---\nproject: ledger\nrepos: [ledger-api]\n---\n");
   for (let i = 0; i < 60; i++) {

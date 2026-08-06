@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,7 @@ import { resolveStoreDir } from "../src/store.js";
 
 /** A memory with two projects, one shared constraint, one decided-against. */
 async function memory(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "varve-mcp-"));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-mcp-")));
   await writeFile(
     join(dir, "_company.md"),
     `---\ntype: varve-company\ncompany: Acme\n---\n\n<!-- a comment that must not survive -->\n# Shared Infrastructure\n\n* **Redis:** one instance, shared by atlas and beacon.\n`,
@@ -144,7 +144,7 @@ test("a traversing project name is refused", async () => {
 test("a failure is content the model can read, not a vanished call", async () => {
   // Run somewhere with no .varve.yml above it and no project given.
   const cwd = process.cwd();
-  process.chdir(await mkdtemp(join(tmpdir(), "varve-nowhere-")));
+  process.chdir(await realpath(await mkdtemp(join(tmpdir(), "varve-nowhere-"))));
   try {
     const r = await call("varve_brief");
     assert.equal((r?.result as { isError: boolean }).isError, true);

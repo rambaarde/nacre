@@ -12,7 +12,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, rm, access } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, access, realpath } from "node:fs/promises";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -22,7 +22,7 @@ import { initStore, addProject, linkRepo, status } from "../src/operations.js";
 
 /** Run a body with HOME pointed at a fresh directory, then clean up. */
 async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
-  const home = await mkdtemp(join(tmpdir(), "varve-test-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "varve-test-")));
   const realHome = process.env.HOME as string;
   // os.homedir() reads USERPROFILE on Windows and HOME on POSIX. Setting only
   // HOME left every Windows run resolving against the runner's REAL home —
@@ -599,7 +599,7 @@ test("frontmatter keeps line breaks in a literal block scalar", () => {
 });
 
 test("every known agent installs, in its own format", async () => {
-  const home = await mkdtemp(join(tmpdir(), "varve-agents-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "varve-agents-")));
   for (const d of Object.values(AGENTS)) await mkdir(d.home.replace(homedir(), home), { recursive: true });
   const prev = process.env.HOME;
   process.env.HOME = home;
