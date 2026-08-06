@@ -112,8 +112,69 @@ test("brief stays inside its token budget", async () => {
   }
   const out = await brief(dir, "atlas");
   assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
-  // The guarantee is that a cut is announced, not the wording of the notice.
-  assert.match(out, /more characters exist/);
+  // The guarantee is that the budget holds and the shortfall is announced, not
+  // the wording of the notice.
+  assert.match(out, /shortened to fit|more characters exist|are NOT shown/);
+});
+
+test("constraints shorten before any of them disappears", async () => {
+  // 60 long decided-against entries do not fit at full length. The failure worth
+  // preventing is not the loss of detail — it is the loss of *existence*: a
+  // session cannot `varve search` for a constraint it was never shown, because
+  // it does not know beacon exists. Every entry must still be on the page.
+  const dir = await memory();
+  await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
+  for (let i = 0; i < 60; i++) {
+    const day = String((i % 28) + 1).padStart(2, "0");
+    await writeFile(
+      join(dir, "atlas", "devs", "bob", `atlas-2026-08-${day}_10-00-${String(i).padStart(2, "0")}.md`),
+      `---\nproject: atlas\nwho: bob\n---\n\n## Decided against\n\n* ${"a rejected approach ".repeat(40)}\n`,
+    );
+  }
+  const out = await brief(dir, "atlas");
+
+  const bylines = out.match(/— bob, 2026-08-\d\d/g) ?? [];
+  assert.equal(bylines.length, 60, `only ${bylines.length} of 60 constraints survived`);
+  assert.match(out, /every constraint is listed/);
+  assert.match(out, /…/, "a shortened entry must mark where it was cut");
+  // Alice's week-one constraint is still whole among them.
+  assert.match(out, /starves beacon's workers/);
+  assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
+});
+
+test("a long standards file cannot starve the constraints", async () => {
+  // The second way the same loss arrives. Ordering decided which section a cut
+  // ate; it did not stop the sections *above* the constraints from spending the
+  // whole budget first. One oversized _standards.md used to be enough.
+  const dir = await memory();
+  await writeFile(
+    join(dir, "atlas", "_standards.md"),
+    `# Atlas standards\n\n${"* every service pins its dependencies exactly and vendors nothing.\n".repeat(300)}`,
+  );
+  const out = await brief(dir, "atlas");
+
+  assert.match(out, /starves beacon's workers/, "a constraint was starved by the prose above it");
+  assert.match(out, /Decided against/);
+  assert.match(out, /reserved share/, "the cut must say a constraint was not what went");
+  assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
+});
+
+test("supersession says how many constraints it retired", async () => {
+  // Superseding replaces the whole log, so a correction to one decision also
+  // retires every other constraint that log carried. That is the right default
+  // and the wrong silence: an absence nobody is told about is the failure this
+  // file exists to prevent, whatever caused it.
+  const dir = await memory();
+  await writeFile(
+    join(dir, "atlas", "devs", "alice", "atlas-2026-08-09_11-00-00.md"),
+    "---\nproject: atlas\nwho: alice\nsupersedes: atlas-2026-08-01_09-14-03\n---\n\n" +
+      "## Summary\n\nThe header rename shipped; the earlier account of it was wrong.\n",
+  );
+  const out = await brief(dir, "atlas");
+
+  assert.doesNotMatch(out, /starves beacon's workers/, "a retired log's constraints must not list as live");
+  assert.match(out, /2 constraints in superseded logs/);
+  assert.match(out, /had to be restated/, "the reader must be told why they are gone");
 });
 
 test("an unknown project names the ones that exist", async () => {
@@ -244,20 +305,31 @@ test("a week-one constraint survives twenty newer logs", async () => {
   assert.match(out, /Decided against/);
 });
 
-test("when the budget truncates, it names what is missing", async () => {
-  // A brief that quietly ends looks the same as a project with nothing more to
-  // say — the failure the ordering exists to avoid.
+test("past the floor it drops the newest, keeps the oldest, and says so", async () => {
+  // Eighty heavy constraints do not fit even as stubs, so something has to go.
+  // Which end goes is the whole argument: age is the one axis a constraint's
+  // truth does not depend on, and the oldest are the ones no recent summary
+  // repeats and nobody remembers. Cutting the tail — the default a length cap
+  // gives you free — drops exactly those, which is the bug a recency window had.
   const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-cut-")));
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
   for (let i = 0; i < 80; i++) {
+    const month = String(6 + Math.floor(i / 28)).padStart(2, "0");
+    const day = String((i % 28) + 1).padStart(2, "0");
+    // The marker leads, so it survives being shortened to a stub.
+    const mark = i === 0 ? "OLDEST" : i === 79 ? "NEWEST" : `entry-${i}`;
     await writeFile(
-      join(dir, "atlas", "devs", "bob", `atlas-2026-09-01_10-${String(i).padStart(2, "0")}-00.md`),
-      `---\nproject: atlas\nwho: bob\n---\n\n## Decided against\n\n* ${"a rejected approach ".repeat(30)}\n`,
+      join(dir, "atlas", "devs", "bob", `atlas-2026-${month}-${day}_10-00-00.md`),
+      `---\nproject: atlas\nwho: bob\n---\n\n## Decided against\n\n* ${mark} ${"a rejected approach ".repeat(30)}\n`,
     );
   }
   const out = await brief(dir, "atlas");
-  assert.match(out, /more characters exist/);
+
+  assert.match(out, /OLDEST/, "the oldest constraint is the one that must survive");
+  assert.doesNotMatch(out, /NEWEST/, "the newest is what a full brief gives up first");
+  assert.match(out, /are NOT shown/, "a drop this size must be stated, not implied");
   assert.match(out, /varve search/);
+  assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
 });
