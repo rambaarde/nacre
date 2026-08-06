@@ -201,13 +201,32 @@ gets through, **rotate the secret** — do not rewrite history, because that nee
 a force-push, which is the one operation that can silently drop other people's
 commits.
 
-## 5. Report
+## 5. Announce, if the team asked for it
+
+**Only after the push succeeded**, and only if `VARVE_NOTIFY_URL` is set:
+
+```bash
+varve notify
+```
+
+It posts one line to the team's channel. Say whether it went, in a single word —
+and **never fail the publish because of it.** The log is already pushed and safe
+by this point; a red result here sends someone hunting a problem in their memory
+that does not exist.
+
+If the variable is not set, skip this silently. It is opt-in, and a team that has
+not configured it does not need to be told about it every session.
+
+## 6. Report
 
 ```text
 ok: published · atlas/devs/alice/atlas-2026-08-04_16-22-07.md
 private: 1 block stripped · scan: 0 findings (gitleaks) · repos[2]: atlas-api, atlas-web
+announced: #eng-atlas
 help[]: varve-load (next session)
 ```
+
+Drop the `announced:` line when no webhook is configured.
 
 Never claim the log was published if the push failed.
 

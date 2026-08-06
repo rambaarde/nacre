@@ -1,3 +1,4 @@
+import { linkIssues } from "./notify.js";
 /**
  * A small markdown renderer.
  *
@@ -16,12 +17,20 @@ export const escape = (s: unknown): string =>
     .replaceAll('"', "&quot;");
 
 /** Inline spans: code, bold, italic, links. Escaped first, so tags cannot inject. */
+/** Set once per render by the portal, so inline() needs no extra argument at
+ *  every call site. Null disables linking entirely. */
+let ISSUES: string | null = null;
+export const setIssueTemplate = (template: string | null): void => {
+  ISSUES = template;
+};
+
 export function inline(text: string): string {
-  return escape(text)
+  const rendered = escape(text)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" rel="noreferrer">$1</a>');
+  return linkIssues(rendered, ISSUES);
 }
 
 /**
