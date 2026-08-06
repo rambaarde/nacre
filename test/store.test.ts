@@ -669,3 +669,16 @@ test("an existing AGENTS.md keeps everything it already said", async () => {
     assert.match(note, /varve brief/);
   });
 });
+
+test("a Windows memory path yields a name, not a fall-through to discovery", () => {
+  // Found by CI on windows-latest. repoName split on [/:] only, so a path like
+  // C:\work\acme-context.git produced a "name" full of separators, isSafeName
+  // rejected it, and resolution fell back to scanning the home directory —
+  // which can return a DIFFERENT company's memory.
+  assert.equal(repoName("C:\\work\\acme-context.git"), "acme-context");
+  assert.equal(repoName("\\\\server\\share\\acme-context"), "acme-context");
+  // and the forms that already worked must keep working
+  assert.equal(repoName("git@github.com:acme/acme-context.git"), "acme-context");
+  assert.equal(repoName("https://github.com/acme/acme-context.git"), "acme-context");
+  assert.equal(repoName("/home/alice/acme-context"), "acme-context");
+});

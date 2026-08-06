@@ -179,7 +179,12 @@ export async function resolveBinding(start: string = process.cwd()): Promise<Bin
 /** The repo name from a git URL: git@host:acme/acme-context.git → acme-context */
 export function repoName(url?: string | null): string | null {
   if (!url) return null;
-  const last = url.trim().replace(/\.git$/, "").split(/[/:]/).pop();
+  // Backslash is a separator too. Without it a Windows memory path —
+  // `C:\\work\\acme-context.git` — yielded a "name" containing separators,
+  // which isSafeName then rejected, so resolution fell through to scanning the
+  // home directory and could return SOMEONE ELSE'S memory. That is the one
+  // failure this design refuses to allow.
+  const last = url.trim().replace(/\.git$/, "").split(/[/:\\]/).pop();
   // A remote path is allowed to contain spaces and non-Latin characters; only a
   // name that is not a single directory name is unusable. `[\w.-]+` rejected
   // `acme context.git` and silently fell back to the default directory, so two
