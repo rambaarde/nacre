@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.1](https://github.com/rambaarde/varve/compare/v0.5.0...v0.5.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **portability:** make it run on Windows, and test three Linux distros ([ddd095e](https://github.com/rambaarde/varve/commit/ddd095efd5fbd455e2661c26392ef4ce36c9be60))
+* **portability:** run on Windows, and test three Linux distros ([32771f5](https://github.com/rambaarde/varve/commit/32771f5d20d6834bbe3168a391822c0a8a14aa31))
+* **store:** treat backslash as a path separator in repoName ([8e04081](https://github.com/rambaarde/varve/commit/8e040811a2fbe9a95c78bad937c557b905ab2943))
+* **test:** resolve temp dirs to their real path ([68624ac](https://github.com/rambaarde/varve/commit/68624acd9f788c37db0091e3510984bc8f9fdad5))
+* **test:** stop the suite escaping its sandbox on Windows ([b625349](https://github.com/rambaarde/varve/commit/b62534961eea1f3f62dfca1cbae5698f48bcf206))
+
 ## [0.5.0](https://github.com/rambaarde/varve/compare/v0.4.0...v0.5.0) (2026-08-06)
 
 
