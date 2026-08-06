@@ -64,8 +64,11 @@ recency:
    two disagree the project's are the specific ones and win; say so rather than
    silently picking. A stack rule belongs here, not at company level, so that a
    project on a different stack never pays for it.
-4. every `## Decided against` block in the newest ~15 logs for this project
-5. open risks and unresolved items
+4. every `## Decided against` block in this project — **all of them, not a
+   recent window.** A constraint is not less true for being old, and a fixed
+   window drops one the moment enough newer logs exist: not ranked lower, gone,
+   while the session still reports it loaded the team's context.
+5. every open risk and unresolved item, same rule
 6. the newest few log summaries, any team, any person
 
 **Skip unfilled template lines.** `_project.md` and `_profile.md` ship as prompts

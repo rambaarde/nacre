@@ -111,8 +111,9 @@ test("brief stays inside its token budget", async () => {
     );
   }
   const out = await brief(dir, "atlas");
-  assert.ok(out.length <= 8_200, `brief was ${out.length} chars`);
-  assert.match(out, /truncated/);
+  assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
+  // The guarantee is that a cut is announced, not the wording of the notice.
+  assert.match(out, /more characters exist/);
 });
 
 test("an unknown project names the ones that exist", async () => {
@@ -212,4 +213,51 @@ test("a remote URL still resolves under home, not as a local path", async () => 
   const resolved = await resolveStoreDir(undefined, "git@github.com:acme/acme-context.git");
   assert.equal(basename(resolved), "acme-context", resolved);
   assert.ok(!resolved.startsWith("git@"), resolved);
+});
+
+test("a week-one constraint survives twenty newer logs", async () => {
+  // The failure a recency window causes, and the reason it matters *during* a
+  // two-person pilot rather than after one: two devs over two weeks pass fifteen
+  // logs in days. Under a fixed window the oldest constraint stops loading — not
+  // ranked lower, gone — while the session still reports it loaded team context.
+  // A teammate silently missing week one's constraint reads as "they didn't find
+  // it useful", and the pilot gets misread.
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-window-")));
+  await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
+  await writeFile(join(dir, "atlas", "_project.md"),
+    "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
+
+  await writeFile(join(dir, "atlas", "devs", "alice", "atlas-2026-08-01_09-00-00.md"),
+    "---\nproject: atlas\nwho: alice\n---\n\n## Decided against\n\n* Raising the shared cache limit — it starves beacon's workers.\n");
+
+  await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
+  for (let i = 0; i < 20; i++) {
+    const day = String(2 + (i % 26)).padStart(2, "0");
+    await writeFile(
+      join(dir, "atlas", "devs", "bob", `atlas-2026-09-${day}_10-${String(i).padStart(2, "0")}-00.md`),
+      `---\nproject: atlas\nwho: bob\n---\n\n## Summary\n\nRoutine session ${i}.\n`,
+    );
+  }
+
+  const out = await brief(dir, "atlas");
+  assert.match(out, /starves beacon's workers/, "the oldest constraint must still load");
+  assert.match(out, /Decided against/);
+});
+
+test("when the budget truncates, it names what is missing", async () => {
+  // A brief that quietly ends looks the same as a project with nothing more to
+  // say — the failure the ordering exists to avoid.
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-cut-")));
+  await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
+  await writeFile(join(dir, "atlas", "_project.md"),
+    "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
+  for (let i = 0; i < 80; i++) {
+    await writeFile(
+      join(dir, "atlas", "devs", "bob", `atlas-2026-09-01_10-${String(i).padStart(2, "0")}-00.md`),
+      `---\nproject: atlas\nwho: bob\n---\n\n## Decided against\n\n* ${"a rejected approach ".repeat(30)}\n`,
+    );
+  }
+  const out = await brief(dir, "atlas");
+  assert.match(out, /more characters exist/);
+  assert.match(out, /varve search/);
 });

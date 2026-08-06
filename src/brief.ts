@@ -27,7 +27,15 @@ function cap(text: string, limit: number): string {
   if (text.length <= limit) return text;
   const cut = text.slice(0, limit);
   const at = cut.lastIndexOf("\n");
-  return `${cut.slice(0, at > 0 ? at : limit)}\n\n[truncated to fit the brief budget — use varve_search for the rest]`;
+  // Name what is missing. A brief that quietly ends is indistinguishable from a
+  // project with nothing more to say, which is the failure this whole file is
+  // arranged to avoid.
+  return (
+    `${cut.slice(0, at > 0 ? at : limit)}\n\n` +
+    `[cut here to fit the budget — ${text.length - limit} more characters exist. ` +
+    "Decided-against and open risks are listed above summaries on purpose, so what " +
+    "is missing is recent detail, not a constraint. `varve search <term>` reads the rest.]"
+  );
 }
 
 /** Strip frontmatter and HTML comments, then drop unfilled template lines. */
@@ -93,14 +101,22 @@ export async function brief(memory: string, project: string): Promise<string> {
     parts.push(`## Handoff\n\n${view.handoff}${by ? `\n\n— ${by.who}, ${by.date}` : ""}`);
   }
 
-  // The newest ~15 logs, matching what the skill reads. Decided-against entries
-  // are never struck through and never summarised away: they are live
-  // constraints, and they are the class of knowledge nothing else keeps.
-  const window = view.logs.slice(0, 15);
-  const against = window.flatMap((l) => l.against.map((a) => `- ${a}  \n  — ${l.who}, ${l.date}`));
+  // EVERY decided-against and every open risk, not a recency window.
+  //
+  // This used to read the newest 15 logs. A constraint is not less true for
+  // being old — and under a fixed window one stops loading the moment fifteen
+  // newer logs exist. Not ranked lower: gone, silently, while the session still
+  // reports that it loaded the team's context. Two developers over two weeks
+  // pass fifteen logs easily, so the entry a teammate most needed to see is
+  // exactly the one a window drops first.
+  //
+  // Order carries the priority instead. These sit above recent summaries, so
+  // when the budget runs out it is the summaries that go — and cap() says so
+  // out loud rather than trimming in silence.
+  const against = view.logs.flatMap((l) => l.against.map((a) => `- ${a}  \n  — ${l.who}, ${l.date}`));
   if (against.length) parts.push(`## Decided against\n\n${against.join("\n")}`);
 
-  const risks = window.flatMap((l) => l.risks.map((r) => `- ${r}  \n  — ${l.who}, ${l.date}`));
+  const risks = view.logs.flatMap((l) => l.risks.map((r) => `- ${r}  \n  — ${l.who}, ${l.date}`));
   if (risks.length) parts.push(`## Open risks\n\n${risks.join("\n")}`);
 
   const recent = view.logs.slice(0, 5).map((l) => {
