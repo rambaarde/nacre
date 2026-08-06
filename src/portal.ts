@@ -303,6 +303,7 @@ export async function projectView(memory: string, project: string) {
   const logs = await readLogs(memory, project);
   const superseded = new Set(logs.map((l) => l.supersedes).filter(Boolean));
   const live = logs.filter((l) => !superseded.has(l.id));
+  const retired = logs.filter((l) => superseded.has(l.id));
 
   const note = unfilled(
     roster.text
@@ -325,7 +326,14 @@ export async function projectView(memory: string, project: string) {
     // reader something is missing without saying what, and a correction being
     // invisible is the opposite of why corrections are written as new files.
     count: live.length,
-    superseded: logs.length - live.length,
+    superseded: retired.length,
+    // Supersession is log-granular by design: a correction replaces the whole
+    // log, because a log is one session's account and half an account is worse
+    // than none. The cost is that a log written to correct one decision also
+    // retires every other constraint it carried — still-true ones included,
+    // unless the replacement restated them. Counted here so a reader is told
+    // that happened instead of being left to notice the absence.
+    supersededEntries: retired.reduce((n, l) => n + l.against.length + l.risks.length, 0),
     hasStandards: await exists(join(memory, project, "_standards.md")),
   };
 }

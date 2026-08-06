@@ -149,10 +149,47 @@ directory.** A single `repo_root` scalar makes cross-repo sessions invisible in
 frontmatter, and cross-repo sessions are the reason this product exists. If the
 schema cannot express it, it will not be measured.
 
+### Before you compose: what did this session contradict?
+
+**Run this every time, not when it occurs to you.** Supersession was documented
+and never triggered — a step someone had to remember, which is the 6pm problem
+this whole skill exists to delete, sitting at the one place correctness depends
+on it. A constraint nobody retires is one the store keeps asserting after it
+stopped being true, and a memory that confidently states a stale fact is worse
+than one that says nothing.
+
+```bash
+npx -y varve-cli brief          # or: npx -y varve-cli brief <project>
+```
+
+The bare form reads the `.varve.yml` binding resolved in step 1, so it is already
+the right project. Name one only when publishing somewhere other than here.
+
+Read the **Decided against** and **Open risks** it prints, and ask one question:
+*did this session do, or prove, something one of those lines says not to?*
+
+- **A rejected option was taken** — the tradeoff changed, or it was wrong.
+- **A risk was closed** — it shipped, it was fixed, it turned out not to be real.
+- **A constraint stopped holding** — the shared instance was split, the limit was
+  raised, the other team moved off it.
+
+Any of those means the new log carries `supersedes: <id of the log that said it>`.
+If none do, say nothing — most sessions supersede nothing, and inventing a
+correction to look thorough is worse than leaving the record alone.
+
 **Corrections are new files, never edits.** To correct an earlier log, write a
 new one carrying `supersedes: atlas-2026-07-28_09-14-03`. Both remain. The record
 of having been wrong is often the most useful content in the store, and editing
 in place destroys it.
+
+**`supersedes:` retires the whole log, not the one line you meant.** A log is one
+session's account, and half an account is worse than none — so the file you name
+stops contributing every decided-against and every open risk it carried, not just
+the one that went stale. **Restate, in the new log, anything from it that is still
+true.** A brief that drops a constraint because it rode along in a superseded log
+is the same silent loss as a window that ages one out; `varve brief` reports the
+count so the absence is at least visible, but only the log you are writing now can
+carry the fact forward.
 
 The `<!-- private -->` block matters more than it looks. Without somewhere to
 write the unshareable part, people write nothing at all — the honest log and the
