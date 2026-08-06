@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/rambaarde/varve/compare/v0.5.4...v0.6.0) (2026-08-06)
+
+
+### Features
+
+* **invite:** remove the one step that lived in a browser ([3be5133](https://github.com/rambaarde/varve/commit/3be51332f5fd8fce018af198f451982e6c6ad7d0))
+* **invite:** remove the one step that lived in a browser ([3f7e1d2](https://github.com/rambaarde/varve/commit/3f7e1d295d1ff9fac85d6a1fa87e56337e2fa607))
+
 ## [0.5.4](https://github.com/rambaarde/varve/compare/v0.5.3...v0.5.4) (2026-08-06)
 
 
