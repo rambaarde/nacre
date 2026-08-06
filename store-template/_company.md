@@ -1,6 +1,9 @@
 ---
 type: varve-company
 company: [Insert Company Name]
+# Where issues live. Uncomment and set, and every ENG-123 in the memory becomes a
+# link — in the portal and in channel announcements. {key} is required.
+# issues: https://linear.app/acme/issue/{key}
 ---
 
 <!-- Always loaded, every brief, every project. Keep it short. -->

@@ -19,6 +19,8 @@ import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { exists } from "./store.js";
 import { markdown, escape, inline } from "./markdown.js";
+import { setIssueTemplate } from "./markdown.js";
+import { issueTemplate } from "./notify.js";
 import { tilde } from "./render.js";
 import { index, projectView, personView, search, age, readLogs, projectStandards, unfilled } from "./portal.js";
 import type { Hit, Log } from "./portal.js";
@@ -720,6 +722,11 @@ function renderSearch(q: string, hits: Hit[], scope: string, all: boolean): stri
 export interface ServeOptions { memory: string; port?: number; host?: string }
 
 export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOptions) {
+  // Read once at start rather than per request: it is a company-wide setting
+  // that changes about never, and a file read on every page load to answer the
+  // same question is the kind of cost that only shows up under a real vault.
+  setIssueTemplate(await issueTemplate(memory));
+
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", `http://${host}`);

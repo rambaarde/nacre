@@ -34,7 +34,7 @@ varve init git@github.com:acme/acme-context.git
 same idea, one person, no shared repo to set up.
 
 [![npm](https://img.shields.io/npm/v/varve-cli)](https://www.npmjs.com/package/varve-cli)
-![tests](https://img.shields.io/badge/tests-83%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-101%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
@@ -325,6 +325,52 @@ a human first. Exposing publishing here would either weaken *nothing is shared b
 omission* or fake a gate in a loop this process does not control. Writing stays
 human-invoked, through the skill or the CLI, where the gate is real.
 
+## Integrations
+
+Two of them, both **one-way and after the fact**. varve announces what a person
+already published; nothing reads from a vendor, and nothing writes into the
+memory without someone present.
+
+**Announce a log to a channel.** Slack, Discord, or anything that takes an
+incoming webhook:
+
+```sh
+export VARVE_NOTIFY_URL=https://hooks.slack.com/services/...
+```
+
+`varve-publish` posts one line after the push — or run `varve notify` yourself:
+
+```
+bob logged atlas — kept the 419 expiry response; api deploys before web
+decided against: reverting to 401 — mobile ships against it (+1 more)
+https://linear.app/acme/issue/ENG-421
+atlas/devs/bob/atlas-2026-08-06_11-00-00.md
+```
+
+The URL is a credential, so it comes from the environment and **never** from the
+memory repo, where it would be committed and shared with the whole company. A
+webhook that is down or slow is reported and then ignored: the log is already
+pushed, and failing the publish over an announcement would send someone hunting a
+problem that isn't there.
+
+**Link your issue tracker.** One line in `_company.md`:
+
+```yaml
+issues: https://linear.app/acme/issue/{key}
+```
+
+Every `ENG-421` in the memory becomes a link — in the portal and in the
+announcement. Linear, Jira, Shortcut, GitHub: it is a URL template, not an
+integration, so there is no token, no API, and nothing to break when a vendor
+changes theirs.
+
+### What varve will not do
+
+**Pull issues in.** It needs a service running, it writes to the memory with
+nobody present — breaking *nothing is shared by omission* — and it buries the
+reasoning trail under ticket churn. The trail is the part nothing else keeps;
+your tracker is already a better tracker than varve will ever be.
+
 ## Write it
 
 Capture is one motion, and a person is present for all of it:
@@ -370,6 +416,7 @@ architecture wiki, keep it. This is the layer above it.
 | **Nothing captured silently** | a person publishes, or it stays local |
 | **Zero inference on reads** | reading is file reads; one model call, and only when you write |
 | **Company-wide scope** | company → projects → teams → people, and projects → repos |
+| **Integrations are one-way** | varve announces what a person published; nothing writes in unattended |
 | **Append, never reconcile** | new files only; a correction is a new layer, not an edit |
 
 Uninstall varve and you are left with a git repo of readable Markdown and its

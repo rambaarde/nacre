@@ -21,6 +21,8 @@ import { search as searchMemory } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 import { serve as serveMcp } from "../src/mcp.js";
 import { brief } from "../src/brief.js";
+import { announcement, issueTemplate, notify } from "../src/notify.js";
+import { readLogs } from "../src/portal.js";
 
 // PKG_ROOT is imported, not recomputed. This file had its own copy that counted
 // one directory up — correct from bin/ in the repo, wrong from dist/bin/ in the
@@ -42,6 +44,7 @@ const OPTIONS = {
   port: { type: "string" },
   all: { type: "boolean" },
   open: { type: "boolean" },
+  "dry-run": { type: "boolean" },
   help: { type: "boolean", short: "h" },
   version: { type: "boolean" },
 } as const satisfies ParseArgsOptionsConfig;
@@ -53,6 +56,7 @@ const USAGE = `varve — one git-backed memory for a whole company
   varve add  <project> [dir...]  add a project, and its repos  (as needed)
   varve serve                    the portal, from your own clone
   varve brief                    what the team already decided, before you start
+  varve notify                   announce the newest log to $VARVE_NOTIFY_URL
   varve search <term>            one search, same ranking as the portal
   varve mcp                      serve the memory to any MCP client (stdio)
 
@@ -69,6 +73,7 @@ Adding repos to an existing project is the same command again:
   --all                search every project, not just this one
   --port <n>           portal port       (default: 4173)
   --open               open the portal in your browser
+  --dry-run            notify: print what would be sent, send nothing
   --no-skills          skip installing the skills
   --i-know-its-public  allow a memory anyone can read (it cannot be undone)
   --plain              plain output, as when piped
@@ -403,6 +408,26 @@ async function main() {
       if (!(await exists(memory))) fail(`no memory at ${memory} · varve init <git-url>`);
       console.log(await brief(memory, project as string));
       return;
+    }
+
+    // Outbound only, and only after a person already confirmed the push. A
+    // failure here is reported but never fails the command: the log is already
+    // safe, and a red exit would send someone hunting a problem that is not there.
+    if (command === "notify") {
+      const binding = await resolveBinding();
+      const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
+      if (!(await exists(memory))) fail(`no memory at ${memory} · varve init <git-url>`);
+      const [newest] = await readLogs(memory, arg ?? binding?.project);
+      if (!newest) {
+        return out("no logs yet — nothing to announce", "next: varve-publish at the end of a session");
+      }
+      const text = announcement(newest, await issueTemplate(memory));
+      if (o["dry-run"]) return out(text, "", "dry run — nothing sent");
+      const r = await notify(text);
+      return out(
+        r.sent ? `ok: announced ${newest.rel}` : `not sent: ${r.reason}`,
+        r.unset ? "help[]: export VARVE_NOTIFY_URL=<your Slack/Discord webhook>" : null,
+      );
     }
 
     if (command === "search") {
