@@ -31,6 +31,26 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # A teammate on Windows is the case that fails for a path-separator reason and
+  # teaches nothing about whether shared memory works. Nobody had ever run this
+  # there.
+  #
+  # Its own job rather than an OS axis on `test`: adding one renames every check
+  # ("test (20)" becomes "test (20, ubuntu-latest)"), and main's required checks
+  # name the old ones — so every PR would wait forever on a check that no longer
+  # exists.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
   no-dependencies:
     runs-on: ubuntu-latest
     steps:
