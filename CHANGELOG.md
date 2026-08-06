@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.4](https://github.com/rambaarde/varve/compare/v0.5.3...v0.5.4) (2026-08-06)
+
+
+### Bug Fixes
+
+* **brief:** a one-line section is not a heading with nothing under it ([d585908](https://github.com/rambaarde/varve/commit/d585908cb05eabcd40747a4f9f8e943112a86903))
+* **brief:** constraints survive the budget, and supersession actually runs ([71b6725](https://github.com/rambaarde/varve/commit/71b672571eb773996f8c3ef1d10b2581605c3ba3))
+* **brief:** give constraints a floor, and shorten them before dropping any ([5dd6a30](https://github.com/rambaarde/varve/commit/5dd6a30a736a6b57a48658792ec7560f8eb73347))
+* **publish:** make supersession a step that runs, not one to remember ([1a8790c](https://github.com/rambaarde/varve/commit/1a8790ce7a880a000c3129daa0a1fe4dd895dae4))
+
 ## [0.5.3](https://github.com/rambaarde/varve/compare/v0.5.2...v0.5.3) (2026-08-06)
 
 
