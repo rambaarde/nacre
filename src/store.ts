@@ -227,6 +227,16 @@ export async function initGit(dir: string, remote?: string | null): Promise<stri
     await run("git", ["-C", dir, "rev-parse", "--git-dir"]);
   } catch {
     await run("git", ["-C", dir, "init", "-q"]);
+    // Name the branch `main`, because every host now defaults its HEAD to it.
+    // `git init` uses init.defaultBranch, which is still `master` unless someone
+    // changed it — so the memory was created on master, pushed to master, and a
+    // teammate cloning got the remote's empty `main` and was told the memory
+    // "does not look like a varve memory". Silent, and only ever hit by the
+    // second person.
+    //
+    // symbolic-ref rather than `init -b`: it works on every git version, and on
+    // a repository with no commits it renames nothing.
+    await run("git", ["-C", dir, "symbolic-ref", "HEAD", "refs/heads/main"]).catch(() => {});
   }
   if (!remote) return await storeRemote(dir);
   const current = await storeRemote(dir);
@@ -409,7 +419,19 @@ export async function ensureMemory(dir: string, remote?: string | null): Promise
   }
 
   if (await exists(join(dir, "_company.md"))) return { ok: true, cloned: true };
-  return { ok: false, reason: `${remote} does not look like a varve memory (no _company.md)` };
+
+  // Cloned fine and found nothing. Almost always the owner has not pushed yet —
+  // blaming the contents sends a new teammate to inspect a repo that is simply
+  // empty, on their first morning.
+  const bare = await run("git", ["-C", dir, "rev-parse", "--verify", "HEAD"]).then(() => false, () => true);
+  return {
+    ok: false,
+    reason: bare
+      ? `${remote} is empty — whoever set it up has not pushed the memory yet. ` +
+        "Ask them to run: git -C <memory> push -u origin HEAD"
+      : `${remote} has no _company.md at the top level, so it is not a varve memory · ` +
+        "check the memory URL in .varve.yml",
+  };
 }
 
 /** Name and email from git config. Absent is fine; it is a profile, not a form. */
