@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/rambaarde/varve/compare/v0.6.1...v0.7.0) (2026-08-07)
+
+
+### Features
+
+* **hook:** load the memory without anyone remembering to ([18bcbf4](https://github.com/rambaarde/varve/commit/18bcbf462983e24fb05acdeb8979cd10b1a718e8))
+* **hook:** load the memory without anyone remembering to ([6d72060](https://github.com/rambaarde/varve/commit/6d72060ddf5d4ba0f1518e4af594609ac5d78fa5))
+
 ## [0.6.1](https://github.com/rambaarde/varve/compare/v0.6.0...v0.6.1) (2026-08-07)
 
 
