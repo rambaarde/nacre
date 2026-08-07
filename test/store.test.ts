@@ -776,3 +776,37 @@ test("brief fetches the memory rather than telling a teammate to init", async ()
   assert.ok(cmd.includes("ensureMemory"), "brief must fetch the memory");
   assert.ok(!/varve init/.test(cmd), "brief must never send a bound repo to init");
 });
+
+test("a new memory is created on main, not on whatever git defaults to", async () => {
+  // git init uses init.defaultBranch, still `master` unless someone changed it.
+  // The memory was created on master, pushed to master, and a teammate cloning
+  // a remote whose HEAD is main got an empty tree and was told the memory did
+  // not look like a varve memory. Silent, and only ever hit by the second person.
+  await withHome(async (home: string) => {
+    const store = await initStore({ store: null as unknown as string, who: "alice" });
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+    const { stdout } = await git("git", ["-C", store.dir, "symbolic-ref", "HEAD"]);
+    assert.equal(stdout.trim(), "refs/heads/main", "the memory must be created on main");
+    assert.ok(home);
+  });
+});
+
+test("an empty memory remote is reported as unpushed, not as malformed", async () => {
+  // The likeliest thing a teammate hits after the likeliest owner mistake.
+  // Blaming the contents sends them to inspect a repo that is simply empty.
+  await withHome(async (home: string) => {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const git = promisify(execFile);
+    const remote = join(home, "empty.git");
+    await git("git", ["init", "-q", "--bare", "-b", "main", remote]);
+
+    const { ensureMemory } = await import("../src/store.js");
+    const r = await ensureMemory(join(home, "memory"), remote);
+    assert.equal(r.ok, false);
+    assert.match((r as { reason: string }).reason, /empty/);
+    assert.match((r as { reason: string }).reason, /has not pushed/);
+  });
+});
