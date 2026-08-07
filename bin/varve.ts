@@ -17,7 +17,7 @@ import { initStore, addProject, status, installSkills } from "../src/operations.
 import type { Status } from "../src/operations.js";
 import { isTTY, s as c, tilde, say, row, head, rule, ok, warn, next, blank } from "../src/render.js";
 import { resolveStoreDir, resolveBinding, ensureMemory, memoryNeedsPush, detectAgents, exists, invite, storeRemote, PKG_ROOT } from "../src/store.js";
-import { search as searchMemory } from "../src/portal.js";
+import { search as searchMemory, projectView } from "../src/portal.js";
 import { serve } from "../src/serve.js";
 import { serve as serveMcp } from "../src/mcp.js";
 import { brief } from "../src/brief.js";
@@ -45,6 +45,7 @@ const OPTIONS = {
   all: { type: "boolean" },
   open: { type: "boolean" },
   "dry-run": { type: "boolean" },
+  hook: { type: "boolean" },
   help: { type: "boolean", short: "h" },
   version: { type: "boolean" },
 } as const satisfies ParseArgsOptionsConfig;
@@ -75,6 +76,7 @@ Adding repos to an existing project is the same command again:
   --port <n>           portal port       (default: 4173)
   --open               open the portal in your browser
   --dry-run            notify: print what would be sent, send nothing
+  --hook               brief: silent on a thin store, never fails a session
   --no-skills          skip installing the skills
   --i-know-its-public  allow a memory anyone can read (it cannot be undone)
   --plain              plain output, as when piped
@@ -290,6 +292,7 @@ async function main() {
       const ready = !o["no-skills"] && r.linked.length ? await installSkills(agents) : [];
       const fresh = r.linked.filter((l) => l.wrote).map((l) => l.name);
       const noted = r.linked.filter((l) => l.noted).map((l) => l.name);
+      const hooked = r.linked.filter((l) => l.hooked).map((l) => l.name);
       // "teammates then need nothing" is true of .varve.yml and false of the
       // memory, which no remote has seen yet. Promising the first while the
       // second sits unpushed is how someone clones a wired repo and finds an
@@ -301,6 +304,7 @@ async function main() {
           `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
           ready.length ? `agents[${ready.length}]: ${ready.join(", ")}` : null,
           noted.length ? `AGENTS.md: ${noted.join(", ")} — so an agent that has never heard of varve still finds it` : null,
+          hooked.length ? `hook: ${hooked.join(", ")}/.claude/settings.json — Claude Code loads the memory without being asked` : null,
           needsPush
             ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .varve.yml in ${fresh.join(", ")}` : ""}`
             : fresh.length
@@ -316,6 +320,7 @@ async function main() {
         row("team", r.team),
         ready.length ? row("agents", ready.map((a) => c.dim(a)).join("  ")) : null,
         noted.length ? row("AGENTS.md", c.grey(`${noted.join(", ")} — how an unfamiliar agent finds varve`)) : null,
+        hooked.length ? row("hook", c.grey("Claude Code loads the memory at session start, unasked")) : null,
         blank(),
         needsPush
           ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .varve.yml in ${fresh.join(", ")}`) : ""}`)
@@ -402,6 +407,32 @@ async function main() {
     if (command === "brief" || command === "load") {
       const binding = await resolveBinding();
       const project = arg ?? binding?.project;
+
+      // --hook is how a SessionStart hook calls this, and it has two rules a
+      // person invoking `varve brief` does not want.
+      //
+      // It never fails. A hook that errors interrupts a session that had
+      // nothing to do with varve, and the memory is not important enough to
+      // stand between someone and their editor.
+      //
+      // It says nothing when there is nothing worth saying. A brief injected
+      // into every session costs context forever, and a thin store spends it to
+      // report that the team has decided nothing — which is also the fastest way
+      // to teach someone the tool is not worth having.
+      if (o.hook) {
+        try {
+          if (!project) return;
+          const dir = await resolveStoreDir(memoryPath, binding?.store ?? null);
+          if (!(await exists(join(dir, "_company.md")))) return;
+          const view = await projectView(dir, project);
+          if (!view || view.count === 0) return;
+          console.log(await brief(dir, project));
+        } catch {
+          // Deliberately silent: see above.
+        }
+        return;
+      }
+
       if (!project) {
         fail("no project here · run varve add <project> . in this repo, or varve brief <project>");
       }

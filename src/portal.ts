@@ -123,7 +123,23 @@ export function parseLog(text: string): LogSections {
 
     if (current) {
       const bucket = sections[current] as string[];
-      if (line.trim()) bucket.push(line.trim());
+      // A bullet starts a new entry; anything else continues the current one.
+      //
+      // Blocks used to split on blank lines alone, so three rejected options
+      // written as three bullets came back as ONE run-on entry — the highest
+      // value content in the store, merged into a sentence nobody wrote. An
+      // indented continuation line still belongs to the bullet above it, which
+      // is why this keys on the marker rather than on the line break.
+      //
+      // The marker itself is dropped: every consumer renders these AS a list, so
+      // keeping it produced "- * Reverting to 401" in the brief and a nested
+      // list in the portal.
+      const item = line.trim();
+      if (item) {
+        const starts = /^[-*+]\s+/.test(item);
+        if (starts && bucket.length && bucket[bucket.length - 1] !== "") bucket.push("");
+        bucket.push(item.replace(/^[-*+]\s+/, ""));
+      }
       else if (bucket.length) bucket.push("");
     } else rest.push(line);
   }

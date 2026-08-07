@@ -34,7 +34,7 @@ varve init git@github.com:acme/acme-context.git
 same idea, one person, no shared repo to set up.
 
 [![npm](https://img.shields.io/npm/v/varve-cli)](https://www.npmjs.com/package/varve-cli)
-![tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-120%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
@@ -232,6 +232,13 @@ Adding a repo later is the same command again:
 ```sh
 varve add atlas ../atlas-worker
 ```
+
+`varve add` also drops a **`SessionStart` hook** into the repo's
+`.claude/settings.json`, so Claude Code loads the memory at the start of every
+session without anyone remembering to ask. It stays silent while the store is
+thin — an empty briefing injected into every session costs context and teaches
+people the tool is not worth having. Claude Code only; the other agents read the
+`AGENTS.md` note instead. Delete the entry to be rid of it.
 
 Then give each teammate access to the memory — **the one step nothing can do for
 you**, because a private repo gives them nothing until they are on it:

@@ -63,6 +63,8 @@ export interface LinkResult {
   dir: string; name: string; file: string; wrote: boolean;
   /** Whether AGENTS.md gained or refreshed the varve block. */
   noted: boolean;
+  /** Whether the Claude Code SessionStart hook was written. */
+  hooked: boolean;
   project: string; store: string; roster: { added: string[]; repos: string[] } | null;
 }
 
@@ -234,9 +236,63 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
   }
 
   const noted = await writeAgentsNote(dir, project as string);
+  const hooked = await writeSessionHook(dir);
 
   const roster = skipRoster ? null : await addToRoster(storeDir, project as string, [name]);
-  return { dir, name, file, wrote, noted, project: project as string, store: remote as string, roster };
+  return { dir, name, file, wrote, noted, hooked, project: project as string, store: remote as string, roster };
+}
+
+const HOOK_COMMAND = "npx -y varve-cli brief --hook";
+
+/**
+ * Load the memory without anyone having to remember to.
+ *
+ * The AGENTS.md note *asks* an agent to run `varve brief`. Asking is discipline,
+ * and discipline is the thing this project exists to stop relying on — a step
+ * someone must remember is the 6pm problem wearing a different hat. A
+ * SessionStart hook is delivery: it fires whether or not anyone thought of it,
+ * and the install is won once, by one person, for everyone who clones after.
+ *
+ * Written into the project's `.claude/settings.json` because that file is
+ * committed, so a teammate inherits it with the repo. That makes this the first
+ * thing varve writes that changes *behaviour* rather than leaving a signpost —
+ * so it is one recognisable line, reported in the output, and deleting it is
+ * enough to be rid of it.
+ *
+ * Claude Code only. The other four agents have no equivalent, and they still
+ * have the AGENTS.md note.
+ *
+ * Merged, never overwritten: a project's own hooks and settings are none of
+ * varve's business.
+ */
+async function writeSessionHook(dir: string): Promise<boolean> {
+  const file = join(dir, ".claude", "settings.json");
+  let settings: Record<string, any> = {};
+  if (await exists(file)) {
+    try {
+      settings = JSON.parse(await readFile(file, "utf8")) as Record<string, any>;
+    } catch {
+      // Unparseable settings are someone else's in-progress edit. Touching them
+      // would replace a syntax error with a lost file.
+      return false;
+    }
+  }
+
+  const hooks = (settings.hooks ??= {});
+  const starts: any[] = (hooks.SessionStart ??= []);
+  const already = starts.some((group: any) =>
+    (group?.hooks ?? []).some((h: any) => typeof h?.command === "string" && h.command.includes("varve-cli brief")),
+  );
+  if (already) return false;
+
+  starts.push({
+    // 10s: long enough for an npx resolve on a cold cache, short enough that a
+    // network problem does not hold a session open.
+    hooks: [{ type: "command", command: HOOK_COMMAND, timeout: 10 }],
+  });
+  await mkdir(join(dir, ".claude"), { recursive: true });
+  await writeFile(file, `${JSON.stringify(settings, null, 2)}\n`);
+  return true;
 }
 
 const NOTE_START = "<!-- varve:start -->";

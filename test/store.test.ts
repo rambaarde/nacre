@@ -22,6 +22,7 @@ import { join } from "node:path";
 
 import { frontmatter, setFrontmatterKey, repoName, resolveBinding, readRoster, addToRoster, listProjects, logStats, discoverStores, AGENTS } from "../src/store.js";
 import { initStore, addProject, linkRepo, status } from "../src/operations.js";
+import { parseLog } from "../src/portal.js";
 
 /** Run a body with HOME pointed at a fresh directory, then clean up. */
 async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
@@ -809,4 +810,79 @@ test("an empty memory remote is reported as unpushed, not as malformed", async (
     assert.match((r as { reason: string }).reason, /empty/);
     assert.match((r as { reason: string }).reason, /has not pushed/);
   });
+});
+
+test("linking writes a SessionStart hook without touching the project's own settings", async () => {
+  // The AGENTS.md note *asks* an agent to load context. Asking is discipline,
+  // and discipline is what this project exists to stop relying on. A hook fires
+  // whether or not anyone remembers.
+  await withHome(async (home: string) => {
+    const repo = join(home, "atlas-web");
+    await mkdir(join(repo, ".claude"), { recursive: true });
+    await writeFile(join(repo, ".claude", "settings.json"), JSON.stringify({
+      permissions: { allow: ["Bash(ls:*)"] },
+      hooks: { SessionStart: [{ hooks: [{ type: "command", command: "echo theirs" }] }] },
+    }));
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await addProject({ project: "atlas", who: "alice" });
+    const linked = await linkRepo({ repo, project: "atlas" });
+    assert.ok(linked.hooked);
+
+    const settings = JSON.parse(await readFile(join(repo, ".claude", "settings.json"), "utf8"));
+    assert.deepEqual(settings.permissions.allow, ["Bash(ls:*)"], "their settings must survive");
+    const commands = settings.hooks.SessionStart.flatMap((g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command));
+    assert.ok(commands.includes("echo theirs"), "their hook must survive");
+    assert.equal(commands.filter((c: string) => c.includes("varve-cli brief")).length, 1);
+  });
+});
+
+test("the hook is written once, however many times add is re-run", async () => {
+  await withHome(async (home: string) => {
+    const repo = join(home, "atlas-web");
+    await mkdir(repo, { recursive: true });
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await addProject({ project: "atlas", who: "alice" });
+    await linkRepo({ repo, project: "atlas" });
+    const second = await linkRepo({ repo, project: "atlas" });
+    await linkRepo({ repo, project: "atlas" });
+
+    assert.equal(second.hooked, false, "an unchanged hook should not report a write");
+    const settings = JSON.parse(await readFile(join(repo, ".claude", "settings.json"), "utf8"));
+    const commands = settings.hooks.SessionStart.flatMap((g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command));
+    assert.equal(commands.filter((c: string) => c.includes("varve-cli brief")).length, 1);
+  });
+});
+
+test("unparseable settings are left alone rather than replaced", async () => {
+  // Almost certainly someone's in-progress edit. Rewriting it would turn a
+  // syntax error into a lost file.
+  await withHome(async (home: string) => {
+    const repo = join(home, "atlas-web");
+    await mkdir(join(repo, ".claude"), { recursive: true });
+    const broken = '{ "permissions": { "allow": [ }';
+    await writeFile(join(repo, ".claude", "settings.json"), broken);
+    await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
+    await addProject({ project: "atlas", who: "alice" });
+    const linked = await linkRepo({ repo, project: "atlas" });
+
+    assert.equal(linked.hooked, false);
+    assert.equal(await readFile(join(repo, ".claude", "settings.json"), "utf8"), broken);
+  });
+});
+
+test("one bullet is one entry, and it does not carry its own marker", () => {
+  // Two defects in one line of parsing. Blocks split on blank lines alone, so
+  // three rejected options written as three bullets came back as ONE run-on
+  // entry — the highest-value content in the store, merged into a sentence
+  // nobody wrote. And the marker survived, so the brief rendered "- * Reverting".
+  const { against } = parseLog(
+    "---\nproject: atlas\n---\n\n## Decided against\n\n" +
+      "* Reverting to 401.\n- Retrying uploads.\n\n* A third one,\n  wrapped onto two lines.\n",
+  );
+  assert.deepEqual(against, [
+    "Reverting to 401.",
+    "Retrying uploads.",
+    // A wrapped continuation still belongs to the bullet above it.
+    "A third one, wrapped onto two lines.",
+  ]);
 });
