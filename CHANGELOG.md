@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/rambaarde/varve/compare/v0.6.0...v0.6.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **onboarding:** the memory is created on main, and empty is not malformed ([3b25fd1](https://github.com/rambaarde/varve/commit/3b25fd1a523d4d65354cce1464ecd42bba64f02a))
+* **onboarding:** the memory is created on main, and empty is not malformed ([55e994b](https://github.com/rambaarde/varve/commit/55e994bcbda64c70c922bf75e34a5a8ebd976282))
+
 ## [0.6.0](https://github.com/rambaarde/varve/compare/v0.5.4...v0.6.0) (2026-08-06)
 
 
