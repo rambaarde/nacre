@@ -886,3 +886,20 @@ test("one bullet is one entry, and it does not carry its own marker", () => {
     "A third one, wrapped onto two lines.",
   ]);
 });
+
+test("a missing LOCAL memory is not reported as a permissions problem", async () => {
+  // git prints the same "could not read from remote / correct access rights"
+  // for a path that is simply not there. On Windows that turned a missing
+  // directory into "the memory is private and you are not on it yet", which
+  // sends someone to ask for an invite to a repository nobody has.
+  await withHome(async (home: string) => {
+    const { ensureMemory } = await import("../src/store.js");
+    const r = await ensureMemory(join(home, "memory"), join(home, "does-not-exist.git"));
+    assert.equal(r.ok, false);
+    const reason = (r as { reason: string }).reason;
+    // Match the sentence, not the word: macOS temp paths contain "/private/".
+    assert.ok(!/is private and you are not on it/i.test(reason), reason);
+    assert.ok(!/varve invite/i.test(reason), reason);
+    assert.match(reason, /could not clone/i);
+  });
+});
