@@ -406,7 +406,13 @@ export async function ensureMemory(dir: string, remote?: string | null): Promise
     // failure a new teammate hits: the memory is private, and nobody has added
     // them yet. Saying "could not clone" sends them to debug git; saying who to
     // ask is the whole fix.
-    if (/permission denied|access rights|authentication failed|not found|could not read from remote|repository not found/i.test(raw)) {
+    // Only a NETWORK remote can be a permissions problem. git prints the same
+    // "Could not read from remote repository / correct access rights" for a
+    // local path that simply is not there — which on Windows turned a missing
+    // directory into "the memory is private and you are not on it yet". The
+    // message cannot tell the two apart; the remote can.
+    const networked = /^[a-z][a-z0-9+.-]*:\/\//i.test(remote) || /^[^/\\]+@[^/\\]+:/.test(remote);
+    if (networked && /permission denied|access rights|authentication failed|not found|could not read from remote|repository not found/i.test(raw)) {
       return {
         ok: false,
         denied: true,
