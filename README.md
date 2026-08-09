@@ -45,9 +45,13 @@ same idea, one person, no shared repo to set up.
 
 ## The two commands
 
-One session ends with `/nacre-publish`; the next one starts with `/nacre-load`.
+<div align="center">
+  <img src="demo/session-nacre.gif" width="100%" alt="Real Claude Code, two sessions. /nacre-publish composes the session log, scans it, and stops for confirmation before pushing; it flags that it tagged the log to a single repo, bob corrects it to both, and the diff updates repos: [atlas-api, atlas-web] before the push. He exits. A second session starts cold, runs /nacre-load, and reconstructs a thread alice opened days earlier; when bob proposes raising a shared cache limit, the session stops him with alice's decided-against and states what it cannot verify from an atlas-scoped read.">
+</div>
 
-Two developers on one project. **Bob** is the one working. **Alice** left
+<p align="center"><em>Real Claude Code. One session ends with <code>/nacre-publish</code>; the next one starts with <code>/nacre-load</code>.</em></p>
+
+Two developers on one project. **Bob** is the one in the recording. **Alice** left
 a note days earlier and never spoke to him.
 
 ### At the end of a session: `/nacre-publish`
@@ -142,7 +146,7 @@ login, no database, no build step.
 </div>
 
 `⌘K` jumps anywhere in the memory. Underneath, it is markdown you can read in a
-pull request. The recording is the real product — nothing here is mocked,
+pull request. Both recordings are the real product — nothing here is mocked,
 restyled, or re-typed.
 
 ---
