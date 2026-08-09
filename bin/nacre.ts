@@ -62,7 +62,7 @@ const USAGE = `nacre — one git-backed memory for a whole company
   nacre search <term>            one search, same ranking as the portal
   nacre mcp                      serve the memory to any MCP client (stdio)
 
-  also works as \`ncr\`
+  also works as \`nac\`
 
 Adding repos to an existing project is the same command again:
   nacre add atlas ../atlas-worker

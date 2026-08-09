@@ -17,7 +17,7 @@ did not answer that, and nothing here assumes the answer is yes.
 ## Install
 
 ```bash
-npm i -g nacre-cli                              # the package; the commands are nacre and ncr
+npm i -g nacre-cli                              # the package; the commands are nacre and nac
 
 nacre init git@github.com:acme/acme-context.git  # once, per company
 nacre add atlas ../atlas-web ../atlas-api        # once, per project
@@ -35,8 +35,8 @@ nacre serve          # a portal over your own clone. No login, loopback only
 nacre search <term>  # the same search, same ranking
 ```
 
-Every command also works as **`ncr`**. Inside a session, the skills answer to
-`ncr load` and `ncr publish` as well as their full names.
+Every command also works as **`nac`**. Inside a session, the skills answer to
+`nac load` and `nac publish` as well as their full names.
 
 `.nacre.yml` is two lines and **committed, not gitignored**:
 
