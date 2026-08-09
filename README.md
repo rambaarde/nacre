@@ -138,7 +138,7 @@ over MCP by anything else. People read the same bytes in a local portal — no
 login, no database, no build step.
 
 <div align="center">
-  <img src="demo/demo-portal.gif" width="100%" alt="The nacre portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
+  <img src="demo/portal-nacre.gif" width="100%" alt="The nacre portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
 </div>
 
 `⌘K` jumps anywhere in the memory. Underneath, it is markdown you can read in a
