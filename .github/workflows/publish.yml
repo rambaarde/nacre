@@ -125,5 +125,5 @@ jobs:
           # binary, which is the only place that bug could ever appear.
           GOT=$(./node_modules/.bin/nacre --version)
           [ "$GOT" = "$VERSION" ] || { echo "installed binary reports $GOT, expected $VERSION"; exit 1; }
-          ./node_modules/.bin/ncr --version >/dev/null
+          ./node_modules/.bin/nac --version >/dev/null
           echo "ok: nacre-cli@$VERSION installs and runs"

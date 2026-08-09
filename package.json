@@ -30,7 +30,7 @@
   },
   "bin": {
     "nacre": "dist/bin/nacre.js",
-    "ncr": "dist/bin/nacre.js"
+    "nac": "dist/bin/nacre.js"
   },
   "files": [
     "dist/bin",

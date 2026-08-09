@@ -4,7 +4,7 @@ description: >
   Read the company context store at session start so you begin warm: what the
   project decided against, its open risks, and its newest session logs. Use at
   the beginning of any session in a repo carrying a .nacre.yml, and when the
-  user says "nacre load", "ncr load", "/nacre-load", "load context", "what did
+  user says "nacre load", "nac load", "/nacre-load", "load context", "what did
   the team decide", or asks what happened on this project before now.
 ---
 

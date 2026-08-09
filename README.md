@@ -219,7 +219,7 @@ Both doors, one store. Neither gets a privileged interface.
 Install once, then two commands, run by whoever sets things up.
 
 ```sh
-npm i -g nacre-cli                              # the package; the commands are nacre and ncr
+npm i -g nacre-cli                              # the package; the commands are nacre and nac
 
 nacre init git@github.com:acme/acme-context.git  # once, per company
 nacre add atlas ../atlas-web ../atlas-api        # once, per project
@@ -265,7 +265,7 @@ memory: ~/acme-context · you are in: atlas-web
 next: nacre-load at session start · nacre-publish at the end
 ```
 
-Every command also works as **`ncr`**.
+Every command also works as **`nac`**.
 
 ## Read it
 
