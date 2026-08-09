@@ -20,8 +20,8 @@ const LOG = {
 };
 
 async function company(frontmatter: string): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-notify-")));
-  await writeFile(join(dir, "_company.md"), `---\ntype: varve-company\n${frontmatter}---\n\n# Company\n`);
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-notify-")));
+  await writeFile(join(dir, "_company.md"), `---\ntype: nacre-company\n${frontmatter}---\n\n# Company\n`);
   return dir;
 }
 

@@ -1,5 +1,5 @@
 ---
-type: varve-project
+type: nacre-project
 project: [Insert Slug]          # IMMUTABLE — it is in every path and filename
 title: [Insert Display Name]    # change this freely instead
 repos: [Insert Repos]

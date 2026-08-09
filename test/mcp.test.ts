@@ -12,10 +12,10 @@ import { resolveStoreDir } from "../src/store.js";
 
 /** A memory with two projects, one shared constraint, one decided-against. */
 async function memory(): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-mcp-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-mcp-")));
   await writeFile(
     join(dir, "_company.md"),
-    `---\ntype: varve-company\ncompany: Acme\n---\n\n<!-- a comment that must not survive -->\n# Shared Infrastructure\n\n* **Redis:** one instance, shared by atlas and beacon.\n`,
+    `---\ntype: nacre-company\ncompany: Acme\n---\n\n<!-- a comment that must not survive -->\n# Shared Infrastructure\n\n* **Redis:** one instance, shared by atlas and beacon.\n`,
   );
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(
@@ -39,7 +39,7 @@ test("initialize echoes a protocol version the client asked for", async () => {
   const r = await handle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05" } });
   const result = r?.result as { protocolVersion: string; capabilities: unknown; serverInfo: { name: string } };
   assert.equal(result.protocolVersion, "2024-11-05");
-  assert.equal(result.serverInfo.name, "varve");
+  assert.equal(result.serverInfo.name, "nacre");
   assert.ok(result.capabilities);
 });
 
@@ -57,7 +57,7 @@ test("notifications are never answered", async () => {
 test("tools/list advertises read-only tools, and nothing that writes", async () => {
   const r = await handle({ jsonrpc: "2.0", id: 1, method: "tools/list" });
   const names = (r?.result as { tools: { name: string }[] }).tools.map((t) => t.name);
-  assert.deepEqual(names, ["varve_brief", "varve_search"]);
+  assert.deepEqual(names, ["nacre_brief", "nacre_search"]);
   // The gate that makes publishing safe cannot be enforced from here, so no
   // tool may ever write. This test is the guard on that.
   assert.ok(!names.some((n) => /publish|write|add|init|commit|push/.test(n)));
@@ -77,7 +77,7 @@ test("an unknown method is a JSON-RPC error, not a crash", async () => {
 });
 
 test("an unknown tool is rejected", async () => {
-  const r = await call("varve_publish");
+  const r = await call("nacre_publish");
   assert.equal((r?.error as { code: number }).code, -32602);
 });
 
@@ -120,7 +120,7 @@ test("brief stays inside its token budget", async () => {
 test("constraints shorten before any of them disappears", async () => {
   // 60 long decided-against entries do not fit at full length. The failure worth
   // preventing is not the loss of detail — it is the loss of *existence*: a
-  // session cannot `varve search` for a constraint it was never shown, because
+  // session cannot `nacre search` for a constraint it was never shown, because
   // it does not know beacon exists. Every entry must still be on the page.
   const dir = await memory();
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
@@ -198,17 +198,17 @@ test("search says so when nothing matches, and what to try", async () => {
 });
 
 test("a traversing project name is refused", async () => {
-  const r = await call("varve_brief", { project: "../../etc" });
+  const r = await call("nacre_brief", { project: "../../etc" });
   assert.equal((r?.result as { isError: boolean }).isError, true);
   assert.match(text(r), /Invalid project name/);
 });
 
 test("a failure is content the model can read, not a vanished call", async () => {
-  // Run somewhere with no .varve.yml above it and no project given.
+  // Run somewhere with no .nacre.yml above it and no project given.
   const cwd = process.cwd();
-  process.chdir(await realpath(await mkdtemp(join(tmpdir(), "varve-nowhere-"))));
+  process.chdir(await realpath(await mkdtemp(join(tmpdir(), "nacre-nowhere-"))));
   try {
-    const r = await call("varve_brief");
+    const r = await call("nacre_brief");
     assert.equal((r?.result as { isError: boolean }).isError, true);
     assert.match(text(r), /No project given/);
   } finally {
@@ -227,7 +227,7 @@ test("the server speaks JSON-RPC on stdio and writes nothing else", async () => 
   // spawn, not execFile: promisified execFile has no `input` option (that is
   // execFileSync), so the child's stdin never closes, the read loop never ends,
   // and the test hangs rather than fails.
-  const child = spawn(process.execPath, [fileURLToPath(new URL("../bin/varve.js", import.meta.url)), "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [fileURLToPath(new URL("../bin/nacre.js", import.meta.url)), "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");
@@ -261,7 +261,7 @@ test("a company-wide hit names its file rather than an empty date and author", a
   assert.ok(!/^\s*·\s+·/m.test(out), `row rendered with empty date/who:\n${out}`);
 });
 
-test("a local memory path in .varve.yml is used directly, not re-derived", async () => {
+test("a local memory path in .nacre.yml is used directly, not re-derived", async () => {
   // The failure this guards: resolution derived ~/<name> from the path's last
   // segment and tried to clone into it, reporting "no projects yet" while
   // pointing at a directory full of them. Every store without a remote hit it.
@@ -283,7 +283,7 @@ test("a week-one constraint survives twenty newer logs", async () => {
   // ranked lower, gone — while the session still reports it loaded team context.
   // A teammate silently missing week one's constraint reads as "they didn't find
   // it useful", and the pilot gets misread.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-window-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-window-")));
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -311,7 +311,7 @@ test("past the floor it drops the newest, keeps the oldest, and says so", async 
   // truth does not depend on, and the oldest are the ones no recent summary
   // repeats and nobody remembers. Cutting the tail — the default a length cap
   // gives you free — drops exactly those, which is the bug a recency window had.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-cut-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-cut-")));
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -330,7 +330,7 @@ test("past the floor it drops the newest, keeps the oldest, and says so", async 
   assert.match(out, /OLDEST/, "the oldest constraint is the one that must survive");
   assert.doesNotMatch(out, /NEWEST/, "the newest is what a full brief gives up first");
   assert.match(out, /are NOT shown/, "a drop this size must be stated, not implied");
-  assert.match(out, /varve search/);
+  assert.match(out, /nacre search/);
   assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
 });
 
@@ -338,11 +338,11 @@ test("a section written as one long paragraph is not reduced to its heading", as
   // cap() backed up to the last newline unconditionally. Markdown paragraphs are
   // routinely a single line, so a long _standards.md rendered as its heading and
   // nothing else — the newline it retreated to was the one after the heading.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-oneline-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: varve-company\n---\n\n# Snapshot\n\nWe ship on Fridays.\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-oneline-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\n# Snapshot\n\nWe ship on Fridays.\n");
   await writeFile(
     join(dir, "_standards.md"),
-    `---\ntype: varve-standards\n---\n\n# Standards\n\nMARKER ${"every rule on one line ".repeat(500)}\n`,
+    `---\ntype: nacre-standards\n---\n\n# Standards\n\nMARKER ${"every rule on one line ".repeat(500)}\n`,
   );
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
@@ -354,7 +354,7 @@ test("a section written as one long paragraph is not reduced to its heading", as
 });
 
 test("a log with no summary section does not report a heading as its summary", async () => {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-nosum-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-nosum-")));
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");

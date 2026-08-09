@@ -147,9 +147,9 @@ export interface NotifyResult {
  */
 export async function notify(
   text: string,
-  { url = process.env.VARVE_NOTIFY_URL, timeoutMs = 5_000 }: { url?: string; timeoutMs?: number } = {},
+  { url = process.env.NACRE_NOTIFY_URL, timeoutMs = 5_000 }: { url?: string; timeoutMs?: number } = {},
 ): Promise<NotifyResult> {
-  if (!url) return { sent: false, unset: true, reason: "VARVE_NOTIFY_URL is not set" };
+  if (!url) return { sent: false, unset: true, reason: "NACRE_NOTIFY_URL is not set" };
 
   const stop = AbortSignal.timeout(timeoutMs);
   try {

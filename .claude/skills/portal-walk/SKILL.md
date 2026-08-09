@@ -1,7 +1,7 @@
 ---
 name: portal-walk
 description: >
-  Review varve's portal the way a developer actually uses it — in a real
+  Review nacre's portal the way a developer actually uses it — in a real
   browser, walking a real journey, against a memory with real logs in it. Use
   before shipping any change to src/serve.ts, src/portal.ts or the store shape,
   and when the user says "portal walk", "/portal-walk", "review the portal",
@@ -38,13 +38,13 @@ The portal must be serving a memory with **real logs, several people, and more
 than one project**. An empty store hides every problem worth finding, and a
 one-person one hides half of them.
 
-If there is no such memory to hand, build one: `varve init`, `varve add` two
+If there is no such memory to hand, build one: `nacre init`, `nacre add` two
 projects, then write a dozen logs across two or three people and a couple of
 months. Twenty minutes, and every review after it is worth having.
 
 ```bash
 npm run build
-node dist/bin/varve.js serve --memory <path-to-a-memory> &
+node dist/bin/nacre.js serve --memory <path-to-a-memory> &
 ```
 
 It holds the terminal, so background it — and re-check it is alive before

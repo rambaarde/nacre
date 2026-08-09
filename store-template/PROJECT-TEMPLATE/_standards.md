@@ -1,5 +1,5 @@
 ---
-type: varve-project-standards
+type: nacre-project-standards
 project: [Insert Slug]
 ---
 
