@@ -1,5 +1,5 @@
 {
-  "name": "varve-cli",
+  "name": "nacre-cli",
   "version": "0.7.1",
   "description": "One shared memory for your whole company — plain Markdown in git that your agent loads at session start and your team reads in a browser.",
   "keywords": [
@@ -14,13 +14,13 @@
     "monorepo",
     "cross-repo"
   ],
-  "homepage": "https://github.com/rambaarde/varve#readme",
+  "homepage": "https://github.com/rambaarde/nacre#readme",
   "bugs": {
-    "url": "https://github.com/rambaarde/varve/issues"
+    "url": "https://github.com/rambaarde/nacre/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rambaarde/varve.git"
+    "url": "git+https://github.com/rambaarde/nacre.git"
   },
   "license": "Apache-2.0",
   "author": "rambaarde",
@@ -29,8 +29,8 @@
     "node": ">=20"
   },
   "bin": {
-    "varve": "dist/bin/varve.js",
-    "vrv": "dist/bin/varve.js"
+    "nacre": "dist/bin/nacre.js",
+    "nac": "dist/bin/nacre.js"
   },
   "files": [
     "dist/bin",

@@ -26,20 +26,20 @@ import { parseLog } from "../src/portal.js";
 
 /** Run a body with HOME pointed at a fresh directory, then clean up. */
 async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
-  const home = await realpath(await mkdtemp(join(tmpdir(), "varve-test-")));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "nacre-test-")));
   const realHome = process.env.HOME as string;
   // os.homedir() reads USERPROFILE on Windows and HOME on POSIX. Setting only
   // HOME left every Windows run resolving against the runner's REAL home —
   // the suite silently escaped its own sandbox and wrote there.
   const realProfile = process.env.USERPROFILE;
-  const realStore = process.env.VARVE_STORE;
+  const realStore = process.env.NACRE_STORE;
   const cwd = process.cwd();
   process.env.HOME = home;
   process.env.USERPROFILE = home;
-  delete process.env.VARVE_STORE;
+  delete process.env.NACRE_STORE;
   // Also move into the temp home. Binding resolution walks up from the working
-  // directory by design, so a .varve.yml anywhere above the repo would leak in
-  // — and the repo of anyone who actually uses varve has one.
+  // directory by design, so a .nacre.yml anywhere above the repo would leak in
+  // — and the repo of anyone who actually uses nacre has one.
   process.chdir(home);
   try {
     return await body(home);
@@ -48,7 +48,7 @@ async function withHome<T>(body: (home: string) => Promise<T>): Promise<T> {
     process.env.HOME = realHome;
     if (realProfile === undefined) delete process.env.USERPROFILE;
     else process.env.USERPROFILE = realProfile;
-    if (realStore) process.env.VARVE_STORE = realStore;
+    if (realStore) process.env.NACRE_STORE = realStore;
     // Windows holds handles briefly after close, and refuses to remove the
     // working directory — cwd is already restored above.
     await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
@@ -98,7 +98,7 @@ test("resolveBinding walks up, and returns null rather than guessing", async () 
     await mkdir(deep, { recursive: true });
     assert.equal(await resolveBinding(deep), null, "no binding must not be a guess");
 
-    await writeFile(join(home, "repo", ".varve.yml"), "project: atlas\nstore: git@h:a/s.git\n");
+    await writeFile(join(home, "repo", ".nacre.yml"), "project: atlas\nstore: git@h:a/s.git\n");
     const found = await resolveBinding(deep);
     assert.ok(found);
     assert.equal(found.project, "atlas");
@@ -122,7 +122,7 @@ test("init → add wires both records", async () => {
     assert.ok(linked.wrote);
 
     // Record one: the repo's own binding.
-    const binding = await readFile(join(repo, ".varve.yml"), "utf8");
+    const binding = await readFile(join(repo, ".nacre.yml"), "utf8");
     assert.match(binding, /project: atlas/);
     assert.match(binding, /memory: git@github\.com:acme\/acme-context\.git/);
 
@@ -173,7 +173,7 @@ test("rebinding a repo to a different project is refused", async () => {
       /already binds this repo to "atlas"/,
       "silently re-pointing a repo at other memory is the failure nobody notices",
     );
-    assert.match(await readFile(join(repo, ".varve.yml"), "utf8"), /project: atlas/);
+    assert.match(await readFile(join(repo, ".nacre.yml"), "utf8"), /project: atlas/);
   });
 });
 
@@ -235,7 +235,7 @@ test("logStats counts sessions across teams and people", async () => {
 test("addToRoster on a missing project says how to fix it", async () => {
   await withHome(async () => {
     const store = await initStore({ store: "git@github.com:acme/acme-context.git", who: "alice" });
-    await assert.rejects(() => addToRoster(store.dir, "nope", ["r"]), /varve add nope/);
+    await assert.rejects(() => addToRoster(store.dir, "nope", ["r"]), /nacre add nope/);
   });
 });
 
@@ -289,7 +289,7 @@ test("piped output carries no escape codes", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
   const { stdout } = await run(process.execPath, [bin, "--help"]);
   const ESC = String.fromCharCode(27);
   assert.ok(!stdout.includes(ESC), "styling must never reach a pipe");
@@ -329,7 +329,7 @@ test("a bound repo fetches its memory instead of asking for init", async () => {
     const git = promisify(execFile);
 
     await mkdir(seed, { recursive: true });
-    await writeFile(join(seed, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await writeFile(join(seed, "_company.md"), "---\ntype: nacre-company\n---\n\nfacts\n");
     await git("git", ["init", "-q", seed]);
     await git("git", ["-C", seed, "config", "user.email", "a@b.c"]);
     await git("git", ["-C", seed, "config", "user.name", "alice"]);
@@ -340,7 +340,7 @@ test("a bound repo fetches its memory instead of asking for init", async () => {
     // A repo bound to that memory, with nothing cloned locally yet.
     const repo = join(home, "acme-fe");
     await mkdir(repo, { recursive: true });
-    await writeFile(join(repo, ".varve.yml"), `project: acme\nmemory: ${origin}\n`);
+    await writeFile(join(repo, ".nacre.yml"), `project: acme\nmemory: ${origin}\n`);
 
     const { ensureMemory, resolveStoreDir, resolveBinding } = await import("../src/store.js");
     const binding = await resolveBinding(repo);
@@ -368,7 +368,7 @@ test("init joins an existing memory instead of starting a second one", async () 
     const git = promisify(execFile);
 
     await mkdir(join(seed, "atlas"), { recursive: true });
-    await writeFile(join(seed, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await writeFile(join(seed, "_company.md"), "---\ntype: nacre-company\n---\n\nfacts\n");
     await writeFile(join(seed, "atlas", "_project.md"), "---\nproject: atlas\nrepos: []\n---\n");
     await git("git", ["init", "-q", seed]);
     await git("git", ["-C", seed, "config", "user.email", "a@b.c"]);
@@ -429,7 +429,7 @@ test("the author slug is one value, so a person cannot become two", async () => 
   // init scaffolds _team/_<slug>/ from git config user.name; a log's `who:` is
   // written by the skill. If those two ever disagree the person's profile sits
   // in one folder while their logs file under another — their own page shows no
-  // profile, and nothing errors. `varve` therefore reports the slug it uses, so
+  // profile, and nothing errors. `nacre` therefore reports the slug it uses, so
   // the skill has one value to copy rather than a name to guess at.
   await withHome(async (home: string) => {
     const { execFile } = await import("node:child_process");
@@ -454,7 +454,7 @@ test("the author slug is one value, so a person cannot become two", async () => 
 });
 
 test("--version and --help work from the PACKAGED layout, not just the repo", async () => {
-  // `varve --version` shipped broken: bin/varve.ts computed its own PKG_ROOT by
+  // `nacre --version` shipped broken: bin/nacre.ts computed its own PKG_ROOT by
   // going one directory up, which is the repo root from bin/ and dist/ from
   // dist/bin/. Every install got ENOENT on dist/package.json. store.ts had
   // already been fixed to walk up for package.json; the duplicate had not.
@@ -463,13 +463,13 @@ test("--version and --help work from the PACKAGED layout, not just the repo", as
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = join(import.meta.dirname, "..", "bin", "varve.js");
+  const bin = join(import.meta.dirname, "..", "bin", "nacre.js");
 
   const { stdout: version } = await run("node", [bin, "--version"]);
   assert.match(version.trim(), /^\d+\.\d+\.\d+$/, "--version prints a semver, not an error");
 
   const { stdout: help } = await run("node", [bin, "--help"]);
-  assert.match(help, /varve init <git-url>/, "--help prints usage");
+  assert.match(help, /nacre init <git-url>/, "--help prints usage");
 });
 
 test("a name the slugifier cannot spell must not erase the person", async () => {
@@ -551,7 +551,7 @@ test("the README test badge matches reality", async () => {
 });
 
 test("standing inside a memory is enough to find it", async () => {
-  // `varve serve` run from the root of a memory reported "no memory here, and
+  // `nacre serve` run from the root of a memory reported "no memory here, and
   // nothing says where it lives" — while standing in one — because discovery
   // only ever scanned directly under the home directory, and a memory kept
   // anywhere else was invisible. Being inside it is the plainest possible
@@ -559,7 +559,7 @@ test("standing inside a memory is enough to find it", async () => {
   await withHome(async (home: string) => {
     const buried = join(home, "Documents", "work", "acme-context");
     await mkdir(join(buried, "atlas"), { recursive: true });
-    await writeFile(join(buried, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await writeFile(join(buried, "_company.md"), "---\ntype: nacre-company\n---\n\nfacts\n");
 
     const { resolveStoreDir } = await import("../src/store.js");
     const { realpath } = await import("node:fs/promises");
@@ -577,7 +577,7 @@ test("standing inside a memory is enough to find it", async () => {
     // An explicit flag still wins — being somewhere is weaker than saying so.
     const other = join(home, "other-context");
     await mkdir(other, { recursive: true });
-    await writeFile(join(other, "_company.md"), "---\ntype: varve-company\n---\n");
+    await writeFile(join(other, "_company.md"), "---\ntype: nacre-company\n---\n");
     assert.equal(await resolveStoreDir(other), other, "--memory overrides where you stand");
 
     // Outside any memory it must not invent one.
@@ -591,9 +591,9 @@ test("frontmatter reads a folded block scalar, not the '>' marker", () => {
   // Every skill this project ships uses `description: >`. Reading only the
   // first line made the description the literal ">", which is the text Cursor
   // shows a user when deciding whether to run the command.
-  const fm = frontmatter(`---\nname: varve-load\ndescription: >\n  Read the store.\n  Report what the team decided.\nother: plain\n---\n`);
+  const fm = frontmatter(`---\nname: nacre-load\ndescription: >\n  Read the store.\n  Report what the team decided.\nother: plain\n---\n`);
   assert.equal(fm.description, "Read the store. Report what the team decided.");
-  assert.equal(fm.name, "varve-load");
+  assert.equal(fm.name, "nacre-load");
   assert.equal(fm.other, "plain");
 });
 
@@ -603,7 +603,7 @@ test("frontmatter keeps line breaks in a literal block scalar", () => {
 });
 
 test("every known agent installs, in its own format", async () => {
-  const home = await realpath(await mkdtemp(join(tmpdir(), "varve-agents-")));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "nacre-agents-")));
   for (const d of Object.values(AGENTS)) await mkdir(d.home.replace(homedir(), home), { recursive: true });
   const prev = process.env.HOME;
   process.env.HOME = home;
@@ -635,13 +635,13 @@ test("linking a repo leaves a note any agent can find", async () => {
 
     assert.ok(linked.noted);
     const note = await readFile(join(repo, "AGENTS.md"), "utf8");
-    assert.match(note, /varve brief/);
+    assert.match(note, /nacre brief/);
     assert.match(note, /atlas/);
   });
 });
 
 test("the note is replaced, never appended twice", async () => {
-  // `varve add` is meant to be re-run — adding a repo later is the same command
+  // `nacre add` is meant to be re-run — adding a repo later is the same command
   // — and AGENTS.md is loaded into every session in the repo.
   await withHome(async (home: string) => {
     const repo = join(home, "atlas-web");
@@ -654,7 +654,7 @@ test("the note is replaced, never appended twice", async () => {
     await linkRepo({ repo, project: "atlas" });
 
     const note = await readFile(join(repo, "AGENTS.md"), "utf8");
-    assert.equal(note.match(/varve:start/g)?.length, 1, note);
+    assert.equal(note.match(/nacre:start/g)?.length, 1, note);
     assert.equal(second.noted, false, "an unchanged note should not report a write");
   });
 });
@@ -670,7 +670,7 @@ test("an existing AGENTS.md keeps everything it already said", async () => {
 
     const note = await readFile(join(repo, "AGENTS.md"), "utf8");
     assert.match(note, /make test/, "clobbered the repo's own instructions");
-    assert.match(note, /varve brief/);
+    assert.match(note, /nacre brief/);
   });
 });
 
@@ -708,7 +708,7 @@ test("two people publishing in the same window both survive", async () => {
     };
 
     const alice = await clone("alice");
-    await writeFile(join(alice, "_company.md"), "---\ntype: varve-company\n---\n\nfacts\n");
+    await writeFile(join(alice, "_company.md"), "---\ntype: nacre-company\n---\n\nfacts\n");
     await git("git", ["-C", alice, "add", "-A"]);
     await git("git", ["-C", alice, "commit", "-qm", "seed"]);
     await git("git", ["-C", alice, "push", "-q"]);
@@ -744,7 +744,7 @@ test("two people publishing in the same window both survive", async () => {
 test("the publish skill still documents the retry", async () => {
   // Cheap guard on an expensive lesson: without this line a bare push fails
   // the first time two teammates publish within minutes of each other.
-  const skill = await readFile(join(PKG_ROOT_FOR_TEST, "skills/varve-publish/SKILL.md"), "utf8");
+  const skill = await readFile(join(PKG_ROOT_FOR_TEST, "skills/nacre-publish/SKILL.md"), "utf8");
   assert.match(skill, /pull --rebase --autostash/);
   assert.match(skill, /Never force-push/i);
 });
@@ -755,7 +755,7 @@ test("a GitHub memory yields a slug; anything else is left alone", async () => {
   assert.equal(githubSlug("https://github.com/acme/acme-context"), "acme/acme-context");
   assert.equal(githubSlug("https://github.com/acme/acme-context.git"), "acme/acme-context");
   // Self-hosted memories are legitimate. Guessing a collaborator API for one
-  // would fail in a way that reads as varve being broken.
+  // would fail in a way that reads as nacre being broken.
   assert.equal(githubSlug("git@gitlab.com:acme/x.git"), null);
   assert.equal(githubSlug("/tmp/local/memory"), null);
   assert.equal(githubSlug(null), null);
@@ -770,19 +770,19 @@ test("a non-GitHub remote points at the hosting instead of failing blankly", asy
 
 test("brief fetches the memory rather than telling a teammate to init", async () => {
   // Running `init` on a bound repo builds a SECOND memory whose history has
-  // nothing in common with the team's. The library was fixed for this; `varve
+  // nothing in common with the team's. The library was fixed for this; `nacre
   // brief` was later wired straight to the filesystem and reintroduced it.
-  const bin = await readFile(fileURLToPath(new URL("../../bin/varve.ts", import.meta.url)), "utf8");
+  const bin = await readFile(fileURLToPath(new URL("../../bin/nacre.ts", import.meta.url)), "utf8");
   const cmd = bin.slice(bin.indexOf('command === "brief"'), bin.indexOf('command === "search"'));
   assert.ok(cmd.includes("ensureMemory"), "brief must fetch the memory");
-  assert.ok(!/varve init/.test(cmd), "brief must never send a bound repo to init");
+  assert.ok(!/nacre init/.test(cmd), "brief must never send a bound repo to init");
 });
 
 test("a new memory is created on main, not on whatever git defaults to", async () => {
   // git init uses init.defaultBranch, still `master` unless someone changed it.
   // The memory was created on master, pushed to master, and a teammate cloning
   // a remote whose HEAD is main got an empty tree and was told the memory did
-  // not look like a varve memory. Silent, and only ever hit by the second person.
+  // not look like a nacre memory. Silent, and only ever hit by the second person.
   await withHome(async (home: string) => {
     const store = await initStore({ store: null as unknown as string, who: "alice" });
     const { execFile } = await import("node:child_process");
@@ -832,7 +832,7 @@ test("linking writes a SessionStart hook without touching the project's own sett
     assert.deepEqual(settings.permissions.allow, ["Bash(ls:*)"], "their settings must survive");
     const commands = settings.hooks.SessionStart.flatMap((g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command));
     assert.ok(commands.includes("echo theirs"), "their hook must survive");
-    assert.equal(commands.filter((c: string) => c.includes("varve-cli brief")).length, 1);
+    assert.equal(commands.filter((c: string) => c.includes("nacre-cli brief")).length, 1);
   });
 });
 
@@ -849,7 +849,7 @@ test("the hook is written once, however many times add is re-run", async () => {
     assert.equal(second.hooked, false, "an unchanged hook should not report a write");
     const settings = JSON.parse(await readFile(join(repo, ".claude", "settings.json"), "utf8"));
     const commands = settings.hooks.SessionStart.flatMap((g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command));
-    assert.equal(commands.filter((c: string) => c.includes("varve-cli brief")).length, 1);
+    assert.equal(commands.filter((c: string) => c.includes("nacre-cli brief")).length, 1);
   });
 });
 
@@ -899,7 +899,7 @@ test("a missing LOCAL memory is not reported as a permissions problem", async ()
     const reason = (r as { reason: string }).reason;
     // Match the sentence, not the word: macOS temp paths contain "/private/".
     assert.ok(!/is private and you are not on it/i.test(reason), reason);
-    assert.ok(!/varve invite/i.test(reason), reason);
+    assert.ok(!/nacre invite/i.test(reason), reason);
     assert.match(reason, /could not clone/i);
   });
 });

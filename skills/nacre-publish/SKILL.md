@@ -1,14 +1,14 @@
 ---
-name: varve-publish
+name: nacre-publish
 description: >
   Write this session's log into the shared company context store and publish it
   in one gated motion — compose, strip private blocks, scan for secrets, show
   the result, push. Use at the end of a working session, and when the user says
-  "varve publish", "vrv publish", "/varve-publish", "log this", "publish the
+  "nacre publish", "nac publish", "/nacre-publish", "log this", "publish the
   session", or asks to record what was decided for the rest of the team.
 ---
 
-# varve-publish
+# nacre-publish
 
 One motion:
 
@@ -18,11 +18,11 @@ compose → strip private → secret scan → show → push
 
 ## 1. Resolve scope
 
-Walk up from the working directory for `.varve.yml` (`project`, `memory`).
+Walk up from the working directory for `.nacre.yml` (`project`, `memory`).
 `--project` overrides. **No binding → stop and say so.** Never guess the project,
 never fall back to a default store.
 
-Resolve the store path as `varve-load` does. Pull before writing:
+Resolve the store path as `nacre-load` does. Pull before writing:
 
 ```bash
 git -C <store> pull --ff-only
@@ -58,7 +58,7 @@ clock, because no two people ever write the same file.
 **`{person}` and the `who:` field are the same slug, and it is not a free
 choice.** It is `git config user.name`, lowercased, with every run of
 non-alphanumeric characters replaced by a hyphen — `Dana Reyes` → `dana-reyes`.
-Run `varve` to see the one this machine will use.
+Run `nacre` to see the one this machine will use.
 
 Inventing a shorter one splits a person in two: their profile stays in
 `_team/_dana-reyes/` while their logs file under `dana`, so their own page never
@@ -159,10 +159,10 @@ stopped being true, and a memory that confidently states a stale fact is worse
 than one that says nothing.
 
 ```bash
-npx -y varve-cli brief          # or: npx -y varve-cli brief <project>
+npx -y nacre-cli brief          # or: npx -y nacre-cli brief <project>
 ```
 
-The bare form reads the `.varve.yml` binding resolved in step 1, so it is already
+The bare form reads the `.nacre.yml` binding resolved in step 1, so it is already
 the right project. Name one only when publishing somewhere other than here.
 
 Read the **Decided against** and **Open risks** it prints, and ask one question:
@@ -187,7 +187,7 @@ session's account, and half an account is worse than none — so the file you na
 stops contributing every decided-against and every open risk it carried, not just
 the one that went stale. **Restate, in the new log, anything from it that is still
 true.** A brief that drops a constraint because it rode along in a superseded log
-is the same silent loss as a window that ages one out; `varve brief` reports the
+is the same silent loss as a window that ages one out; `nacre brief` reports the
 count so the absence is at least visible, but only the log you are writing now can
 carry the fact forward.
 
@@ -252,10 +252,10 @@ commits.
 
 ## 5. Announce, if the team asked for it
 
-**Only after the push succeeded**, and only if `VARVE_NOTIFY_URL` is set:
+**Only after the push succeeded**, and only if `NACRE_NOTIFY_URL` is set:
 
 ```bash
-varve notify
+nacre notify
 ```
 
 It posts one line to the team's channel. Say whether it went, in a single word —
@@ -272,7 +272,7 @@ not configured it does not need to be told about it every session.
 ok: published · atlas/devs/alice/atlas-2026-08-04_16-22-07.md
 private: 1 block stripped · scan: 0 findings (gitleaks) · repos[2]: atlas-api, atlas-web
 announced: #eng-atlas
-help[]: varve-load (next session)
+help[]: nacre-load (next session)
 ```
 
 Drop the `announced:` line when no webhook is configured.

@@ -1,5 +1,5 @@
 ---
-type: varve-company
+type: nacre-company
 company: [Insert Company Name]
 # Where issues live. Uncomment and set, and every ENG-123 in the memory becomes a
 # link — in the portal and in channel announcements. {key} is required.

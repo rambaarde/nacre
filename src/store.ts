@@ -5,7 +5,7 @@
  * operations layer stays about meaning rather than I/O. Zero dependencies:
  * node: builtins only.
  *
- * The frontmatter reader is deliberately minimal. varve's store is markdown
+ * The frontmatter reader is deliberately minimal. nacre's store is markdown
  * that tooling reads, not a format tooling owns — a file it cannot fully parse
  * must still render, still grep, and still count.
  */
@@ -45,7 +45,7 @@ export const PKG_ROOT = findPackageRoot(dirname(fileURLToPath(import.meta.url)))
  * SKILL.md — so one file serves four of the five. Cursor wants a single `.mdc`
  * per rule instead, which is a format difference, not a capability one.
  *
- * varve was never Claude-only by design; this table simply had two rows.
+ * nacre was never Claude-only by design; this table simply had two rows.
  */
 export interface AgentTarget {
   label: string;
@@ -153,7 +153,7 @@ export function setFrontmatterKey(text: string, key: string, value: string | str
 }
 
 /**
- * Walk up from `start` looking for `.varve.yml`.
+ * Walk up from `start` looking for `.nacre.yml`.
  *
  * Returns null rather than guessing. There is deliberately no global default
  * store: a fallback is the one mechanism by which one company's notes could be
@@ -164,7 +164,7 @@ export interface Binding { file: string; dir: string; project?: string; store?: 
 export async function resolveBinding(start: string = process.cwd()): Promise<Binding | null> {
   let dir = resolve(start);
   for (;;) {
-    const file = join(dir, ".varve.yml");
+    const file = join(dir, ".nacre.yml");
     if (await exists(file)) {
       const fm = frontmatter(`---\n${await readFile(file, "utf8")}\n---`);
       // `store:` accepted as the former spelling of `memory:`.
@@ -202,7 +202,7 @@ export function repoName(url?: string | null): string | null {
 export const storePath = (flag?: string, url?: string | null): string =>
   resolve(
     flag ??
-      process.env.VARVE_STORE ??
+      process.env.NACRE_STORE ??
       join(homedir(), repoName(url) ?? "company-context"),
   );
 
@@ -231,7 +231,7 @@ export async function initGit(dir: string, remote?: string | null): Promise<stri
     // `git init` uses init.defaultBranch, which is still `master` unless someone
     // changed it — so the memory was created on master, pushed to master, and a
     // teammate cloning got the remote's empty `main` and was told the memory
-    // "does not look like a varve memory". Silent, and only ever hit by the
+    // "does not look like a nacre memory". Silent, and only ever hit by the
     // second person.
     //
     // symbolic-ref rather than `init -b`: it works on every git version, and on
@@ -265,8 +265,8 @@ export async function initGit(dir: string, remote?: string | null): Promise<stri
  * Is there work here that no remote has seen — uncommitted files, or commits on
  * no remote-tracking branch?
  *
- * `varve add` used to end with "teammates then need nothing", which is true of
- * `.varve.yml` and false of everything else until the memory itself is pushed.
+ * `nacre add` used to end with "teammates then need nothing", which is true of
+ * `.nacre.yml` and false of everything else until the memory itself is pushed.
  * A teammate cloning a wired repo before that gets a binding pointing at an
  * empty remote.
  */
@@ -418,7 +418,7 @@ export async function ensureMemory(dir: string, remote?: string | null): Promise
         denied: true,
         reason:
           `no access to ${remote} — the memory is private and you are not on it yet. ` +
-          "Ask whoever set it up to run: varve invite <your-github-username>",
+          "Ask whoever set it up to run: nacre invite <your-github-username>",
       };
     }
     return { ok: false, reason: `could not clone ${remote} — ${text}` };
@@ -435,8 +435,8 @@ export async function ensureMemory(dir: string, remote?: string | null): Promise
     reason: bare
       ? `${remote} is empty — whoever set it up has not pushed the memory yet. ` +
         "Ask them to run: git -C <memory> push -u origin HEAD"
-      : `${remote} has no _company.md at the top level, so it is not a varve memory · ` +
-        "check the memory URL in .varve.yml",
+      : `${remote} has no _company.md at the top level, so it is not a nacre memory · ` +
+        "check the memory URL in .nacre.yml",
   };
 }
 
@@ -520,7 +520,7 @@ export async function discoverStores(): Promise<string[]> {
  * Walk up from `from` looking for a directory that IS a memory.
  *
  * Standing inside one is the plainest possible statement of which memory you
- * mean, and it was the one thing resolution never checked: `varve serve` run
+ * mean, and it was the one thing resolution never checked: `nacre serve` run
  * from the root of a memory reported "no memory here, and nothing says where it
  * lives" — while standing in one — because discovery only ever looked directly
  * under the home directory.
@@ -550,11 +550,11 @@ export async function resolveStoreDir(flag?: string, url?: string | null): Promi
     }
     return resolve(flag);
   }
-  if (process.env.VARVE_STORE) return resolve(process.env.VARVE_STORE);
+  if (process.env.NACRE_STORE) return resolve(process.env.NACRE_STORE);
 
   // A `memory:` that is already a local directory IS the memory. Deriving
   // ~/<name> from it and cloning there instead is not a fallback, it is a wrong
-  // answer: `.varve.yml` is the record of where the memory lives, and a path
+  // answer: `.nacre.yml` is the record of where the memory lives, and a path
   // that resolves is an answer rather than a hint. This bit every store without
   // a remote — a company still working locally — and reported "this memory has
   // no projects yet" while pointing at a directory full of them.
@@ -619,7 +619,7 @@ export async function readRoster(store: string, project: string): Promise<Roster
  *  repos the same afternoon should not erase each other's work. */
 export async function addToRoster(store: string, project: string, repos: string[]) {
   const roster = await readRoster(store, project);
-  if (!roster) throw new Error(`no project "${project}" in ${store} · run: varve add ${project}`);
+  if (!roster) throw new Error(`no project "${project}" in ${store} · run: nacre add ${project}`);
   const merged = [...new Set([...roster.repos, ...repos])].sort();
   await writeFile(roster.file, setFrontmatterKey(roster.text, "repos", merged));
   return { added: merged.filter((r) => !roster.repos.includes(r)), repos: merged };
@@ -661,7 +661,7 @@ export async function logStats(store: string, project: string) {
   return { count, newest, who };
 }
 
-export const SKILLS = ["varve-load", "varve-publish"] as const;
+export const SKILLS = ["nacre-load", "nacre-publish"] as const;
 
 /**
  * Cursor reads one `.mdc` per rule, not a directory per skill.
@@ -673,7 +673,7 @@ export const SKILLS = ["varve-load", "varve-publish"] as const;
  */
 function asRule(skill: string, text: string): string {
   const fm = frontmatter(text);
-  const description = String(fm.description ?? `varve — ${skill}`)
+  const description = String(fm.description ?? `nacre — ${skill}`)
     .replace(/\s+/g, " ")
     .trim();
   const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
