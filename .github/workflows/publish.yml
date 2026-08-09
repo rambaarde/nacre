@@ -15,8 +15,8 @@
 # tokens that were the only other way to publish unattended.
 #
 # One-time setup on npmjs.com, which cannot be done from here:
-#   varve-cli → Settings → Trusted Publisher → GitHub Actions
-#   repository: rambaarde/varve   workflow: publish.yml
+#   nacre-cli → Settings → Trusted Publisher → GitHub Actions
+#   repository: rambaarde/nacre   workflow: publish.yml
 name: publish
 
 on:
@@ -91,9 +91,9 @@ jobs:
             const files = meta.files.map((f) => f.path);
             const fail = (msg) => { console.error(msg); process.exitCode = 1; };
             for (const required of [
-              "dist/bin/varve.js",
-              "skills/varve-load/SKILL.md",
-              "skills/varve-publish/SKILL.md",
+              "dist/bin/nacre.js",
+              "skills/nacre-load/SKILL.md",
+              "skills/nacre-publish/SKILL.md",
               "store-template/_company.md",
               "README.md",
             ]) if (!files.includes(required)) fail("missing from tarball: " + required);
@@ -113,17 +113,17 @@ jobs:
         run: |
           VERSION='${{ needs.release-please.outputs.version }}'
           for i in 1 2 3 4 5 6; do
-            npm view "varve-cli@$VERSION" version >/dev/null 2>&1 && break
+            npm view "nacre-cli@$VERSION" version >/dev/null 2>&1 && break
             echo "waiting for the registry to serve $VERSION ($i)"; sleep 10
           done
           WORK=$(mktemp -d)
           cd "$WORK"
           npm init -y >/dev/null
-          npm install "varve-cli@$VERSION" --prefer-online
+          npm install "nacre-cli@$VERSION" --prefer-online
           # --version shipped broken once while working perfectly in the repo,
           # because bin/ and dist/bin/ are different layouts. Run the installed
           # binary, which is the only place that bug could ever appear.
-          GOT=$(./node_modules/.bin/varve --version)
+          GOT=$(./node_modules/.bin/nacre --version)
           [ "$GOT" = "$VERSION" ] || { echo "installed binary reports $GOT, expected $VERSION"; exit 1; }
-          ./node_modules/.bin/vrv --version >/dev/null
-          echo "ok: varve-cli@$VERSION installs and runs"
+          ./node_modules/.bin/ncr --version >/dev/null
+          echo "ok: nacre-cli@$VERSION installs and runs"

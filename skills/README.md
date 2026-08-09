@@ -1,11 +1,11 @@
-# varve — skills
+# nacre — skills
 
 Two skills and a git repo. Everything else is convenience around them.
 
 | | |
 |---|---|
-| **`varve-load`** | at session start, read what the team decided so your agent begins warm |
-| **`varve-publish`** | at session end, write one log — strip private blocks, scan for secrets, show it, push it |
+| **`nacre-load`** | at session start, read what the team decided so your agent begins warm |
+| **`nacre-publish`** | at session end, write one log — strip private blocks, scan for secrets, show it, push it |
 
 The CLI and portal now exist, but they only wire up and display what these two
 skills write — delete them and the memory is still readable Markdown in git.
@@ -17,28 +17,28 @@ did not answer that, and nothing here assumes the answer is yes.
 ## Install
 
 ```bash
-npm i -g varve-cli                              # the package; the commands are varve and vrv
+npm i -g nacre-cli                              # the package; the commands are nacre and ncr
 
-varve init git@github.com:acme/acme-context.git  # once, per company
-varve add atlas ../atlas-web ../atlas-api        # once, per project
+nacre init git@github.com:acme/acme-context.git  # once, per company
+nacre add atlas ../atlas-web ../atlas-api        # once, per project
 ```
 
-`add` installs both skills, writes `.varve.yml` into each repo, and records the
+`add` installs both skills, writes `.nacre.yml` into each repo, and records the
 repos in the project roster. Adding a repo later is the same command again. Run
-`varve` with no arguments at any point to see where you are and what applies
+`nacre` with no arguments at any point to see where you are and what applies
 next.
 
 To read the memory as a person rather than through an agent:
 
 ```bash
-varve serve          # a portal over your own clone. No login, loopback only
-varve search <term>  # the same search, same ranking
+nacre serve          # a portal over your own clone. No login, loopback only
+nacre search <term>  # the same search, same ranking
 ```
 
-Every command also works as **`vrv`**. Inside a session, the skills answer to
-`vrv load` and `vrv publish` as well as their full names.
+Every command also works as **`ncr`**. Inside a session, the skills answer to
+`ncr load` and `ncr publish` as well as their full names.
 
-`.varve.yml` is two lines and **committed, not gitignored**:
+`.nacre.yml` is two lines and **committed, not gitignored**:
 
 ```yaml
 project: atlas
@@ -73,7 +73,7 @@ looks exactly like one that was never written.
 
 - **Never auto-publish.** Nothing reaches the store without a human seeing it
   first.
-- **Never guess scope.** No `.varve.yml`, no default store — stop and say so. A
+- **Never guess scope.** No `.nacre.yml`, no default store — stop and say so. A
   fallback default is the one way one company's notes could land in another
   company's store.
 - **Corrections are new layers**, never edits. A log that corrects an earlier one
@@ -85,6 +85,6 @@ looks exactly like one that was never written.
 **No rolling handoff file.** It would be the only file in the system that gets
 overwritten, it needs an LLM call to produce, and it needs an invariant to stay
 safe. At small team sizes the newest few logs already answer "where do things
-stand", and `varve-load` assembles that at read time. Worth adding when reading
+stand", and `nacre-load` assembles that at read time. Worth adding when reading
 recent logs stops being enough — more people, or parallel work inside one
 project.

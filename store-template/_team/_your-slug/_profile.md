@@ -1,5 +1,5 @@
 ---
-type: varve-profile
+type: nacre-profile
 who: [Insert Slug]
 name: [Insert Name]
 email: [Insert Email]

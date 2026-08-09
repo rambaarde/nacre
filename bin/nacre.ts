@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * varve CLI — argv in, one operation, rendered result out.
+ * nacre CLI — argv in, one operation, rendered result out.
  *
  * No product logic here by design; it all lives in src/operations.ts.
  *
@@ -26,7 +26,7 @@ import { readLogs } from "../src/portal.js";
 
 // PKG_ROOT is imported, not recomputed. This file had its own copy that counted
 // one directory up — correct from bin/ in the repo, wrong from dist/bin/ in the
-// package, so `varve --version` failed with ENOENT on every install. store.ts
+// package, so `nacre --version` failed with ENOENT on every install. store.ts
 // had already been fixed to walk up for package.json; the duplicate had not.
 
 const OPTIONS = {
@@ -50,22 +50,22 @@ const OPTIONS = {
   version: { type: "boolean" },
 } as const satisfies ParseArgsOptionsConfig;
 
-const USAGE = `varve — one git-backed memory for a whole company
+const USAGE = `nacre — one git-backed memory for a whole company
 
-  varve                          where am I, and what is next
-  varve init <git-url>           create the company memory     (once)
-  varve add  <project> [dir...]  add a project, and its repos  (as needed)
-  varve serve                    the portal, from your own clone
-  varve brief                    what the team already decided, before you start
-  varve invite <github-user>     give a teammate access to the memory
-  varve notify                   announce the newest log to $VARVE_NOTIFY_URL
-  varve search <term>            one search, same ranking as the portal
-  varve mcp                      serve the memory to any MCP client (stdio)
+  nacre                          where am I, and what is next
+  nacre init <git-url>           create the company memory     (once)
+  nacre add  <project> [dir...]  add a project, and its repos  (as needed)
+  nacre serve                    the portal, from your own clone
+  nacre brief                    what the team already decided, before you start
+  nacre invite <github-user>     give a teammate access to the memory
+  nacre notify                   announce the newest log to $NACRE_NOTIFY_URL
+  nacre search <term>            one search, same ranking as the portal
+  nacre mcp                      serve the memory to any MCP client (stdio)
 
-  also works as \`vrv\`
+  also works as \`ncr\`
 
 Adding repos to an existing project is the same command again:
-  varve add atlas ../atlas-worker
+  nacre add atlas ../atlas-worker
 
   --memory <name|dir>  which memory, when you have more than one
   --team <name>        team folder       (default: devs)
@@ -91,19 +91,19 @@ const out = (...lines: (string | null | undefined)[]): void =>
   lines.filter(Boolean).forEach((l) => console.log(l));
 
 /** Brand line. Only a person needs to be told what they are looking at. */
-const brand = (right: string): string[] => (isTTY() ? [blank(), head("varve", right)] : []);
+const brand = (right: string): string[] => (isTTY() ? [blank(), head("nacre", right)] : []);
 
 function fail(message: string, code = 1): never {
   if (isTTY()) {
     say(blank(), `  ${c.red("✗")} ${tilde(message)}`, blank());
   } else {
     console.log(`error: ${message}`);
-    console.log("help[]: varve --help");
+    console.log("help[]: nacre --help");
   }
   process.exit(code);
 }
 
-/** Bare `varve` — live state, and the single next command that applies. */
+/** Bare `nacre` — live state, and the single next command that applies. */
 function renderStatus(st: Status): void {
   if (!isTTY()) return renderStatusPlain(st);
 
@@ -111,7 +111,7 @@ function renderStatus(st: Status): void {
     return say(...brand(""), rule(),
       row("memory", tilde(st.store)),
       st.reason ? row("", st.reason) : null,
-      blank(), next(`varve ${c.bold("init")} <git-url>`), blank());
+      blank(), next(`nacre ${c.bold("init")} <git-url>`), blank());
   }
   if (st.state === "no-binding") {
     const list = st.projects.length ? st.projects.join("  ") : c.grey("none yet");
@@ -120,15 +120,15 @@ function renderStatus(st: Status): void {
       row("here", c.grey("not bound to a project")),
       blank(),
       next(st.projects.length
-        ? `varve ${c.bold("add")} <${st.projects.join("|")}> .`
-        : `varve ${c.bold("add")} <project> .`),
+        ? `nacre ${c.bold("add")} <${st.projects.join("|")}> .`
+        : `nacre ${c.bold("add")} <project> .`),
       blank());
   }
   if (st.state === "unknown-project") {
     return say(...brand(tilde(st.store)), rule(),
-      warn(`.varve.yml names ${c.bold(st.binding.project)}, which is not in this memory`),
+      warn(`.nacre.yml names ${c.bold(st.binding.project)}, which is not in this memory`),
       row("projects", st.projects.join("  ") || c.grey("none")),
-      blank(), next(`varve ${c.bold("add")} ${st.binding.project}`), blank());
+      blank(), next(`nacre ${c.bold("add")} ${st.binding.project}`), blank());
   }
 
   const { binding, repos, logs, here, skillsReady, you } = st;
@@ -143,10 +143,10 @@ function renderStatus(st: Status): void {
     row("here", here ? c.bold(here) : c.grey("outside a linked repo")),
     row("you", `${c.bold(you)}  ${c.dim("— logs and your profile file under this")}`),
     blank(),
-    skillsReady ? null : warn(`skills not installed · varve add ${binding.project} .`),
+    skillsReady ? null : warn(`skills not installed · nacre add ${binding.project} .`),
     logs.count === 0
-      ? next(`${c.bold("varve-publish")} at the end of this session ${c.grey("— nothing recorded yet")}`)
-      : next(`${c.bold("varve-load")} at session start · ${c.bold("varve-publish")} at the end`),
+      ? next(`${c.bold("nacre-publish")} at the end of this session ${c.grey("— nothing recorded yet")}`)
+      : next(`${c.bold("nacre-load")} at session start · ${c.bold("nacre-publish")} at the end`),
     blank(),
   );
 }
@@ -157,23 +157,23 @@ function renderStatusPlain(st: Status): void {
     return out(
       `no memory at ${st.store}`,
       st.reason ? `reason: ${st.reason}` : null,
-      "next: varve init <git-url>",
-      "help[]: varve --help",
+      "next: nacre init <git-url>",
+      "help[]: nacre --help",
     );
   }
   if (st.state === "no-binding") {
     return out(
       `memory: ${st.store} · projects[${st.projects.length}]: ${st.projects.join(", ") || "none yet"}`,
       "this directory is not bound to a project",
-      st.projects.length ? `next: varve add <${st.projects.join("|")}> .` : "next: varve add <project> .",
-      "help[]: varve --help",
+      st.projects.length ? `next: nacre add <${st.projects.join("|")}> .` : "next: nacre add <project> .",
+      "help[]: nacre --help",
     );
   }
   if (st.state === "unknown-project") {
     return out(
-      `error: .varve.yml names "${st.binding.project}", which is not in ${st.store}`,
+      `error: .nacre.yml names "${st.binding.project}", which is not in ${st.store}`,
       `projects[${st.projects.length}]: ${st.projects.join(", ") || "none"}`,
-      `next: varve add ${st.binding.project}`,
+      `next: nacre add ${st.binding.project}`,
     );
   }
   const { binding, repos, logs, here, skillsReady, you } = st;
@@ -182,9 +182,9 @@ function renderStatusPlain(st: Status): void {
       `logs: ${logs.count}${logs.newest ? ` · last: ${logs.newest.replace(/\.md$/, "")} (${logs.who})` : ""}`,
     `memory: ${st.store}${here ? ` · you are in: ${here}` : ""} · you: ${you}`,
     logs.count === 0
-      ? "no logs yet · next: varve-publish at the end of this session"
-      : "next: varve-load at the start of a session · varve-publish at the end",
-    skillsReady ? null : "warn: skills not installed · next: varve add " + binding.project + " .",
+      ? "no logs yet · next: nacre-publish at the end of this session"
+      : "next: nacre-load at the start of a session · nacre-publish at the end",
+    skillsReady ? null : "warn: skills not installed · next: nacre add " + binding.project + " .",
   );
 }
 
@@ -223,11 +223,11 @@ async function main() {
     : await detectAgents();
 
   try {
-    // Bare `varve` shows live state, never a usage dump.
+    // Bare `nacre` shows live state, never a usage dump.
     if (!command) return renderStatus(await status({ storePath: memoryPath }));
 
     if (command === "init") {
-      if (!arg && !memoryPath) fail("missing argument: varve init <git-url>");
+      if (!arg && !memoryPath) fail("missing argument: nacre init <git-url>");
       const r = await initStore({
         store: arg, storePath: memoryPath, who: o.who, force: o.force,
         allowPublic: o["i-know-its-public"],
@@ -240,7 +240,7 @@ async function main() {
           return out(
             `ok: memory fetched · ${r.dir}`,
             `projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"} · remote: ${r.remote ?? "not set"}`,
-            "next: varve add <project> <repo-dir>",
+            "next: nacre add <project> <repo-dir>",
             "help[]: this memory already existed — nothing was overwritten",
           );
         }
@@ -248,12 +248,12 @@ async function main() {
           ? out(
               `ok: memory created · ${r.dir}`,
               `files: _company.md, _standards.md, _team/_${r.who}/ · remote: ${r.remote ?? "not set"}`,
-              "next: varve add <project> <repo-dir>",
+              "next: nacre add <project> <repo-dir>",
               "help[]: commit and push the memory, then keep the default branch protected",
             )
           : out(
               `ok: memory already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
-              "next: varve add <project> <repo-dir>",
+              "next: nacre add <project> <repo-dir>",
             );
       }
       if (cloned) {
@@ -263,12 +263,12 @@ async function main() {
           row("remote", r.remote ?? c.grey("not set")),
           blank(),
           `  ${c.grey("this memory already existed — nothing was overwritten")}`,
-          next(`varve ${c.bold("add")} <project> <repo-dir>`), blank());
+          next(`nacre ${c.bold("add")} <project> <repo-dir>`), blank());
       }
       if (!r.created) {
         return say(blank(), ok(`memory already at ${c.bold(tilde(r.dir))}`),
           row("projects", r.projects.join("  ") || c.grey("none yet")),
-          blank(), next(`varve ${c.bold("add")} <project> <repo-dir>`), blank());
+          blank(), next(`nacre ${c.bold("add")} <project> <repo-dir>`), blank());
       }
       return say(blank(),
         ok(`memory created  ${c.grey(tilde(r.dir))}`),
@@ -276,13 +276,13 @@ async function main() {
         row("files", `_company.md  _standards.md  _team/_${r.who}/`),
         row("remote", r.remote ?? c.grey("not set")),
         blank(),
-        next(`varve ${c.bold("add")} <project> <repo-dir>`),
+        next(`nacre ${c.bold("add")} <project> <repo-dir>`),
         `  ${c.grey("then commit and push it, and protect the default branch")}`,
         blank());
     }
 
     if (command === "add") {
-      if (!arg) fail("missing argument: varve add <project> [dir...]");
+      if (!arg) fail("missing argument: nacre add <project> [dir...]");
       // Everything after the project name is a repo to link. Adding repos to an
       // existing project is the same command again — no separate verb for it.
       const r = await addProject({
@@ -293,7 +293,7 @@ async function main() {
       const fresh = r.linked.filter((l) => l.wrote).map((l) => l.name);
       const noted = r.linked.filter((l) => l.noted).map((l) => l.name);
       const hooked = r.linked.filter((l) => l.hooked).map((l) => l.name);
-      // "teammates then need nothing" is true of .varve.yml and false of the
+      // "teammates then need nothing" is true of .nacre.yml and false of the
       // memory, which no remote has seen yet. Promising the first while the
       // second sits unpushed is how someone clones a wired repo and finds an
       // empty store behind it.
@@ -303,13 +303,13 @@ async function main() {
           `ok: ${r.project} ${r.created ? "added" : "already present"} · ${r.dir}/${r.project}`,
           `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
           ready.length ? `agents[${ready.length}]: ${ready.join(", ")}` : null,
-          noted.length ? `AGENTS.md: ${noted.join(", ")} — so an agent that has never heard of varve still finds it` : null,
+          noted.length ? `AGENTS.md: ${noted.join(", ")} — so an agent that has never heard of nacre still finds it` : null,
           hooked.length ? `hook: ${hooked.join(", ")}/.claude/settings.json — Claude Code loads the memory without being asked` : null,
           needsPush
-            ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .varve.yml in ${fresh.join(", ")}` : ""}`
+            ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .nacre.yml in ${fresh.join(", ")}` : ""}`
             : fresh.length
-              ? `next: commit .varve.yml in ${fresh.join(", ")} — teammates then need nothing`
-              : `next: varve add ${r.project} <repo-dir>`,
+              ? `next: commit .nacre.yml in ${fresh.join(", ")} — teammates then need nothing`
+              : `next: nacre add ${r.project} <repo-dir>`,
           needsPush ? "help[]: until the memory is pushed, a teammate's clone finds nothing behind it" : null,
         );
       }
@@ -319,14 +319,14 @@ async function main() {
         row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.dim(x))).join("  ") || c.grey("none linked")),
         row("team", r.team),
         ready.length ? row("agents", ready.map((a) => c.dim(a)).join("  ")) : null,
-        noted.length ? row("AGENTS.md", c.grey(`${noted.join(", ")} — how an unfamiliar agent finds varve`)) : null,
+        noted.length ? row("AGENTS.md", c.grey(`${noted.join(", ")} — how an unfamiliar agent finds nacre`)) : null,
         hooked.length ? row("hook", c.grey("Claude Code loads the memory at session start, unasked")) : null,
         blank(),
         needsPush
-          ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .varve.yml in ${fresh.join(", ")}`) : ""}`)
+          ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .nacre.yml in ${fresh.join(", ")}`) : ""}`)
           : fresh.length
-            ? next(`commit ${c.bold(".varve.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
-            : next(`varve ${c.bold("add")} ${r.project} <repo-dir>`),
+            ? next(`commit ${c.bold(".nacre.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
+            : next(`nacre ${c.bold("add")} ${r.project} <repo-dir>`),
         needsPush ? `  ${c.grey("until the memory is pushed, a teammate's clone finds nothing behind it")}` : null,
         blank());
     }
@@ -402,17 +402,17 @@ async function main() {
     }
 
     // The read door that needs no skill, no MCP client, and no prior knowledge
-    // of varve. An agent that has never heard of this project can be told one
+    // of nacre. An agent that has never heard of this project can be told one
     // shell command and get the same briefing everything else reads.
     if (command === "brief" || command === "load") {
       const binding = await resolveBinding();
       const project = arg ?? binding?.project;
 
       // --hook is how a SessionStart hook calls this, and it has two rules a
-      // person invoking `varve brief` does not want.
+      // person invoking `nacre brief` does not want.
       //
       // It never fails. A hook that errors interrupts a session that had
-      // nothing to do with varve, and the memory is not important enough to
+      // nothing to do with nacre, and the memory is not important enough to
       // stand between someone and their editor.
       //
       // It says nothing when there is nothing worth saying. A brief injected
@@ -434,7 +434,7 @@ async function main() {
       }
 
       if (!project) {
-        fail("no project here · run varve add <project> . in this repo, or varve brief <project>");
+        fail("no project here · run nacre add <project> . in this repo, or nacre brief <project>");
       }
       const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
       // Fetch it, never tell a teammate to `init`. Running init on a bound repo
@@ -454,7 +454,7 @@ async function main() {
     // gives a teammate nothing until they are on it. It used to live entirely
     // in a browser, which is why it sat between "clone the repo" and "warm".
     if (command === "invite") {
-      if (!arg) fail("missing argument: varve invite <github-username>");
+      if (!arg) fail("missing argument: nacre invite <github-username>");
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
       const remote = binding?.store ?? (await storeRemote(memory));
@@ -462,13 +462,13 @@ async function main() {
       if (r.ok) {
         return out(
           `ok: invited ${arg} — write access to ${remote}`,
-          `next: tell them to clone any repo in the project and run: npx -y varve-cli brief`,
+          `next: tell them to clone any repo in the project and run: npx -y nacre-cli brief`,
         );
       }
       return out(
         `not invited: ${r.reason}`,
         r.url ? `next: add them here — ${r.url}` : null,
-        r.url ? "help[]: gh auth login, then varve invite <github-username>" : null,
+        r.url ? "help[]: gh auth login, then nacre invite <github-username>" : null,
       );
     }
 
@@ -480,27 +480,27 @@ async function main() {
       if (!have.ok) fail(have.reason);
       const [newest] = await readLogs(memory, arg ?? binding?.project);
       if (!newest) {
-        return out("no logs yet — nothing to announce", "next: varve-publish at the end of a session");
+        return out("no logs yet — nothing to announce", "next: nacre-publish at the end of a session");
       }
       const text = announcement(newest, await issueTemplate(memory));
       if (o["dry-run"]) return out(text, "", "dry run — nothing sent");
       const r = await notify(text);
       return out(
         r.sent ? `ok: announced ${newest.rel}` : `not sent: ${r.reason}`,
-        r.unset ? "help[]: export VARVE_NOTIFY_URL=<your Slack/Discord webhook>" : null,
+        r.unset ? "help[]: export NACRE_NOTIFY_URL=<your Slack/Discord webhook>" : null,
       );
     }
 
     if (command === "search") {
       const term = positionals.slice(1).join(" ");
-      if (!term) fail("missing argument: varve search <term>");
+      if (!term) fail("missing argument: nacre search <term>");
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store);
       await ensureMemory(memory, binding?.store);
       const hits = await searchMemory(memory, term, { project: binding?.project, all: o.all });
       if (!hits.length) {
         return out(`no hits for "${term}"${binding?.project && !o.all ? ` in ${binding.project}` : ""}`,
-          "help[]: varve search <term> --all");
+          "help[]: nacre search <term> --all");
       }
       // Ranking is the engine's; truncation is this adapter's. Breadth beats depth inside a token ceiling. One thorough log can match
       // six times and crowd out every other session that mentioned the same
@@ -516,13 +516,13 @@ async function main() {
       out(`hits[${hits.length}]{date,who,project,line}:`,
         ...shown.map((h) => `${h.date},${h.who},${h.project},${h.line.slice(0, 90)}`),
         hits.length > shown.length
-          ? `(showing ${shown.length} of ${hits.length}, at most 2 per session — varve serve for all)`
+          ? `(showing ${shown.length} of ${hits.length}, at most 2 per session — nacre serve for all)`
           : null,
-        "help[]: varve serve · varve search <term> --all");
+        "help[]: nacre serve · nacre search <term> --all");
       return;
     }
 
-    fail(`unknown command: ${command} · try: varve --help`, 2);
+    fail(`unknown command: ${command} · try: nacre --help`, 2);
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   }

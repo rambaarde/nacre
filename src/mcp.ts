@@ -6,7 +6,7 @@
  * Zed or Codex has no way to read the memory at all, and a team memory only one
  * agent can read is not a team memory.
  *
- * Why it is read-only: `varve-publish` is safe because a person sees the file
+ * Why it is read-only: `nacre-publish` is safe because a person sees the file
  * and says yes before anything is pushed. A tool is a function the client calls
  * whenever it likes, and no server can guarantee a human saw the result first.
  * Exposing publish here would either weaken "nothing is shared by omission" or
@@ -49,7 +49,7 @@ export interface Message {
 
 export const TOOLS = [
   {
-    name: "varve_brief",
+    name: "nacre_brief",
     description:
       "Read the team's shared memory for a project: company-wide facts, standards, " +
       "the curated project note, what has been decided against, open risks, the " +
@@ -62,7 +62,7 @@ export const TOOLS = [
         project: {
           type: "string",
           description:
-            "Project name. Omit to use the .varve.yml found by walking up from the " +
+            "Project name. Omit to use the .nacre.yml found by walking up from the " +
             "working directory.",
         },
       },
@@ -70,7 +70,7 @@ export const TOOLS = [
     },
   },
   {
-    name: "varve_search",
+    name: "nacre_search",
     description:
       "Search the shared memory. Same ranking as the portal. Lines from a log " +
       "marked 'decided against' are flagged, because re-proposing one is the " +
@@ -99,14 +99,14 @@ async function resolve(project: string | undefined, memoryFlag?: string): Promis
   const chosen = project ?? binding?.project;
   if (!chosen) {
     return (
-      "No project given, and no .varve.yml found by walking up from " +
-      `${process.cwd()}.\nPass project, or run varve add <project> <repo-dir> in this repo.`
+      "No project given, and no .nacre.yml found by walking up from " +
+      `${process.cwd()}.\nPass project, or run nacre add <project> <repo-dir> in this repo.`
     );
   }
   try {
     const memory = await resolveStoreDir(memoryFlag, binding?.store ?? null);
     if (!(await exists(memory))) {
-      return `The memory is not cloned here yet (looked in ${memory}).\nnext: varve init <git-url>, or clone it beside your repos.`;
+      return `The memory is not cloned here yet (looked in ${memory}).\nnext: nacre init <git-url>, or clone it beside your repos.`;
     }
     return { memory, project: chosen };
   } catch (err) {
@@ -142,12 +142,12 @@ export async function handle(msg: Message, ctx: Ctx = {}): Promise<Message | nul
       return ok(id, {
         protocolVersion: PROTOCOL.includes(asked as (typeof PROTOCOL)[number]) ? asked : LATEST,
         capabilities: { tools: {} },
-        serverInfo: { name: "varve", version: ctx.version ?? "0.0.0" },
+        serverInfo: { name: "nacre", version: ctx.version ?? "0.0.0" },
         instructions:
-          "Call varve_brief at the start of a session, before writing code. It is " +
+          "Call nacre_brief at the start of a session, before writing code. It is " +
           "read-only and costs no model call. This server cannot write to the " +
           "memory: publishing a session log is human-invoked, through the " +
-          "varve-publish skill or the varve CLI.",
+          "nacre-publish skill or the nacre CLI.",
       });
     }
     case "ping":
@@ -164,9 +164,9 @@ export async function handle(msg: Message, ctx: Ctx = {}): Promise<Message | nul
       if (typeof scope === "string") return toolText(id, scope, true);
 
       try {
-        if (name === "varve_brief") return toolText(id, await brief(scope.memory, scope.project));
+        if (name === "nacre_brief") return toolText(id, await brief(scope.memory, scope.project));
         const query = String(args.query ?? "").trim();
-        if (!query) return toolText(id, "varve_search needs a query.", true);
+        if (!query) return toolText(id, "nacre_search needs a query.", true);
         return toolText(
           id,
           await searchText(scope.memory, query, {

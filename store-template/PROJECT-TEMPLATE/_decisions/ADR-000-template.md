@@ -1,5 +1,5 @@
 ---
-type: varve-decision
+type: nacre-decision
 status: proposed        # proposed | accepted | superseded
 date: [Insert Date]
 deciders: [Insert Who]

@@ -63,11 +63,11 @@ export async function drop(dir: string): Promise<void> {
 }
 
 async function fixture(): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-portal-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-portal-")));
   // Same isolation as store.test: nothing above the repo may influence a read.
   process.chdir(dir);
-  await writeFile(join(dir, "_company.md"), "---\ntype: varve-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
-  await writeFile(join(dir, "_standards.md"), "---\ntype: varve-standards\n---\n\nMigrations are raw SQL.\n");
+  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
+  await writeFile(join(dir, "_standards.md"), "---\ntype: nacre-standards\n---\n\nMigrations are raw SQL.\n");
   const PROJECTS: Array<[string, string]> = [["atlas", "Atlas"], ["beacon", "Beacon"]];
   for (const [p, title] of PROJECTS) {
     await mkdir(join(dir, p), { recursive: true });
@@ -217,7 +217,7 @@ test("the CLI and the portal rank a query identically", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
 
   const engine = await search(dir, "cache", { all: true });
   const { stdout } = await run(process.execPath,
@@ -243,14 +243,14 @@ test("company-wide reads sort by time, not by project name", async () => {
   await drop(dir);
 });
 
-test("varve search and varve serve work as commands, not just as functions", async () => {
+test("nacre search and nacre serve work as commands, not just as functions", async () => {
   // Everything else exercises the operations directly. These two reach the user
   // only through the CLI, so the wiring between them needs its own check.
   const dir = await fixture();
   const { execFile, spawn } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
 
   const { stdout } = await run(process.execPath, [bin, "search", "cache", "--all", "--memory", dir]);
   assert.match(stdout, /^hits\[\d+\]\{date,who,project,line\}:/m, "AXI shape on stdout");
@@ -279,7 +279,7 @@ test("--port 0 asks for any free port, and is not swallowed", async () => {
   // to ask the OS for a free port, and it is what a second instance needs.
   const dir = await fixture();
   const { spawn } = await import("node:child_process");
-  const bin = fileURLToPath(new URL("../bin/varve.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
   const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
   try {
     const line: string = await new Promise<string>((resolve, reject) => {
@@ -337,7 +337,7 @@ test("a project can carry its own standards, and they stay scoped to it", async 
   // a Node project's test runner.
   const dir = await fixture();
   await writeFile(join(dir, "atlas", "_standards.md"),
-    "---\ntype: varve-project-standards\nproject: atlas\n---\n\n# Atlas — Standards\n\n* **Stack:** Node 20, Postgres.\n");
+    "---\ntype: nacre-project-standards\nproject: atlas\n---\n\n# Atlas — Standards\n\n* **Stack:** Node 20, Postgres.\n");
 
   const { projectStandards, projectView } = await import("../src/portal.js");
 
@@ -521,7 +521,7 @@ test("a project name is one directory name, never a path", async () => {
   // _standards.md from outside the memory entirely, and /p/ did the same with
   // _project.md. Guarding the two routes would have left the next route to
   // rediscover it, so the check lives where a name becomes a file.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-trav-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-trav-")));
   const outside = join(dir, "outside");
   const memory = join(dir, "memory");
   await mkdir(outside, { recursive: true });
@@ -551,7 +551,7 @@ test("a search page stays readable when the memory is real-sized", async () => {
   // Breadth before depth, as the CLI already did: cap each session first, so one
   // thorough log cannot crowd out every other session that discussed the same
   // thing.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "varve-scale-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-scale-")));
   await mkdir(join(dir, "ledger", "devs", "dana"), { recursive: true });
   await writeFile(join(dir, "ledger", "_project.md"), "---\nproject: ledger\nrepos: [ledger-api]\n---\n");
   for (let i = 0; i < 60; i++) {

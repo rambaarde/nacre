@@ -1,11 +1,11 @@
 /**
  * The briefing — what a session needs to know before it writes a line.
  *
- * Lives apart from any one door because three of them now read it: `varve brief`
+ * Lives apart from any one door because three of them now read it: `nacre brief`
  * in a terminal, the MCP server, and the skills that quote it. One composer means
  * an agent and a person cannot be told different things about the same project.
  *
- * The order is the one varve-load uses: urgency of not knowing, not recency.
+ * The order is the one nacre-load uses: urgency of not knowing, not recency.
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -57,7 +57,7 @@ function cap(text: string, limit: number, note = ""): string {
   // with a reserved floor was the one the overrun spent.
   const notice = (missing: number) =>
     `\n\n[cut here to fit the budget — ${missing} more characters exist. ` +
-    `${note}\`varve search <term>\` reads the rest.]`;
+    `${note}\`nacre search <term>\` reads the rest.]`;
   const room = Math.max(0, limit - notice(text.length).length);
   const cut = text.slice(0, room);
 
@@ -91,7 +91,7 @@ const entryLine = (e: Entry, width?: number): string => {
 /**
  * Fit constraints into a budget by shortening entries, not by dropping them.
  *
- * A dropped constraint is invisible, and `varve search` is no remedy for it: a
+ * A dropped constraint is invisible, and `nacre search` is no remedy for it: a
  * session cannot search for a fact it was never shown. It does not know beacon
  * exists. A shortened one still carries its subject, its author and its date —
  * enough to know the constraint is there and to go read the rest. Losing detail
@@ -114,7 +114,7 @@ function fitEntries(entries: Entry[], limit: number): string {
   // exists to prevent.
   const shrunkNote = (n: number) =>
     `\n\n[every constraint is listed; ${n} shortened to fit — “…” marks a cut. ` +
-    "`varve search <term>` reads one in full.]";
+    "`nacre search <term>` reads one in full.]";
 
   // What each entry costs before a character of its text: bullet, wrap, byline,
   // the newline between rows, and the ellipsis a shortened one carries.
@@ -141,7 +141,7 @@ function fitEntries(entries: Entry[], limit: number): string {
   const droppedNote = (n: number, span: string) =>
     `\n\n[${n} newer entries${span} are NOT shown — the oldest are kept because ` +
     "no recent summary repeats them. This project has outgrown one brief: " +
-    "`varve search <term>`, and consider superseding what no longer holds.]";
+    "`nacre search <term>`, and consider superseding what no longer holds.]";
 
   const perEntry = Math.ceil(fixed / entries.length) + MIN_ENTRY;
   const keep = Math.max(1, Math.floor((limit - droppedNote(entries.length, " from A to B").length) / perEntry));
@@ -180,7 +180,7 @@ async function companyFiles(memory: string): Promise<string[]> {
 }
 
 /**
- * The briefing, in the order `varve-load` reads it: urgency of not knowing,
+ * The briefing, in the order `nacre-load` reads it: urgency of not knowing,
  * not recency.
  */
 export async function brief(memory: string, project: string): Promise<string> {
@@ -189,7 +189,7 @@ export async function brief(memory: string, project: string): Promise<string> {
     const known = await listProjects(memory);
     return known.length
       ? `No project named "${project}" in this memory.\nprojects: ${known.join(", ")}`
-      : `No project named "${project}", and this memory has no projects yet.\nnext: varve add <project> <repo-dir>`;
+      : `No project named "${project}", and this memory has no projects yet.\nnext: nacre add <project> <repo-dir>`;
   }
 
   const head = [
@@ -282,7 +282,7 @@ export async function brief(memory: string, project: string): Promise<string> {
     parts.push(
       `[${view.supersededEntries} constraint${view.supersededEntries === 1 ? "" : "s"} in superseded logs ` +
         "are not listed. Superseding retires the whole log, not one line of it, so anything still true " +
-        "had to be restated in the log that replaced it. `varve search <term>` reads the retired ones.]",
+        "had to be restated in the log that replaced it. `nacre search <term>` reads the retired ones.]",
     );
   }
 
