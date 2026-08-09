@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/rambaarde/varve/compare/v0.7.0...v0.7.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **store:** a missing local memory is not a permissions problem ([c4dd4f5](https://github.com/rambaarde/varve/commit/c4dd4f577931ffd58584ab8d09b69e315d2c0b5e))
+
 ## [0.7.0](https://github.com/rambaarde/varve/compare/v0.6.1...v0.7.0) (2026-08-07)
 
 
