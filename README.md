@@ -46,7 +46,7 @@ same idea, one person, no shared repo to set up.
 ## The two commands
 
 <div align="center">
-  <img src="demo/session-nacre.gif" width="100%" alt="Real Claude Code, two sessions. /nacre-publish composes the session log, scans it, and stops for confirmation before pushing; it flags that it tagged the log to a single repo, bob corrects it to both, and the diff updates repos: [atlas-api, atlas-web] before the push. He exits. A second session starts cold, runs /nacre-load, and reconstructs a thread alice opened days earlier; when bob proposes raising a shared cache limit, the session stops him with alice's decided-against and states what it cannot verify from an atlas-scoped read.">
+  <img src="demo/session-nacre.gif" width="100%" alt="Real Claude Code, two sessions. The first ends with /nacre-publish: the agent composes the session log, scans it, and stops for confirmation before pushing, flagging that it tagged the log to one repo; bob corrects it to both and the diff updates repos: [atlas-api, atlas-web] before the push. He exits. A second session starts cold and bob types /nacre-load on camera; the memory loads, and when he asks about raising a shared cache limit the session blocks him with alice's decided-against and states plainly what it cannot verify from an atlas-scoped read.">
 </div>
 
 <p align="center"><em>Real Claude Code. One session ends with <code>/nacre-publish</code>; the next one starts with <code>/nacre-load</code>.</em></p>
