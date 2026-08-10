@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.0](https://github.com/rambaarde/nacre/compare/v0.7.1...v0.8.0) (2026-08-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** alias is nac, not ncr
+* **name:** the package name, both binaries, the binding file and the environment variables are renamed with no fallback. Reinstall as nacre-cli and rename .varve.yml to .nacre.yml.
+
+### Features
+
+* **name:** rename varve to nacre ([f7a62cd](https://github.com/rambaarde/nacre/commit/f7a62cd1a88410e4f863f98fb0de67ca2e8ad882))
+
+
+### Bug Fixes
+
+* **cli:** alias is nac, not ncr ([02bcec4](https://github.com/rambaarde/nacre/commit/02bcec4ebcb2f670edb62bff1fdd755afc73a700))
+* **docs:** bust the cached portal GIF, and keep the version pre-1.0 ([c84fa24](https://github.com/rambaarde/nacre/commit/c84fa24ae3bcac21c036622b987b6b810ec13024))
+* **docs:** bust the cached portal GIF, and keep the version pre-1.0 ([6bfb3d4](https://github.com/rambaarde/nacre/commit/6bfb3d4e7fa6c195db7e6d5d2322bf510c45aa0c))
+* **docs:** bust the cached portal GIF, and keep the version pre-1.0 ([f16573c](https://github.com/rambaarde/nacre/commit/f16573cd27ce4865709f41461604723ba75885ec))
+
+
+### Reverts
+
+* pull the session GIF, its opening frames leak account details ([ba3cfff](https://github.com/rambaarde/nacre/commit/ba3cfffd190d37e85e2e0af9a3c56dc038ceba89))
+* pull the session GIF, its opening frames leak account details ([b677c40](https://github.com/rambaarde/nacre/commit/b677c4033a71ce28f49e168325522f46ab577b57))
+
 ## [0.7.1](https://github.com/rambaarde/varve/compare/v0.7.0...v0.7.1) (2026-08-07)
 
 
