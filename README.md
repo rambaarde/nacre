@@ -46,45 +46,56 @@ same idea, one person, no shared repo to set up.
 ## The two commands
 
 <div align="center">
-  <img src="demo/session-nacre.gif" width="100%" alt="Real Claude Code, two sessions. The first ends with /nacre-publish: the agent composes the session log, scans it, and stops for confirmation before pushing, flagging that it tagged the log to one repo; bob corrects it to both and the diff updates repos: [atlas-api, atlas-web] before the push. He exits. A second session starts cold and bob types /nacre-load on camera; the memory loads, and when he asks about raising a shared cache limit the session blocks him with alice's decided-against and states plainly what it cannot verify from an atlas-scoped read.">
+  <img src="demo/session-nacre.gif" width="100%" alt="One real Claude Code session. Bob types /nacre-load and the team's memory arrives: what is active, what was rejected, the open risks, and the newest logs. He asks what alice left open and gets her handoff, dated, with who it blocks and why. He makes a decision about a session-expiry status code, then types /nacre-publish; the agent composes the log, strips private blocks, scans for secrets, shows him the exact file and stops. It flags one of its own calls — it had tagged the log to a single repo — and bob corrects it to both, so the diff updates repos to atlas-api and atlas-web before the push.">
 </div>
 
-<p align="center"><em>Real Claude Code. One session ends with <code>/nacre-publish</code>; the next one starts with <code>/nacre-load</code>.</em></p>
+<p align="center"><em>One real session, in order: <code>/nacre-load</code> at the start, <code>/nacre-publish</code> at the end.</em></p>
 
 Two developers on one project. **Bob** is the one in the recording. **Alice** left
 a note days earlier and never spoke to him.
 
-### At the end of a session: `/nacre-publish`
+### At the start: `/nacre-load`
+
+A fresh Claude Code session starts blind. The previous chat is gone, and nothing
+about it carries over on its own.
+
+`/nacre-load` is what fills that in. It reads the team's memory: the project's
+rules, everything **decided against**, the open risks, and the newest session logs
+— Bob's own and everyone else's.
+
+So when Bob asks what Alice left open, the answer is already in the session:
+
+> **Open risk:** `atlas-web` still reads the old header name. She renamed the
+> headers in `atlas-api` and verified them in staging — so the two repos disagree
+> right now.
+> **Handoff:** *"Remove the old header path in atlas-web — coordinate with bob
+> first."*
+> **Who it blocks:** it lands on `atlas-web`, and the git user in this checkout is
+> bob — so it's on your side of the seam.
+
+Bob never searched. He never opened a portal. He never learned Alice existed — and
+her thread came back anyway, with the ordering constraint attached: **deploy
+`atlas-web` after `atlas-api`, not before.**
+
+### At the end: `/nacre-publish`
+
+Bob decides the expiry response stays **419** rather than reverting to 401, because
+mobile already ships against it.
 
 The agent writes the log. Bob doesn't. Before anything is pushed, it strips any
 `<!-- private -->` blocks, scans for secrets, shows him the exact file, and waits.
 
 It also flags one of its own calls: it tagged the log to a single repo, because
-that's the only repo the session actually opened. Bob replies *"both repos, then
-push"* — one line of typing, and the log is correct before it lands.
+that's the only repo the session actually touched. Bob replies *"both repos, then
+push"* — one line of typing, and the diff updates to `repos: [atlas-api,
+atlas-web]` before it lands.
 
-Then he exits. The session is gone.
-
-### At the start of the next session: `/nacre-load`
-
-A fresh Claude Code session starts blind — the previous chat is gone, and nothing
-about it carries over on its own.
-
-`/nacre-load` is what fills that in. It reads the team's memory: the project's
-rules, everything **decided against**, the open risks, and the newest session logs
-— Bob's own and everyone else's. So the session opens already knowing:
-
-> Remove the old header path in `atlas-web` — alice flagged it 2026-08-01, bob
-> added the new handler 2026-08-04, so it's the last step of that rename and it's
-> been open five days.
-
-Bob never searched. He never opened a portal. He never learned Alice existed — and
-her five-day-old thread came back anyway.
+That decision is now what the next `/nacre-load` on this project surfaces, before
+anyone proposes 401 a third time.
 
 ### And the part no single repo can tell him
 
-Bob then says he wants to raise the cache eviction limit in `atlas-api`. The
-session stops him:
+The same memory carries a constraint neither repo owns:
 
 > **One Redis instance, two products.** `atlas-api` and `beacon-api` share it with
 > no per-product isolation, so raising atlas's share starves beacon's workers —
