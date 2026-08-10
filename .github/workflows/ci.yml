@@ -13,6 +13,13 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Release PRs are opened by release-please using GITHUB_TOKEN, and GitHub
+  # deliberately does not start workflows from that token — a loop guard. So a
+  # Release PR arrives with no checks at all and can never satisfy a required
+  # status check, which blocks the one merge that publishes. This lets the suite
+  # be run against that branch on demand, so the checks exist and the gate is
+  # answered rather than bypassed.
+  workflow_dispatch:
 
 jobs:
   test:
