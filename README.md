@@ -201,6 +201,37 @@ One memory per company. Every project inside it, every repo inside those, every
 person who works on them — including the ones who joined last week and the ones
 who were on leave. Nobody left reconstructing what the team already knew.
 
+## The loop
+
+```mermaid
+flowchart LR
+    A["open Claude Code"]
+    B["/nacre-load"]
+    C["you see what the team decided"]
+    D["you work: decide, change code"]
+    E["/nacre-publish"]
+    F["the team's memory"]
+
+    A --> B --> C --> D --> E --> F
+    F -. "the next session, anyone on the team" .-> B
+```
+
+That is the whole product. Five steps you type, one of which is optional on any
+given day.
+
+1. **Open Claude Code.** Nothing special — no flags, no wrapper.
+2. **`/nacre-load`.** Pulls the team's memory into the session.
+3. **You see what the team decided** — and what they decided *against*, which is
+   the part that usually goes missing.
+4. **You work.** Decide things, change code. nacre is not involved.
+5. **`/nacre-publish`.** The session writes itself down, you approve it, it lands
+   in the shared repo.
+
+Then the dotted arrow: the next person to run `/nacre-load` on that project —
+including you, tomorrow, with a fresh session — starts from what you just wrote.
+
+Nobody has to remember to tell anybody.
+
 ## How it works
 
 One private git repo holds the memory for the whole company. Your code repos
