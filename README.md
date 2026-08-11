@@ -226,29 +226,42 @@ bytes in a local portal.
 Both doors, one store. Neither gets a privileged interface.
 
 ```mermaid
-flowchart LR
-    S["Claude Code<br/>your session"]
-    G{"the gate<br/>strip private · scan secrets<br/>show the file · wait"}
-    M[("company memory<br/>Markdown in git<br/>one file per session")]
-    P["nacre serve<br/>portal, no login"]
-    T["teammates<br/>and every future session"]
+sequenceDiagram
+    autonumber
+    actor Dev as you
+    participant CC as Claude Code
+    participant Git as acme-context · git
+    participant Web as nacre serve
 
-    S -- "/nacre-publish" --> G
-    G -- "you say push" --> M
-    M -- "/nacre-load · ≤2,000 tokens" --> S
-    M --> P --> T
-    M -- "git clone" --> T
+    Dev->>CC: /nacre-load
+    CC->>Git: git pull
+    Git-->>CC: _company.md, _project.md, newest logs
+    CC-->>Dev: decided against, open risks, handoffs
+
+    Note over Dev,CC: the session's work happens here
+
+    Dev->>CC: /nacre-publish
+    CC->>CC: compose the log, strip private blocks, scan for secrets
+    CC-->>Dev: the exact file, before anything moves
+    Dev->>CC: push
+    CC->>Git: commit and push ONE NEW FILE
+
+    Note over Git: nothing is overwritten, ever
+
+    Dev->>Web: nacre serve
+    Web->>Git: read the same bytes
 ```
 
-**Read the arrows, not the boxes.** Everything pointing *out* of the memory is
-free and automatic — a load costs no confirmation, and a clone is how teammates
-get it. The single arrow pointing *in* goes through a gate a person has to
-answer.
+**Steps 1–4 need no permission. Steps 6–10 do.** A load is a `git pull` and a
+file read; it asks nothing and moves nothing off your machine. The write stops
+at step 8 and waits for a person — that is the only path into the shared repo.
 
-That asymmetry is the design, not an inconvenience: reading moves nothing off
-your machine, writing does. Nothing is overwritten on the way in either — a
-correction is a new file carrying `supersedes:`, and the one it corrects stays
-readable beside it.
+Step 10 writes a **new file**. It never edits an existing one, so a correction
+is a new log carrying `supersedes:` and the log it corrects stays readable
+beside it.
+
+Steps 11–12 are the same bytes again, in a browser. No API, no export — the
+portal reads the files your agent just read.
 
 ## Setup
 
