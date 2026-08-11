@@ -225,6 +225,36 @@ bytes in a local portal.
 
 Both doors, one store. Neither gets a privileged interface.
 
+```mermaid
+flowchart LR
+    S["Claude Code<br/>your session"]
+    G{"the gate<br/>strip private · scan secrets<br/>show the file · wait"}
+    M[("company memory<br/>Markdown in git<br/>one file per session")]
+    P["nacre serve<br/>portal, no login"]
+    T["teammates<br/>and every future session"]
+
+    S -- "/nacre-publish" --> G
+    G -- "you say push" --> M
+    M -- "/nacre-load · ≤2,000 tokens" --> S
+    M --> P --> T
+    M -- "git clone" --> T
+
+    classDef gate fill:#7c2d12,stroke:#ea580c,color:#fff
+    classDef store fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    class G gate
+    class M store
+```
+
+**Read the arrows, not the boxes.** Everything pointing *out* of the memory is
+free and automatic — a load costs no confirmation, and a clone is how teammates
+get it. The single arrow pointing *in* goes through a gate a person has to
+answer.
+
+That asymmetry is the design, not an inconvenience: reading moves nothing off
+your machine, writing does. Nothing is overwritten on the way in either — a
+correction is a new file carrying `supersedes:`, and the one it corrects stays
+readable beside it.
+
 ## Setup
 
 Install once, then two commands, run by whoever sets things up.
