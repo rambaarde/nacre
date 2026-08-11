@@ -238,11 +238,6 @@ flowchart LR
     M -- "/nacre-load · ≤2,000 tokens" --> S
     M --> P --> T
     M -- "git clone" --> T
-
-    classDef gate fill:#7c2d12,stroke:#ea580c,color:#fff
-    classDef store fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    class G gate
-    class M store
 ```
 
 **Read the arrows, not the boxes.** Everything pointing *out* of the memory is
