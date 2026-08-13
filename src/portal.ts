@@ -409,3 +409,102 @@ export async function age(memory: string): Promise<string> {
     return "unknown";
   }
 }
+
+/**
+ * The seam graph: who works on which project, and which repos one session
+ * touched together.
+ *
+ * A join, not a model. Every edge already exists in frontmatter the write path
+ * produces (`project`, `who`, `repos`), so nothing is extracted, inferred or
+ * summarised and no LLM runs. Derived at request time, because an index would
+ * be a cache and the store is the only source.
+ *
+ * **Entities are nodes; logs are not.** That single rule is what keeps this
+ * readable. Ten developers at ~1.5 logs a day is ~3,750 logs a year: as nodes
+ * that is unreadable by year two and needs the deduplication pass this project
+ * exists to avoid. Aggregated to entities, node count tracks headcount and repo
+ * count instead, and then stops growing.
+ *
+ * The load-bearing edge joins two repos, drawn only because a single session
+ * named both. A per-repo tool cannot produce it at any price: it never sees the
+ * second repo.
+ */
+export interface GraphNode {
+  id: string;
+  kind: "who" | "project" | "repo";
+  label: string;
+  /** Sessions this entity appears in. */
+  sessions: number;
+  /** Where clicking goes. Repos have no page of their own, so they search. */
+  href: string;
+}
+
+export interface GraphEdge {
+  a: string;
+  b: string;
+  /** Sessions that produced this pairing. */
+  weight: number;
+  /** Both ends are repos: the cross-repo seam. */
+  seam: boolean;
+}
+
+export interface Graph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  logs: number;
+  /** Sessions naming two or more repos, counted rather than claimed. */
+  crossRepo: number;
+}
+
+export function seamGraph(logs: Log[]): Graph {
+  const nodes = new Map<string, GraphNode>();
+  const edges = new Map<string, GraphEdge>();
+
+  const node = (kind: GraphNode["kind"], label: string, href: string): string => {
+    const id = `${kind}:${label}`;
+    const found = nodes.get(id);
+    if (found) found.sessions++;
+    else nodes.set(id, { id, kind, label, sessions: 1, href });
+    return id;
+  };
+
+  const edge = (x: string, y: string): void => {
+    const [a, b] = [x, y].sort() as [string, string];
+    const key = `${a} ${b}`;
+    const found = edges.get(key);
+    if (found) found.weight++;
+    else edges.set(key, { a, b, weight: 1, seam: a.startsWith("repo:") && b.startsWith("repo:") });
+  };
+
+  let crossRepo = 0;
+  let counted = 0;
+
+  for (const log of logs) {
+    if (!log.project || !log.who) continue;
+    counted++;
+    const who = node("who", log.who, `/who/${encodeURIComponent(log.who)}`);
+    const project = node("project", log.project, `/p/${encodeURIComponent(log.project)}`);
+    edge(who, project);
+
+    const repos = [...new Set(log.repos.filter(Boolean))].map((r) =>
+      node("repo", r, `/search?q=${encodeURIComponent(r)}&all=1`),
+    );
+    for (const r of repos) {
+      edge(project, r);
+      edge(who, r);
+    }
+    if (repos.length > 1) crossRepo++;
+    for (let i = 0; i < repos.length; i++) {
+      for (let j = i + 1; j < repos.length; j++) edge(repos[i] as string, repos[j] as string);
+    }
+  }
+
+  return {
+    nodes: [...nodes.values()].sort(
+      (a, b) => b.sessions - a.sessions || a.label.localeCompare(b.label),
+    ),
+    edges: [...edges.values()].sort((a, b) => b.weight - a.weight),
+    logs: counted,
+    crossRepo,
+  };
+}

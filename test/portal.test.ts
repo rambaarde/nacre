@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-import { parseLog, readLogs, search, projectView, personView, index, unfilled, projectStandards } from "../src/portal.js";
+import { parseLog, readLogs, search, projectView, personView, index, unfilled, projectStandards, seamGraph } from "../src/portal.js";
 import { markdown, escape } from "../src/markdown.js";
 import { serve } from "../src/serve.js";
 
@@ -103,6 +103,41 @@ test("readLogs walks team and person folders, newest first", async () => {
   assert.equal(logs.length, 3);
   assert.equal(logs[0]?.who, "bob", "newest first, and filenames sort");
   assert.deepEqual(await readLogs(dir, "beacon").then((l) => l.map((x) => x.who)), ["alice"]);
+  await drop(dir);
+});
+
+test("the seam graph draws repo-to-repo only when one session named both", async () => {
+  const dir = await fixture();
+  const g = seamGraph(await readLogs(dir));
+
+  // Entities are nodes; logs are not. Three logs must not become three nodes,
+  // because that is the rule keeping this readable at a thousand sessions.
+  assert.equal(g.logs, 3);
+  assert.equal(g.nodes.filter((n) => n.kind === "who").length, 2);
+  assert.equal(g.nodes.filter((n) => n.kind === "project").length, 2);
+
+  const seams = g.edges.filter((e) => e.seam);
+  assert.equal(seams.length, 1, "only alice's log names two repos");
+  assert.deepEqual([seams[0]?.a, seams[0]?.b].sort(), ["repo:atlas-api", "repo:atlas-web"]);
+  assert.equal(g.crossRepo, 1, "the cross-repo count is sessions, not pairs");
+
+  // Weight is sessions, so two people on one project thicken the edge rather
+  // than adding a second one.
+  const alice = g.nodes.find((n) => n.id === "who:alice");
+  assert.equal(alice?.sessions, 2, "alice appears in atlas and beacon");
+  assert.ok(alice?.href.startsWith("/who/"), "nodes link to the writing behind them");
+
+  await drop(dir);
+});
+
+test("the seam graph carries counts, never log content", async () => {
+  const dir = await fixture();
+  const g = seamGraph(await readLogs(dir));
+  const serialised = JSON.stringify(g);
+  // The page is an index, not a summary. If prose ever reaches it, the
+  // never-aggregate-log-content rule has been broken and this catches it.
+  assert.ok(!serialised.includes("rate-limit"), "no summary text");
+  assert.ok(!serialised.includes("Raising the shared cache"), "no decided-against text");
   await drop(dir);
 });
 
