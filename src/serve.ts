@@ -22,8 +22,8 @@ import { markdown, escape, inline } from "./markdown.js";
 import { setIssueTemplate } from "./markdown.js";
 import { issueTemplate } from "./notify.js";
 import { tilde } from "./render.js";
-import { index, projectView, personView, search, age, readLogs, projectStandards, unfilled } from "./portal.js";
-import type { Hit, Log } from "./portal.js";
+import { index, projectView, personView, search, age, readLogs, projectStandards, unfilled, seamGraph } from "./portal.js";
+import type { Hit, Log, Graph, GraphNode } from "./portal.js";
 
 type Index = Awaited<ReturnType<typeof index>>;
 type ProjectView = NonNullable<Awaited<ReturnType<typeof projectView>>>;
@@ -293,6 +293,27 @@ font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
 
 .empty{font-family:var(--serif);font-size:1rem;color:var(--ink-2);margin:.2rem 0;max-width:var(--measure)}
 .empty code{font-family:var(--mono);font-size:.82em;background:var(--sunk);padding:.06em .3em}
+
+/* The seam graph. Every colour is an existing token: the graph is part of the
+   portal, not a widget dropped into it, and a bespoke palette here would be the
+   first thing to drift when the theme changes. */
+.gstat{display:flex;flex-wrap:wrap;gap:1.4rem;font-family:var(--mono);font-size:.74rem;
+  color:var(--ink-3);margin:.9rem 0 1.4rem;padding-bottom:.9rem;border-bottom:1px solid var(--rule)}
+.gstat b{color:var(--ink);font-weight:600}
+.gwrap{margin:0 0 2rem;padding:.4rem 0;overflow-x:auto}
+.gwrap svg{display:block;min-width:640px}
+.gcol{font-family:var(--mono);font-size:.68rem;fill:var(--ink-3);letter-spacing:.08em;text-transform:uppercase}
+.gedge{stroke:var(--rule-2);fill:none;opacity:.55}
+.gseam{stroke:var(--accent,var(--ink));fill:none;opacity:.9;stroke-dasharray:none}
+.gnode circle{fill:var(--bg);stroke:var(--ink-2);stroke-width:1.5}
+.gnode text{font-family:var(--mono);font-size:.72rem;fill:var(--ink-2)}
+.gnode:hover circle{stroke:var(--ink)}
+.gnode:hover text{fill:var(--ink)}
+.g-repo circle{stroke:var(--accent,var(--ink))}
+.gtab{border-collapse:collapse;font-family:var(--mono);font-size:.76rem;margin:.6rem 0 1.4rem}
+.gtab th{text-align:left;font-weight:500;color:var(--ink-3);border-bottom:1px solid var(--rule);
+  padding:.3rem 1.2rem .3rem 0}
+.gtab td{padding:.3rem 1.2rem .3rem 0;border-bottom:1px solid var(--rule);color:var(--ink-2)}
 `;
 
 /**
@@ -486,6 +507,7 @@ function rail(idx: Index, active: Active = {}): string {
     <ul>
       <li class="${active.company === "_company" ? "on" : ""}"><a href="/c/_company">context</a></li>
       <li class="${active.company === "_standards" ? "on" : ""}"><a href="/c/_standards">standards</a></li>
+      <li class="${active.section === "graph" ? "on" : ""}"><a href="/graph">the seam</a></li>
     </ul>
     ${group("Projects", idx.projects, "/p/", "project")}
     ${group("People", idx.people, "/who/", "who")}
@@ -512,6 +534,112 @@ const crumbs = (trail: [string, string | null][]): string =>
     .map(([label, href], i) =>
       `${i ? '<span class="sl">/</span>' : ""}${href ? link(href, label) : `<span>${escape(label)}</span>`}`)
     .join("")}</nav>`;
+
+/**
+ * The seam graph, drawn server-side as SVG.
+ *
+ * Three fixed columns rather than a force simulation, for two reasons. The
+ * layout is deterministic, so the same memory always draws the same picture and
+ * a reader can return to it; and a physics library would be this package's
+ * first runtime dependency, which the install story exists to avoid. At the
+ * sizes this graph is designed to stay at — nodes track headcount and repo
+ * count, not session volume — a simulation buys nothing.
+ *
+ * Carries no log content. Nodes and counts only; every node links to the page
+ * that holds the actual writing. The graph is an index, not a summary, so it
+ * cannot grow into the unbounded assembled list that this project already
+ * rejected once.
+ */
+function renderGraph(g: Graph): string {
+  const cols: [GraphNode["kind"], string][] = [["who", "People"], ["project", "Projects"], ["repo", "Repos"]];
+  const byKind = new Map(cols.map(([k]) => [k, g.nodes.filter((n) => n.kind === k)]));
+  const rows = Math.max(1, ...[...byKind.values()].map((v) => v.length));
+
+  const W = 860, PAD = 56, ROW = 62;
+  const H = PAD * 2 + (rows - 1) * ROW + 24;
+  const colX = [PAD + 70, W / 2, W - PAD - 70];
+  const pos = new Map<string, { x: number; y: number }>();
+
+  cols.forEach(([kind], ci) => {
+    const list = byKind.get(kind) ?? [];
+    const span = (list.length - 1) * ROW;
+    list.forEach((n, i) => {
+      pos.set(n.id, { x: colX[ci] as number, y: PAD + (H - PAD * 2 - span) / 2 + i * ROW });
+    });
+  });
+
+  const maxW = Math.max(1, ...g.edges.map((e) => e.weight));
+  const lines = g.edges
+    .map((e) => {
+      const a = pos.get(e.a), b = pos.get(e.b);
+      if (!a || !b) return "";
+      const w = 1 + (e.weight / maxW) * 3;
+      // Repo-to-repo pairs sit in the same column, so a straight line would run
+      // down through the nodes between them. The bow goes LEFT, into the gap
+      // before the column: repo labels are right-anchored, and bowing right
+      // drew the curve straight through their text.
+      const d = e.seam
+        ? `M${a.x} ${a.y} C${a.x - 110} ${a.y}, ${b.x - 110} ${b.y}, ${b.x} ${b.y}`
+        : `M${a.x} ${a.y} L${b.x} ${b.y}`;
+      return `<path d="${d}" class="${e.seam ? "gseam" : "gedge"}" style="stroke-width:${w.toFixed(1)}">`
+        + `<title>${escape(e.a.split(":")[1] as string)} and ${escape(e.b.split(":")[1] as string)}`
+        + ` — ${e.weight} session${e.weight === 1 ? "" : "s"}</title></path>`;
+    })
+    .join("");
+
+  const dots = g.nodes
+    .map((n) => {
+      const p = pos.get(n.id);
+      if (!p) return "";
+      const r = 5 + Math.min(7, Math.sqrt(n.sessions) * 2.4);
+      const anchor = n.kind === "repo" ? "start" : n.kind === "who" ? "end" : "middle";
+      const dx = n.kind === "repo" ? r + 8 : n.kind === "who" ? -(r + 8) : 0;
+      const dy = n.kind === "project" ? -(r + 10) : 4;
+      return `<a href="${n.href}" class="gnode g-${n.kind}">`
+        + `<circle cx="${p.x}" cy="${p.y}" r="${r.toFixed(1)}"></circle>`
+        + `<text x="${p.x + dx}" y="${p.y + dy}" text-anchor="${anchor}">${escape(n.label)}</text>`
+        + `<title>${escape(n.label)} — ${n.sessions} session${n.sessions === 1 ? "" : "s"}</title></a>`;
+    })
+    .join("");
+
+  const seams = g.edges.filter((e) => e.seam);
+  const pct = g.logs ? Math.round((g.crossRepo / g.logs) * 100) : 0;
+
+  return `<h1>The seam</h1>
+  <p class="lede">Who works where, and which repos a single session touched together.
+  Nothing here is inferred: every line is read from the <code>project</code>,
+  <code>who</code> and <code>repos</code> fields a log already carries.</p>
+
+  <div class="gstat">
+    <span><b>${g.nodes.length}</b> nodes</span>
+    <span><b>${g.edges.length}</b> edges</span>
+    <span><b>${g.logs}</b> sessions</span>
+    <span><b>${g.crossRepo}</b> touched 2+ repos${g.logs ? ` · ${pct}%` : ""}</span>
+  </div>
+
+  <figure class="gwrap">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
+      aria-label="Entity graph: ${g.nodes.length} nodes, ${g.edges.length} edges">
+      ${cols.map(([, label], i) =>
+        `<text x="${colX[i]}" y="26" class="gcol" text-anchor="middle">${label}</text>`).join("")}
+      <g>${lines}</g><g>${dots}</g>
+    </svg>
+  </figure>
+
+  <h2 id="seams">The cross-repo seam</h2>
+  <p>These pairs are joined only because one session named both. A tool scoped to
+  a single repository cannot draw them: it never sees the second repo.</p>
+  ${seams.length
+    ? `<table class="gtab"><thead><tr><th>repo</th><th>repo</th><th>sessions</th></tr></thead><tbody>`
+      + seams.map((e) =>
+        `<tr><td>${escape(e.a.split(":")[1] as string)}</td>`
+        + `<td>${escape(e.b.split(":")[1] as string)}</td>`
+        + `<td>${e.weight}</td></tr>`).join("")
+      + `</tbody></table>`
+    : `<p class="empty">No session has named two repos yet. Either this project is
+       genuinely one repository, or <code>repos:</code> is not being filled in —
+       and those are worth telling apart before reading anything into it.</p>`}`;
+}
 
 const shell = (
   memory: string, clone: string, idx: Index, active: Active,
@@ -849,6 +977,14 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
         const all = url.searchParams.get("all") === "1" || !scope;
         const hits = q ? await search(memory, q, { project: scope, all }) : [];
         return send(shell(memory, clone, idx, {}, "search", renderSearch(q, hits, scope, all)));
+      }
+
+      // Company-wide on purpose: the whole point is the edge between two repos,
+      // and a project-scoped graph could never show one that crosses projects.
+      if (url.pathname === "/graph") {
+        const g = seamGraph(await readLogs(memory));
+        return send(shell(memory, clone, idx, { section: "graph" }, "the seam", renderGraph(g),
+          [{ id: "seams", label: "The cross-repo seam" }]));
       }
 
       if (url.pathname === "/") {
