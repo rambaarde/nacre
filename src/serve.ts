@@ -302,14 +302,25 @@ font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
 .gstat b{color:var(--ink);font-weight:600}
 .gwrap{margin:0 0 2rem;padding:.4rem 0;overflow-x:auto}
 .gwrap svg{display:block;min-width:640px}
-.gcol{font-family:var(--mono);font-size:.68rem;fill:var(--ink-3);letter-spacing:.08em;text-transform:uppercase}
-.gedge{stroke:var(--rule-2);fill:none;opacity:.55}
-.gseam{stroke:var(--accent,var(--ink));fill:none;opacity:.9;stroke-dasharray:none}
-.gnode circle{fill:var(--bg);stroke:var(--ink-2);stroke-width:1.5}
-.gnode text{font-family:var(--mono);font-size:.72rem;fill:var(--ink-2)}
-.gnode:hover circle{stroke:var(--ink)}
+.gedge{stroke:var(--rule-2);opacity:.55}
+/* The seam is the one thing on this page no other tool can draw, so it is the
+   one thing drawn at full strength. */
+.gseam{stroke:var(--ink);opacity:.95}
+/* Filled, so clusters read as mass at a glance — the reason for a force layout
+   at all. Sessions are size; kind is shape, because the palette is monochrome
+   and two greys are not a distinction anyone should have to squint at. */
+.gnode circle,.gnode rect{fill:var(--ink-3);stroke:var(--paper);stroke-width:2;transition:fill .12s}
+.gnode text{font-family:var(--mono);font-size:.7rem;fill:var(--ink-3)}
+.gnode:hover circle,.gnode:hover rect{fill:var(--ink)}
 .gnode:hover text{fill:var(--ink)}
-.g-repo circle{stroke:var(--accent,var(--ink))}
+.g-project circle{fill:var(--ink-2)}
+.gkey{display:flex;flex-wrap:wrap;gap:1.3rem;font-family:var(--mono);font-size:.68rem;
+  color:var(--ink-3);margin-top:.7rem}
+.gkey .k{display:flex;align-items:center;gap:.45rem}
+.gkey .k::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--ink-3)}
+.gkey .k-project::before{background:var(--ink-2)}
+.gkey .k-repo::before{border-radius:2px}
+.gkey .k-seam::before{border-radius:0;width:18px;height:2px;background:var(--ink)}
 .gtab{border-collapse:collapse;font-family:var(--mono);font-size:.76rem;margin:.6rem 0 1.4rem}
 .gtab th{text-align:left;font-weight:500;color:var(--ink-3);border-bottom:1px solid var(--rule);
   padding:.3rem 1.2rem .3rem 0}
@@ -536,14 +547,95 @@ const crumbs = (trail: [string, string | null][]): string =>
     .join("")}</nav>`;
 
 /**
- * The seam graph, drawn server-side as SVG.
+ * Force-directed layout, Fruchterman-Reingold, ~25 lines and no dependency.
  *
- * Three fixed columns rather than a force simulation, for two reasons. The
- * layout is deterministic, so the same memory always draws the same picture and
- * a reader can return to it; and a physics library would be this package's
- * first runtime dependency, which the install story exists to avoid. At the
- * sizes this graph is designed to stay at — nodes track headcount and repo
- * count, not session volume — a simulation buys nothing.
+ * The first version of this page used three fixed columns and the commit
+ * claimed a simulation "would be this package's first runtime dependency". That
+ * conflated the algorithm with a library. The algorithm is repulsion between
+ * every pair, attraction along every edge, and a cooling schedule; a graph
+ * library is what would have been the dependency.
+ *
+ * The column version was also wrong on its own terms. Bipartite columns show
+ * membership — who is in which group — when the question this page exists to
+ * answer is which things cluster together. Clusters are the shape of the
+ * answer, and columns cannot express one.
+ *
+ * Deterministic despite being a simulation: seeds are placed on a golden-angle
+ * spiral by index rather than at random, so the same memory always draws the
+ * same picture and a reader can return to a layout they recognise. O(n squared)
+ * per tick is fine because node count tracks headcount, not session volume.
+ */
+function layout(g: Graph, W: number, H: number): Map<string, { x: number; y: number }> {
+  const n = g.nodes.length;
+  const pos = new Map<string, { x: number; y: number }>();
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  g.nodes.forEach((node, i) => {
+    const r = (Math.min(W, H) / 2.6) * Math.sqrt((i + 0.5) / n);
+    pos.set(node.id, { x: W / 2 + r * Math.cos(i * GOLDEN), y: H / 2 + r * Math.sin(i * GOLDEN) });
+  });
+  if (n < 2) return pos;
+
+  const k = Math.sqrt((W * H) / n) * 0.62;
+  const maxW = Math.max(1, ...g.edges.map((e) => e.weight));
+  let temp = Math.min(W, H) / 6;
+
+  for (let step = 0; step < 320; step++) {
+    const disp = new Map(g.nodes.map((node) => [node.id, { x: 0, y: 0 }]));
+
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = pos.get(g.nodes[i]!.id)!, b = pos.get(g.nodes[j]!.id)!;
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d = Math.hypot(dx, dy);
+        if (d < 0.01) { dx = ((i * 37) % 13) - 6; dy = ((j * 29) % 13) - 6; d = Math.hypot(dx, dy) || 1; }
+        const force = (k * k) / d;
+        const da = disp.get(g.nodes[i]!.id)!, db = disp.get(g.nodes[j]!.id)!;
+        da.x += (dx / d) * force; da.y += (dy / d) * force;
+        db.x -= (dx / d) * force; db.y -= (dy / d) * force;
+      }
+    }
+
+    for (const e of g.edges) {
+      const a = pos.get(e.a), b = pos.get(e.b);
+      if (!a || !b) continue;
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const d = Math.hypot(dx, dy) || 0.01;
+      // Heavier edges pull harder, so repos worked on together sit together —
+      // which is the entire claim this page makes, expressed as geometry.
+      const force = ((d * d) / k) * (0.5 + (e.weight / maxW) * 0.9);
+      const da = disp.get(e.a)!, db = disp.get(e.b)!;
+      da.x -= (dx / d) * force; da.y -= (dy / d) * force;
+      db.x += (dx / d) * force; db.y += (dy / d) * force;
+    }
+
+    for (const node of g.nodes) {
+      const p = pos.get(node.id)!, d = disp.get(node.id)!;
+      const len = Math.hypot(d.x, d.y) || 1;
+      p.x += (d.x / len) * Math.min(len, temp);
+      p.y += (d.y / len) * Math.min(len, temp);
+      // A weak pull to centre keeps loose nodes from drifting to the margin,
+      // where they read as unimportant rather than merely unconnected.
+      p.x += (W / 2 - p.x) * 0.008;
+      p.y += (H / 2 - p.y) * 0.008;
+    }
+    temp *= 0.975;
+  }
+
+  // Fit to the box: the simulation has no idea what size the viewport is.
+  const xs = [...pos.values()].map((p) => p.x), ys = [...pos.values()].map((p) => p.y);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const PAD = 76;
+  const sx = (W - PAD * 2) / Math.max(1, x1 - x0), sy = (H - PAD * 2) / Math.max(1, y1 - y0);
+  const s = Math.min(sx, sy);
+  for (const p of pos.values()) {
+    p.x = PAD + (p.x - x0) * s + (W - PAD * 2 - (x1 - x0) * s) / 2;
+    p.y = PAD + (p.y - y0) * s + (H - PAD * 2 - (y1 - y0) * s) / 2;
+  }
+  return pos;
+}
+
+/**
+ * The seam graph, drawn server-side as SVG.
  *
  * Carries no log content. Nodes and counts only; every node links to the page
  * that holds the actual writing. The graph is an index, not a summary, so it
@@ -551,39 +643,19 @@ const crumbs = (trail: [string, string | null][]): string =>
  * rejected once.
  */
 function renderGraph(g: Graph): string {
-  const cols: [GraphNode["kind"], string][] = [["who", "People"], ["project", "Projects"], ["repo", "Repos"]];
-  const byKind = new Map(cols.map(([k]) => [k, g.nodes.filter((n) => n.kind === k)]));
-  const rows = Math.max(1, ...[...byKind.values()].map((v) => v.length));
-
-  const W = 860, PAD = 56, ROW = 62;
-  const H = PAD * 2 + (rows - 1) * ROW + 24;
-  const colX = [PAD + 70, W / 2, W - PAD - 70];
-  const pos = new Map<string, { x: number; y: number }>();
-
-  cols.forEach(([kind], ci) => {
-    const list = byKind.get(kind) ?? [];
-    const span = (list.length - 1) * ROW;
-    list.forEach((n, i) => {
-      pos.set(n.id, { x: colX[ci] as number, y: PAD + (H - PAD * 2 - span) / 2 + i * ROW });
-    });
-  });
+  const W = 880, H = Math.max(430, Math.min(720, 300 + g.nodes.length * 26));
+  const pos = layout(g, W, H);
 
   const maxW = Math.max(1, ...g.edges.map((e) => e.weight));
   const lines = g.edges
     .map((e) => {
       const a = pos.get(e.a), b = pos.get(e.b);
       if (!a || !b) return "";
-      const w = 1 + (e.weight / maxW) * 3;
-      // Repo-to-repo pairs sit in the same column, so a straight line would run
-      // down through the nodes between them. The bow goes LEFT, into the gap
-      // before the column: repo labels are right-anchored, and bowing right
-      // drew the curve straight through their text.
-      const d = e.seam
-        ? `M${a.x} ${a.y} C${a.x - 110} ${a.y}, ${b.x - 110} ${b.y}, ${b.x} ${b.y}`
-        : `M${a.x} ${a.y} L${b.x} ${b.y}`;
-      return `<path d="${d}" class="${e.seam ? "gseam" : "gedge"}" style="stroke-width:${w.toFixed(1)}">`
+      const w = 0.8 + (e.weight / maxW) * 2.6;
+      return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"`
+        + ` class="${e.seam ? "gseam" : "gedge"}" style="stroke-width:${w.toFixed(1)}">`
         + `<title>${escape(e.a.split(":")[1] as string)} and ${escape(e.b.split(":")[1] as string)}`
-        + ` — ${e.weight} session${e.weight === 1 ? "" : "s"}</title></path>`;
+        + ` — ${e.weight} session${e.weight === 1 ? "" : "s"}</title></line>`;
     })
     .join("");
 
@@ -591,13 +663,16 @@ function renderGraph(g: Graph): string {
     .map((n) => {
       const p = pos.get(n.id);
       if (!p) return "";
-      const r = 5 + Math.min(7, Math.sqrt(n.sessions) * 2.4);
-      const anchor = n.kind === "repo" ? "start" : n.kind === "who" ? "end" : "middle";
-      const dx = n.kind === "repo" ? r + 8 : n.kind === "who" ? -(r + 8) : 0;
-      const dy = n.kind === "project" ? -(r + 10) : 4;
-      return `<a href="${n.href}" class="gnode g-${n.kind}">`
-        + `<circle cx="${p.x}" cy="${p.y}" r="${r.toFixed(1)}"></circle>`
-        + `<text x="${p.x + dx}" y="${p.y + dy}" text-anchor="${anchor}">${escape(n.label)}</text>`
+      const r = 4.5 + Math.min(9, Math.sqrt(n.sessions) * 3);
+      // The palette is monochrome by design, so kind is carried by SHAPE rather
+      // than hue: a square repo stays distinguishable in both themes and for
+      // anyone who cannot separate two greys.
+      const glyph = n.kind === "repo"
+        ? `<rect x="${(p.x - r).toFixed(1)}" y="${(p.y - r).toFixed(1)}" width="${(r * 2).toFixed(1)}"`
+          + ` height="${(r * 2).toFixed(1)}" rx="2"></rect>`
+        : `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}"></circle>`;
+      return `<a href="${n.href}" class="gnode g-${n.kind}">${glyph}`
+        + `<text x="${p.x.toFixed(1)}" y="${(p.y + r + 14).toFixed(1)}" text-anchor="middle">${escape(n.label)}</text>`
         + `<title>${escape(n.label)} — ${n.sessions} session${n.sessions === 1 ? "" : "s"}</title></a>`;
     })
     .join("");
@@ -620,10 +695,14 @@ function renderGraph(g: Graph): string {
   <figure class="gwrap">
     <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
       aria-label="Entity graph: ${g.nodes.length} nodes, ${g.edges.length} edges">
-      ${cols.map(([, label], i) =>
-        `<text x="${colX[i]}" y="26" class="gcol" text-anchor="middle">${label}</text>`).join("")}
       <g>${lines}</g><g>${dots}</g>
     </svg>
+    <figcaption class="gkey">
+      <span class="k k-who">people</span>
+      <span class="k k-project">projects</span>
+      <span class="k k-repo">repos (square)</span>
+      <span class="k k-seam">repos one session touched together</span>
+    </figcaption>
   </figure>
 
   <h2 id="seams">The cross-repo seam</h2>
