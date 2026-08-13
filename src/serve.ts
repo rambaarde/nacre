@@ -332,7 +332,18 @@ svg.focused .gnode.lit,svg.focused .gnode.near,svg.focused line.near{opacity:1}
 /* Filled, so clusters read as mass at a glance — the reason for a force layout
    at all. Sessions are size; kind is shape, because the palette is monochrome
    and two greys are not a distinction anyone should have to squint at. */
+/* Three hues, and they are the only colour in the portal.
+   The rest of the product is monochrome on purpose — it is a log, and colour
+   there would be decoration. A graph is the one place hue does work no other
+   channel can: at a glance you see whether a cluster is people, projects or
+   repos, without reading a single label. Shape still carries repos as well, so
+   the distinction survives greyscale and colour-blindness both.
+   Mid-luminance on purpose, so the same values read on paper and on ink. */
+.gwrap{--g-who:#6f93c9;--g-project:#c8913c;--g-repo:#4f9e94}
 .gnode circle,.gnode rect{fill:var(--ink-3);stroke:var(--paper);stroke-width:2;transition:fill .12s}
+.g-who circle{fill:var(--g-who)}
+.g-project circle{fill:var(--g-project)}
+.g-repo rect{fill:var(--g-repo)}
 .gnode{cursor:grab}
 .gnode.held{cursor:grabbing}
 .gnode.held circle,.gnode.held rect{fill:var(--ink)}
@@ -340,12 +351,13 @@ svg.focused .gnode.lit,svg.focused .gnode.near,svg.focused line.near{opacity:1}
 .gnode text{font-family:var(--mono);font-size:.7rem;fill:var(--ink-3)}
 .gnode:hover circle,.gnode:hover rect{fill:var(--ink)}
 .gnode:hover text{fill:var(--ink)}
-.g-project circle{fill:var(--ink-2)}
 .gkey{display:flex;flex-wrap:wrap;gap:1.3rem;font-family:var(--mono);font-size:.68rem;
   color:var(--ink-3);margin-top:.7rem}
 .gkey .k{display:flex;align-items:center;gap:.45rem}
 .gkey .k::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--ink-3)}
-.gkey .k-project::before{background:var(--ink-2)}
+.gkey .k-who::before{background:var(--g-who)}
+.gkey .k-project::before{background:var(--g-project)}
+.gkey .k-repo::before{background:var(--g-repo)}
 .gkey .k-repo::before{border-radius:2px}
 .gkey .k-seam::before{border-radius:0;width:18px;height:2px;background:var(--ink)}
 /* The hint is prose, not a key: a swatch in front of it reads as a fourth category. */
@@ -535,17 +547,23 @@ if(G){(function(){
   for(i=0;i<N.length;i++){N[i].vx=0;N[i].vy=0;N[i].fx=null;N[i].fy=null}
 
   var cam={x:0,y:0,k:1},alpha=1,alphaTarget=0,dragNode=null,panning=null,moved=false,raf=0;
+  /* The natural edge length for this canvas and this many nodes — the same
+     figure the server layout uses, so both settle at the same scale. */
+  var K=Math.sqrt(W*H/Math.max(1,N.length))*0.62;
   var maxW=1;for(j=0;j<E.length;j++)maxW=Math.max(maxW,E[j].w);
 
   function tick(){
     alpha+=(alphaTarget-alpha)*0.0228;
 
-    /* charge: every pair pushes apart, strength falling with distance */
+    /* charge: k*k/d, the Fruchterman-Reingold form. An earlier version used
+       k/d*d, which falls off so much faster than the springs pull that the
+       whole graph collapsed to a clump in the middle of an empty canvas —
+       measured at 30% of the width before this was fixed. */
     for(var a=0;a<N.length;a++)for(var b=a+1;b<N.length;b++){
-      var p=N[a],q=N[b],dx=q.x-p.x,dy=q.y-p.y,d2=dx*dx+dy*dy;
-      if(d2<1)d2=1;
-      var f=-2400/d2*alpha,dd=Math.sqrt(d2);
-      var ux=dx/dd*f,uy=dy/dd*f;
+      var p=N[a],q=N[b],dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<1)d=1;
+      var f=-(K*K)/d*0.10*alpha;
+      var ux=dx/d*f,uy=dy/d*f;
       p.vx+=ux;p.vy+=uy;q.vx-=ux;q.vy-=uy}
 
     /* link: a spring per edge, stiffer when more sessions produced it, so
@@ -554,14 +572,14 @@ if(G){(function(){
     for(j=0;j<E.length;j++){
       var e=E[j],s=N[e.s],t=N[e.t];
       var lx=t.x-s.x,ly=t.y-s.y,l=Math.sqrt(lx*lx+ly*ly)||1;
-      var rest=e.m?70:118;
-      var k=(0.35+(e.w/maxW)*0.5)*alpha;
+      var rest=(e.m?0.42:0.72)*K;
+      var k=(0.22+(e.w/maxW)*0.34)*alpha;
       var mv=(l-rest)/l*k;
       var mx=lx*mv*0.5,my=ly*mv*0.5;
       s.vx+=mx;s.vy+=my;t.vx-=mx;t.vy-=my}
 
     /* centre: a weak pull home, so nothing drifts off into the margin */
-    for(i=0;i<N.length;i++){N[i].vx+=(W/2-N[i].x)*0.012*alpha;N[i].vy+=(H/2-N[i].y)*0.012*alpha}
+    for(i=0;i<N.length;i++){N[i].vx+=(W/2-N[i].x)*0.006*alpha;N[i].vy+=(H/2-N[i].y)*0.006*alpha}
 
     /* collide: the force Quartz runs three iterations of, and the reason its
        nodes never sit on top of each other */
