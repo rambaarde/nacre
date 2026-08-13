@@ -300,8 +300,31 @@ font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
 .gstat{display:flex;flex-wrap:wrap;gap:1.4rem;font-family:var(--mono);font-size:.74rem;
   color:var(--ink-3);margin:.9rem 0 1.4rem;padding-bottom:.9rem;border-bottom:1px solid var(--rule)}
 .gstat b{color:var(--ink);font-weight:600}
-.gwrap{margin:0 0 2rem;padding:.4rem 0;overflow-x:auto}
-.gwrap svg{display:block;min-width:640px}
+.gwrap{margin:0 0 2rem;padding:.4rem 0}
+.gstage{position:relative;border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--sunk)}
+.gwrap svg{display:block;touch-action:none;cursor:grab}
+.gwrap svg:active{cursor:grabbing}
+.gbtn{margin-left:auto;font-family:var(--mono);font-size:.68rem;color:var(--ink-3);
+  background:none;border:1px solid var(--rule-2);border-radius:3px;padding:.2rem .5rem;cursor:pointer}
+.gbtn:hover{color:var(--ink);border-color:var(--ink-3)}
+/* Hover dims everything except the hovered node and what it touches. Reading a
+   cluster means seeing its neighbourhood, and at any real size the rest is
+   noise while you do that. */
+.gnode,.gedge,.gseam{transition:opacity .12s}
+svg.focused .gnode,svg.focused line{opacity:.13}
+svg.focused .gnode.lit,svg.focused .gnode.near,svg.focused line.near{opacity:1}
+.ginfo{position:absolute;top:10px;right:10px;width:15rem;max-width:60%;padding:.7rem .8rem;
+  background:var(--paper);border:1px solid var(--rule-2);border-radius:4px;
+  opacity:0;transform:translateY(-3px);transition:opacity .12s,transform .12s;pointer-events:none}
+.ginfo.on{opacity:1;transform:none}
+.ginfo h5{font-family:var(--mono);font-size:.78rem;margin:0 0 .1rem;color:var(--ink)}
+.ginfo p{font-family:var(--mono);font-size:.66rem;color:var(--ink-3);margin:0 0 .45rem}
+.ginfo ul{list-style:none;margin:0;padding:0;max-height:11rem;overflow:auto}
+.ginfo li{display:flex;justify-content:space-between;gap:.6rem;font-family:var(--mono);
+  font-size:.68rem;color:var(--ink-2);padding:.12rem 0}
+.ginfo li.s{color:var(--ink);font-weight:600}
+.ginfo li b{color:var(--ink-3);font-weight:400}
+.ginfo .go{margin:.45rem 0 0;font-size:.62rem;color:var(--ink-3)}
 .gedge{stroke:var(--rule-2);opacity:.55}
 /* The seam is the one thing on this page no other tool can draw, so it is the
    one thing drawn at full strength. */
@@ -310,6 +333,10 @@ font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
    at all. Sessions are size; kind is shape, because the palette is monochrome
    and two greys are not a distinction anyone should have to squint at. */
 .gnode circle,.gnode rect{fill:var(--ink-3);stroke:var(--paper);stroke-width:2;transition:fill .12s}
+.gnode{cursor:grab}
+.gnode.held{cursor:grabbing}
+.gnode.held circle,.gnode.held rect{fill:var(--ink)}
+.gnode text{pointer-events:none}
 .gnode text{font-family:var(--mono);font-size:.7rem;fill:var(--ink-3)}
 .gnode:hover circle,.gnode:hover rect{fill:var(--ink)}
 .gnode:hover text{fill:var(--ink)}
@@ -321,6 +348,9 @@ font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
 .gkey .k-project::before{background:var(--ink-2)}
 .gkey .k-repo::before{border-radius:2px}
 .gkey .k-seam::before{border-radius:0;width:18px;height:2px;background:var(--ink)}
+/* The hint is prose, not a key: a swatch in front of it reads as a fourth category. */
+.gkey .k-hint{margin-left:auto;color:var(--ink-3);opacity:.8}
+.gkey .k-hint::before{display:none}
 .gtab{border-collapse:collapse;font-family:var(--mono);font-size:.76rem;margin:.6rem 0 1.4rem}
 .gtab th{text-align:left;font-weight:500;color:var(--ink-3);border-bottom:1px solid var(--rule);
   padding:.3rem 1.2rem .3rem 0}
@@ -478,6 +508,161 @@ if(find){
   if(location.hash==="#search")tab("search");
 }
 document.addEventListener("click",function(e){if(e.target.closest("[data-pal]")){e.preventDefault();open()}});
+
+/* The seam graph: a live force simulation, pan, zoom, drag and hover-to-focus.
+   Only runs on the graph page; every other page stops at the first line.
+
+   The layout runs HERE rather than on the server, because a settled picture and
+   a living one answer different questions: dragging a node has to make the
+   graph respond, or a cluster you did not expect cannot be pulled apart and
+   read. The server still computes the starting positions, so the first paint is
+   deterministic and the simulation begins somewhere sensible instead of from a
+   random cloud.
+
+   The forces are the ones d3-force uses and Quartz configures — charge, link,
+   centre, collide — written out rather than imported, because a graph library
+   would be this package's first runtime dependency and CI fails the build if
+   one appears. */
+var G=document.getElementById("seamsvg");
+if(G){(function(){
+  var D;try{D=JSON.parse(document.getElementById("seamdata").textContent)}catch(e){return}
+  var view=document.getElementById("seamview"),info=document.getElementById("seaminfo");
+  var N=D.n,E=D.e,W=D.W,H=D.H;
+  var els=[],labels=[],lines=[];
+  for(var i=0;i<N.length;i++){els.push(document.getElementById("sn"+i));labels.push(els[i].querySelector("text"))}
+  for(var j=0;j<E.length;j++)lines.push(document.getElementById("se"+j));
+
+  for(i=0;i<N.length;i++){N[i].vx=0;N[i].vy=0;N[i].fx=null;N[i].fy=null}
+
+  var cam={x:0,y:0,k:1},alpha=1,alphaTarget=0,dragNode=null,panning=null,moved=false,raf=0;
+  var maxW=1;for(j=0;j<E.length;j++)maxW=Math.max(maxW,E[j].w);
+
+  function tick(){
+    alpha+=(alphaTarget-alpha)*0.0228;
+
+    /* charge: every pair pushes apart, strength falling with distance */
+    for(var a=0;a<N.length;a++)for(var b=a+1;b<N.length;b++){
+      var p=N[a],q=N[b],dx=q.x-p.x,dy=q.y-p.y,d2=dx*dx+dy*dy;
+      if(d2<1)d2=1;
+      var f=-2400/d2*alpha,dd=Math.sqrt(d2);
+      var ux=dx/dd*f,uy=dy/dd*f;
+      p.vx+=ux;p.vy+=uy;q.vx-=ux;q.vy-=uy}
+
+    /* link: a spring per edge, stiffer when more sessions produced it, so
+       repos worked on together end up close. That is the page's claim,
+       enforced by the physics rather than stated in a caption. */
+    for(j=0;j<E.length;j++){
+      var e=E[j],s=N[e.s],t=N[e.t];
+      var lx=t.x-s.x,ly=t.y-s.y,l=Math.sqrt(lx*lx+ly*ly)||1;
+      var rest=e.m?70:118;
+      var k=(0.35+(e.w/maxW)*0.5)*alpha;
+      var mv=(l-rest)/l*k;
+      var mx=lx*mv*0.5,my=ly*mv*0.5;
+      s.vx+=mx;s.vy+=my;t.vx-=mx;t.vy-=my}
+
+    /* centre: a weak pull home, so nothing drifts off into the margin */
+    for(i=0;i<N.length;i++){N[i].vx+=(W/2-N[i].x)*0.012*alpha;N[i].vy+=(H/2-N[i].y)*0.012*alpha}
+
+    /* collide: the force Quartz runs three iterations of, and the reason its
+       nodes never sit on top of each other */
+    for(var it=0;it<2;it++)for(a=0;a<N.length;a++)for(b=a+1;b<N.length;b++){
+      var P=N[a],Q=N[b],cx=Q.x-P.x,cy=Q.y-P.y,cd=Math.sqrt(cx*cx+cy*cy)||0.01;
+      var min=P.r+Q.r+16;
+      if(cd<min){var push=(min-cd)/cd*0.5;
+        var px=cx*push,py=cy*push;
+        P.x-=px;P.y-=py;Q.x+=px;Q.y+=py}}
+
+    for(i=0;i<N.length;i++){var n=N[i];
+      if(n.fx!==null){n.x=n.fx;n.y=n.fy;n.vx=0;n.vy=0}
+      else{n.vx*=0.62;n.vy*=0.62;n.x+=n.vx;n.y+=n.vy}}
+
+    draw();
+    if(alpha>0.002||dragNode)raf=requestAnimationFrame(tick);else raf=0}
+
+  function draw(){
+    for(var i=0;i<N.length;i++)els[i].setAttribute("transform","translate("+N[i].x.toFixed(1)+" "+N[i].y.toFixed(1)+")");
+    for(var j=0;j<E.length;j++){var e=E[j],s=N[e.s],t=N[e.t],ln=lines[j];
+      ln.setAttribute("x1",s.x.toFixed(1));ln.setAttribute("y1",s.y.toFixed(1));
+      ln.setAttribute("x2",t.x.toFixed(1));ln.setAttribute("y2",t.y.toFixed(1))}}
+
+  function kick(t){alphaTarget=t===undefined?0:t;if(alpha<0.35)alpha=0.35;if(!raf)raf=requestAnimationFrame(tick)}
+
+  function applyCam(){
+    view.setAttribute("transform","translate("+cam.x+" "+cam.y+") scale("+cam.k+")");
+    /* Labels shrink with zoom rather than with the graph, and fade out when
+       zoomed far enough that they would only overlap each other. */
+    var inv=1/cam.k,op=cam.k<0.55?0:1;
+    for(var i=0;i<labels.length;i++){
+      labels[i].setAttribute("transform","scale("+inv.toFixed(3)+")");
+      labels[i].style.opacity=op}}
+
+  function pt(ev){var r=G.getBoundingClientRect();
+    return{x:((ev.clientX-r.left)/r.width*W-cam.x)/cam.k,y:((ev.clientY-r.top)/r.height*H-cam.y)/cam.k}}
+
+  G.addEventListener("wheel",function(ev){ev.preventDefault();
+    var r=G.getBoundingClientRect();
+    var sx=(ev.clientX-r.left)/r.width*W,sy=(ev.clientY-r.top)/r.height*H;
+    var k=Math.min(5,Math.max(.3,cam.k*(ev.deltaY<0?1.14:1/1.14)));
+    cam.x=sx-(sx-cam.x)*(k/cam.k);cam.y=sy-(sy-cam.y)*(k/cam.k);cam.k=k;applyCam()},{passive:false});
+
+  G.addEventListener("pointerdown",function(ev){
+    moved=false;var a=ev.target.closest(".gnode");
+    if(a){var idx=+a.getAttribute("data-i");dragNode=N[idx];dragNode.fx=dragNode.x;dragNode.fy=dragNode.y;
+      a.classList.add("held");kick(0.3)}
+    else{var r=G.getBoundingClientRect();
+      panning={mx:(ev.clientX-r.left)/r.width*W,my:(ev.clientY-r.top)/r.height*H,x:cam.x,y:cam.y}}
+    G.setPointerCapture(ev.pointerId)});
+
+  G.addEventListener("pointermove",function(ev){
+    if(!dragNode&&!panning)return;moved=true;
+    if(panning){var r=G.getBoundingClientRect();
+      cam.x=panning.x+((ev.clientX-r.left)/r.width*W-panning.mx);
+      cam.y=panning.y+((ev.clientY-r.top)/r.height*H-panning.my);applyCam();return}
+    var p=pt(ev);dragNode.fx=p.x;dragNode.fy=p.y;kick(0.3)});
+
+  function release(ev){
+    if(dragNode){dragNode.fx=null;dragNode.fy=null;
+      var h=G.querySelector(".held");if(h)h.classList.remove("held");
+      dragNode=null;kick(0)}
+    panning=null;try{G.releasePointerCapture(ev.pointerId)}catch(_){}}
+  G.addEventListener("pointerup",release);G.addEventListener("pointercancel",release);
+  /* A drag that ends on a node must not also follow its link. */
+  G.addEventListener("click",function(ev){if(moved)ev.preventDefault()},true);
+
+  var near=[];for(i=0;i<N.length;i++)near.push([]);
+  for(j=0;j<E.length;j++){near[E[j].s].push([E[j].t,j,E[j].w,E[j].m]);near[E[j].t].push([E[j].s,j,E[j].w,E[j].m])}
+
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){
+    return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+  G.addEventListener("mouseover",function(ev){
+    var a=ev.target.closest(".gnode");if(!a)return;
+    var idx=+a.getAttribute("data-i");
+    G.classList.add("focused");a.classList.add("lit");
+    var list=near[idx],rows="";
+    for(var q=0;q<list.length;q++){
+      els[list[q][0]].classList.add("near");lines[list[q][1]].classList.add("near");
+      rows+="<li"+(list[q][3]?' class="s"':"")+">"+esc(N[list[q][0]].l)+"<b>"+list[q][2]+"</b></li>"}
+    if(info){var n=N[idx];
+      info.innerHTML="<h5>"+esc(n.l)+"</h5><p>"+n.t+" · "+n.s+" session"+(n.s===1?"":"s")
+        +"</p><ul>"+(rows||"<li>nothing yet</li>")+"</ul><p class=\"go\">click to open</p>";
+      info.classList.add("on")}});
+
+  G.addEventListener("mouseout",function(ev){
+    if(ev.relatedTarget&&ev.relatedTarget.closest&&ev.relatedTarget.closest(".gnode"))return;
+    G.classList.remove("focused");
+    var lit=G.querySelectorAll(".lit,.near");
+    for(var q=0;q<lit.length;q++)lit[q].classList.remove("lit","near");
+    if(info)info.classList.remove("on")});
+
+  var rst=document.getElementById("seamreset");
+  if(rst)rst.addEventListener("click",function(){
+    cam={x:0,y:0,k:1};applyCam();
+    for(var q=0;q<N.length;q++){N[q].x=D.n[q].x0;N[q].y=D.n[q].y0;N[q].vx=0;N[q].vy=0;N[q].fx=null;N[q].fy=null}
+    kick(0)});
+
+  applyCam();kick(0);
+})()}
 })();`;
 
 const page = (title: string, body: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -646,39 +831,77 @@ function renderGraph(g: Graph): string {
   const W = 880, H = Math.max(430, Math.min(720, 300 + g.nodes.length * 26));
   const pos = layout(g, W, H);
 
+  // Ids by index rather than by name: a repo may be called anything, and
+  // getElementById is the only lookup the drag loop can afford per frame.
+  const order = new Map(g.nodes.map((n, i) => [n.id, i]));
+  const nodeId = (id: string): string => `sn${order.get(id) ?? 0}`;
+  const edgeId = (i: number): string => `se${i}`;
+
   const maxW = Math.max(1, ...g.edges.map((e) => e.weight));
+  const radius = (n: GraphNode): number => 4.5 + Math.min(9, Math.sqrt(n.sessions) * 3);
+
   const lines = g.edges
-    .map((e) => {
+    .map((e, i) => {
       const a = pos.get(e.a), b = pos.get(e.b);
       if (!a || !b) return "";
       const w = 0.8 + (e.weight / maxW) * 2.6;
-      return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"`
+      return `<line id="${edgeId(i)}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}"`
+        + ` x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"`
         + ` class="${e.seam ? "gseam" : "gedge"}" style="stroke-width:${w.toFixed(1)}">`
         + `<title>${escape(e.a.split(":")[1] as string)} and ${escape(e.b.split(":")[1] as string)}`
         + ` — ${e.weight} session${e.weight === 1 ? "" : "s"}</title></line>`;
     })
     .join("");
 
+  // Glyphs sit at the origin and the whole group is translated each frame, so a
+  // tick is one attribute write per node instead of three.
   const dots = g.nodes
-    .map((n) => {
+    .map((n, i) => {
       const p = pos.get(n.id);
       if (!p) return "";
-      const r = 4.5 + Math.min(9, Math.sqrt(n.sessions) * 3);
+      const r = radius(n);
       // The palette is monochrome by design, so kind is carried by SHAPE rather
       // than hue: a square repo stays distinguishable in both themes and for
       // anyone who cannot separate two greys.
       const glyph = n.kind === "repo"
-        ? `<rect x="${(p.x - r).toFixed(1)}" y="${(p.y - r).toFixed(1)}" width="${(r * 2).toFixed(1)}"`
+        ? `<rect x="${(-r).toFixed(1)}" y="${(-r).toFixed(1)}" width="${(r * 2).toFixed(1)}"`
           + ` height="${(r * 2).toFixed(1)}" rx="2"></rect>`
-        : `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}"></circle>`;
-      return `<a href="${n.href}" class="gnode g-${n.kind}">${glyph}`
-        + `<text x="${p.x.toFixed(1)}" y="${(p.y + r + 14).toFixed(1)}" text-anchor="middle">${escape(n.label)}</text>`
-        + `<title>${escape(n.label)} — ${n.sessions} session${n.sessions === 1 ? "" : "s"}</title></a>`;
+        : `<circle cx="0" cy="0" r="${r.toFixed(1)}"></circle>`;
+      return `<a href="${n.href}" id="${nodeId(n.id)}" data-i="${i}" class="gnode g-${n.kind}"`
+        + ` transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${glyph}`
+        + `<text y="${(r + 14).toFixed(1)}" text-anchor="middle">${escape(n.label)}</text></a>`;
     })
     .join("");
 
   const seams = g.edges.filter((e) => e.seam);
   const pct = g.logs ? Math.round((g.crossRepo / g.logs) * 100) : 0;
+
+  /**
+   * The simulation's input: nodes with a seed position, edges by index.
+   *
+   * Sent with the page rather than fetched. A round trip per hover or per tick
+   * would make the read path chatty, and the whole graph serialises smaller
+   * than a single session log.
+   *
+   * `x0`/`y0` are the server's settled positions. They are the starting state
+   * and what "reset view" returns to, which is what keeps a deterministic first
+   * paint even though the layout is alive once it loads.
+   */
+  const KIND: Record<GraphNode["kind"], string> = { who: "person", project: "project", repo: "repo" };
+  const seamData = JSON.stringify({
+    W, H,
+    n: g.nodes.map((n) => {
+      const p = pos.get(n.id) ?? { x: W / 2, y: H / 2 };
+      return {
+        l: n.label, t: KIND[n.kind], s: n.sessions, r: radius(n),
+        x: Math.round(p.x), y: Math.round(p.y),
+        x0: Math.round(p.x), y0: Math.round(p.y),
+      };
+    }),
+    e: g.edges.map((e) => ({
+      s: order.get(e.a) ?? 0, t: order.get(e.b) ?? 0, w: e.weight, m: e.seam ? 1 : 0,
+    })),
+  }).replace(/</g, "\\u003c");
 
   return `<h1>The seam</h1>
   <p class="lede">Who works where, and which repos a single session touched together.
@@ -690,20 +913,26 @@ function renderGraph(g: Graph): string {
     <span><b>${g.edges.length}</b> edges</span>
     <span><b>${g.logs}</b> sessions</span>
     <span><b>${g.crossRepo}</b> touched 2+ repos${g.logs ? ` · ${pct}%` : ""}</span>
+    <button id="seamreset" class="gbtn" type="button">reset view</button>
   </div>
 
   <figure class="gwrap">
-    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
-      aria-label="Entity graph: ${g.nodes.length} nodes, ${g.edges.length} edges">
-      <g>${lines}</g><g>${dots}</g>
-    </svg>
+    <div class="gstage">
+      <svg id="seamsvg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
+        aria-label="Entity graph: ${g.nodes.length} nodes, ${g.edges.length} edges">
+        <g id="seamview"><g>${lines}</g><g>${dots}</g></g>
+      </svg>
+      <aside id="seaminfo" class="ginfo" aria-live="polite"></aside>
+    </div>
     <figcaption class="gkey">
       <span class="k k-who">people</span>
       <span class="k k-project">projects</span>
       <span class="k k-repo">repos (square)</span>
       <span class="k k-seam">repos one session touched together</span>
+      <span class="k k-hint">drag to pan · scroll to zoom · drag a node to pull it out</span>
     </figcaption>
   </figure>
+  <script type="application/json" id="seamdata">${seamData}</script>
 
   <h2 id="seams">The cross-repo seam</h2>
   <p>These pairs are joined only because one session named both. A tool scoped to
