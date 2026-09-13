@@ -46,6 +46,7 @@ same idea, one person, no shared repo to set up.
 ## The two commands
 
 <div align="center">
+  <!-- TODO(repertory): re-record — this GIF still shows the old `nacre` name and the /nacre-load, /nacre-publish commands. Re-shoot with `repertory` / `/rtr-l` / `/rtr-p`. -->
   <img src="demo/session-repertory.gif" width="100%" alt="One real Claude Code session. Bob types /rtr-l and the team's memory arrives: what is active, what was rejected, the open risks, and the newest logs. He asks what alice left open and gets her handoff, dated, with who it blocks and why. He makes a decision about a session-expiry status code, then types /rtr-p; the agent composes the log, strips private blocks, scans for secrets, shows him the exact file and stops. It flags one of its own calls — it had tagged the log to a single repo — and bob corrects it to both, so the diff updates repos to atlas-api and atlas-web before the push.">
 </div>
 
@@ -153,6 +154,7 @@ over MCP by anything else. People read the same bytes in a local portal — no
 login, no database, no build step.
 
 <div align="center">
+  <!-- TODO(repertory): re-record — this GIF still shows the old `nacre` name and the /nacre-load, /nacre-publish commands. Re-shoot with `repertory` / `/rtr-l` / `/rtr-p`. -->
   <img src="demo/portal-repertory.gif" width="100%" alt="The repertory portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
 </div>
 
@@ -346,6 +348,31 @@ next: rtr-l at session start · rtr-p at the end
 ```
 
 Every command also works as **`rtr`**.
+
+### A team with one product across two repos
+
+The common case: one product, a frontend and an API repo, several developers.
+One shared memory holds both — the knowledge worth keeping is in the seam
+between them.
+
+```sh
+# once, by whoever sets it up
+repertory init git@github.com:yourorg/app-context.git   # a PRIVATE repo for the memory
+repertory add app ../app-fe ../app-api                  # one product, both repos
+repertory invite <teammate-github-user>                 # per teammate — the only manual step
+
+# then commit the .repertory.yml + AGENTS.md that `add` drops into app-fe and app-api,
+# so everyone who clones them inherits the binding.
+```
+
+Each teammate installs nothing: they clone `app-fe`/`app-api` (which now carry
+`.repertory.yml`), run `/rtr-l` at the start of a session and `/rtr-p` at the
+end. Concurrent writes are safe by design — each session writes its own dated
+file, and `rtr-p` pulls `--ff-only` and stops on conflict rather than forcing.
+
+**Piloting it?** Treat 0.x as early-adopter software: start with one product and
+a few devs before a critical workflow. Everything is plain Markdown in git, so
+every write is reviewable in a pull request and reversible.
 
 ## Read it
 
