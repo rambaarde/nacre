@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * nacre CLI — argv in, one operation, rendered result out.
+ * repertory CLI — argv in, one operation, rendered result out.
  *
  * No product logic here by design; it all lives in src/operations.ts.
  *
@@ -27,7 +27,7 @@ import { readLogs } from "../src/portal.js";
 
 // PKG_ROOT is imported, not recomputed. This file had its own copy that counted
 // one directory up — correct from bin/ in the repo, wrong from dist/bin/ in the
-// package, so `nacre --version` failed with ENOENT on every install. store.ts
+// package, so `repertory --version` failed with ENOENT on every install. store.ts
 // had already been fixed to walk up for package.json; the duplicate had not.
 
 const OPTIONS = {
@@ -51,24 +51,24 @@ const OPTIONS = {
   version: { type: "boolean" },
 } as const satisfies ParseArgsOptionsConfig;
 
-const USAGE = `nacre — one git-backed memory for a whole company
+const USAGE = `repertory — one git-backed memory for a whole company
 
-  nacre                          where am I, and what is next
-  nacre init <git-url>           create the company memory     (once)
-  nacre add  <project> [dir...]  add a project, and its repos  (as needed)
-  nacre serve                    the portal, from your own clone
-  nacre brief                    what the team already decided, before you start
-  nacre invite <github-user>     give a teammate access to the memory
-  nacre notify                   announce the newest log to $NACRE_NOTIFY_URL
-  nacre search <term>            one search, same ranking as the portal
-  nacre lint                     report store hygiene: unfilled files, weak lessons
-  nacre sleep                    the bedtime pass: lint + what to consolidate
-  nacre mcp                      serve the memory to any MCP client (stdio)
+  repertory                          where am I, and what is next
+  repertory init <git-url>           create the company memory     (once)
+  repertory add  <project> [dir...]  add a project, and its repos  (as needed)
+  repertory serve                    the portal, from your own clone
+  repertory brief                    what the team already decided, before you start
+  repertory invite <github-user>     give a teammate access to the memory
+  repertory notify                   announce the newest log to $REPERTORY_NOTIFY_URL
+  repertory search <term>            one search, same ranking as the portal
+  repertory lint                     report store hygiene: unfilled files, weak lessons
+  repertory sleep                    the bedtime pass: lint + what to consolidate
+  repertory mcp                      serve the memory to any MCP client (stdio)
 
-  also works as \`nac\`
+  also works as \`rtr\`
 
 Adding repos to an existing project is the same command again:
-  nacre add atlas ../atlas-worker
+  repertory add atlas ../atlas-worker
 
   --memory <name|dir>  which memory, when you have more than one
   --team <name>        team folder       (default: devs)
@@ -94,19 +94,19 @@ const out = (...lines: (string | null | undefined)[]): void =>
   lines.filter(Boolean).forEach((l) => console.log(l));
 
 /** Brand line. Only a person needs to be told what they are looking at. */
-const brand = (right: string): string[] => (isTTY() ? [blank(), head("nacre", right)] : []);
+const brand = (right: string): string[] => (isTTY() ? [blank(), head("repertory", right)] : []);
 
 function fail(message: string, code = 1): never {
   if (isTTY()) {
     say(blank(), `  ${c.red("✗")} ${tilde(message)}`, blank());
   } else {
     console.log(`error: ${message}`);
-    console.log("help[]: nacre --help");
+    console.log("help[]: repertory --help");
   }
   process.exit(code);
 }
 
-/** Bare `nacre` — live state, and the single next command that applies. */
+/** Bare `repertory` — live state, and the single next command that applies. */
 function renderStatus(st: Status): void {
   if (!isTTY()) return renderStatusPlain(st);
 
@@ -114,7 +114,7 @@ function renderStatus(st: Status): void {
     return say(...brand(""), rule(),
       row("memory", tilde(st.store)),
       st.reason ? row("", st.reason) : null,
-      blank(), next(`nacre ${c.bold("init")} <git-url>`), blank());
+      blank(), next(`repertory ${c.bold("init")} <git-url>`), blank());
   }
   if (st.state === "no-binding") {
     const list = st.projects.length ? st.projects.join("  ") : c.grey("none yet");
@@ -123,15 +123,15 @@ function renderStatus(st: Status): void {
       row("here", c.grey("not bound to a project")),
       blank(),
       next(st.projects.length
-        ? `nacre ${c.bold("add")} <${st.projects.join("|")}> .`
-        : `nacre ${c.bold("add")} <project> .`),
+        ? `repertory ${c.bold("add")} <${st.projects.join("|")}> .`
+        : `repertory ${c.bold("add")} <project> .`),
       blank());
   }
   if (st.state === "unknown-project") {
     return say(...brand(tilde(st.store)), rule(),
-      warn(`.nacre.yml names ${c.bold(st.binding.project)}, which is not in this memory`),
+      warn(`.repertory.yml names ${c.bold(st.binding.project)}, which is not in this memory`),
       row("projects", st.projects.join("  ") || c.grey("none")),
-      blank(), next(`nacre ${c.bold("add")} ${st.binding.project}`), blank());
+      blank(), next(`repertory ${c.bold("add")} ${st.binding.project}`), blank());
   }
 
   const { binding, repos, logs, here, skillsReady, you } = st;
@@ -146,10 +146,10 @@ function renderStatus(st: Status): void {
     row("here", here ? c.bold(here) : c.grey("outside a linked repo")),
     row("you", `${c.bold(you)}  ${c.dim("— logs and your profile file under this")}`),
     blank(),
-    skillsReady ? null : warn(`skills not installed · nacre add ${binding.project} .`),
+    skillsReady ? null : warn(`skills not installed · repertory add ${binding.project} .`),
     logs.count === 0
-      ? next(`${c.bold("nacre-publish")} at the end of this session ${c.grey("— nothing recorded yet")}`)
-      : next(`${c.bold("nacre-load")} at session start · ${c.bold("nacre-publish")} at the end`),
+      ? next(`${c.bold("rtr-p")} at the end of this session ${c.grey("— nothing recorded yet")}`)
+      : next(`${c.bold("rtr-l")} at session start · ${c.bold("rtr-p")} at the end`),
     blank(),
   );
 }
@@ -160,23 +160,23 @@ function renderStatusPlain(st: Status): void {
     return out(
       `no memory at ${st.store}`,
       st.reason ? `reason: ${st.reason}` : null,
-      "next: nacre init <git-url>",
-      "help[]: nacre --help",
+      "next: repertory init <git-url>",
+      "help[]: repertory --help",
     );
   }
   if (st.state === "no-binding") {
     return out(
       `memory: ${st.store} · projects[${st.projects.length}]: ${st.projects.join(", ") || "none yet"}`,
       "this directory is not bound to a project",
-      st.projects.length ? `next: nacre add <${st.projects.join("|")}> .` : "next: nacre add <project> .",
-      "help[]: nacre --help",
+      st.projects.length ? `next: repertory add <${st.projects.join("|")}> .` : "next: repertory add <project> .",
+      "help[]: repertory --help",
     );
   }
   if (st.state === "unknown-project") {
     return out(
-      `error: .nacre.yml names "${st.binding.project}", which is not in ${st.store}`,
+      `error: .repertory.yml names "${st.binding.project}", which is not in ${st.store}`,
       `projects[${st.projects.length}]: ${st.projects.join(", ") || "none"}`,
-      `next: nacre add ${st.binding.project}`,
+      `next: repertory add ${st.binding.project}`,
     );
   }
   const { binding, repos, logs, here, skillsReady, you } = st;
@@ -185,9 +185,9 @@ function renderStatusPlain(st: Status): void {
       `logs: ${logs.count}${logs.newest ? ` · last: ${logs.newest.replace(/\.md$/, "")} (${logs.who})` : ""}`,
     `memory: ${st.store}${here ? ` · you are in: ${here}` : ""} · you: ${you}`,
     logs.count === 0
-      ? "no logs yet · next: nacre-publish at the end of this session"
-      : "next: nacre-load at the start of a session · nacre-publish at the end",
-    skillsReady ? null : "warn: skills not installed · next: nacre add " + binding.project + " .",
+      ? "no logs yet · next: rtr-p at the end of this session"
+      : "next: rtr-l at the start of a session · rtr-p at the end",
+    skillsReady ? null : "warn: skills not installed · next: repertory add " + binding.project + " .",
   );
 }
 
@@ -226,11 +226,11 @@ async function main() {
     : await detectAgents();
 
   try {
-    // Bare `nacre` shows live state, never a usage dump.
+    // Bare `repertory` shows live state, never a usage dump.
     if (!command) return renderStatus(await status({ storePath: memoryPath }));
 
     if (command === "init") {
-      if (!arg && !memoryPath) fail("missing argument: nacre init <git-url>");
+      if (!arg && !memoryPath) fail("missing argument: repertory init <git-url>");
       const r = await initStore({
         store: arg, storePath: memoryPath, who: o.who, force: o.force,
         allowPublic: o["i-know-its-public"],
@@ -243,7 +243,7 @@ async function main() {
           return out(
             `ok: memory fetched · ${r.dir}`,
             `projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"} · remote: ${r.remote ?? "not set"}`,
-            "next: nacre add <project> <repo-dir>",
+            "next: repertory add <project> <repo-dir>",
             "help[]: this memory already existed — nothing was overwritten",
           );
         }
@@ -251,12 +251,12 @@ async function main() {
           ? out(
               `ok: memory created · ${r.dir}`,
               `files: _company.md, _standards.md, _team/_${r.who}/ · remote: ${r.remote ?? "not set"}`,
-              "next: nacre add <project> <repo-dir>",
+              "next: repertory add <project> <repo-dir>",
               "help[]: commit and push the memory, then keep the default branch protected",
             )
           : out(
               `ok: memory already at ${r.dir} · projects[${r.projects.length}]: ${r.projects.join(", ") || "none yet"}`,
-              "next: nacre add <project> <repo-dir>",
+              "next: repertory add <project> <repo-dir>",
             );
       }
       if (cloned) {
@@ -266,12 +266,12 @@ async function main() {
           row("remote", r.remote ?? c.grey("not set")),
           blank(),
           `  ${c.grey("this memory already existed — nothing was overwritten")}`,
-          next(`nacre ${c.bold("add")} <project> <repo-dir>`), blank());
+          next(`repertory ${c.bold("add")} <project> <repo-dir>`), blank());
       }
       if (!r.created) {
         return say(blank(), ok(`memory already at ${c.bold(tilde(r.dir))}`),
           row("projects", r.projects.join("  ") || c.grey("none yet")),
-          blank(), next(`nacre ${c.bold("add")} <project> <repo-dir>`), blank());
+          blank(), next(`repertory ${c.bold("add")} <project> <repo-dir>`), blank());
       }
       return say(blank(),
         ok(`memory created  ${c.grey(tilde(r.dir))}`),
@@ -279,13 +279,13 @@ async function main() {
         row("files", `_company.md  _standards.md  _team/_${r.who}/`),
         row("remote", r.remote ?? c.grey("not set")),
         blank(),
-        next(`nacre ${c.bold("add")} <project> <repo-dir>`),
+        next(`repertory ${c.bold("add")} <project> <repo-dir>`),
         `  ${c.grey("then commit and push it, and protect the default branch")}`,
         blank());
     }
 
     if (command === "add") {
-      if (!arg) fail("missing argument: nacre add <project> [dir...]");
+      if (!arg) fail("missing argument: repertory add <project> [dir...]");
       // Everything after the project name is a repo to link. Adding repos to an
       // existing project is the same command again — no separate verb for it.
       const r = await addProject({
@@ -296,7 +296,7 @@ async function main() {
       const fresh = r.linked.filter((l) => l.wrote).map((l) => l.name);
       const noted = r.linked.filter((l) => l.noted).map((l) => l.name);
       const hooked = r.linked.filter((l) => l.hooked).map((l) => l.name);
-      // "teammates then need nothing" is true of .nacre.yml and false of the
+      // "teammates then need nothing" is true of .repertory.yml and false of the
       // memory, which no remote has seen yet. Promising the first while the
       // second sits unpushed is how someone clones a wired repo and finds an
       // empty store behind it.
@@ -306,13 +306,13 @@ async function main() {
           `ok: ${r.project} ${r.created ? "added" : "already present"} · ${r.dir}/${r.project}`,
           `repos[${r.roster.repos.length}]: ${r.roster.repos.join(", ") || "none linked"} · team: ${r.team}`,
           ready.length ? `agents[${ready.length}]: ${ready.join(", ")}` : null,
-          noted.length ? `AGENTS.md: ${noted.join(", ")} — so an agent that has never heard of nacre still finds it` : null,
+          noted.length ? `AGENTS.md: ${noted.join(", ")} — so an agent that has never heard of repertory still finds it` : null,
           hooked.length ? `hook: ${hooked.join(", ")}/.claude/settings.json — Claude Code loads the memory without being asked` : null,
           needsPush
-            ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .nacre.yml in ${fresh.join(", ")}` : ""}`
+            ? `next: commit and push ${r.dir}${fresh.length ? `, then commit .repertory.yml in ${fresh.join(", ")}` : ""}`
             : fresh.length
-              ? `next: commit .nacre.yml in ${fresh.join(", ")} — teammates then need nothing`
-              : `next: nacre add ${r.project} <repo-dir>`,
+              ? `next: commit .repertory.yml in ${fresh.join(", ")} — teammates then need nothing`
+              : `next: repertory add ${r.project} <repo-dir>`,
           needsPush ? "help[]: until the memory is pushed, a teammate's clone finds nothing behind it" : null,
         );
       }
@@ -322,14 +322,14 @@ async function main() {
         row("repos", r.roster.repos.map((x) => (fresh.includes(x) ? c.bold(x) : c.dim(x))).join("  ") || c.grey("none linked")),
         row("team", r.team),
         ready.length ? row("agents", ready.map((a) => c.dim(a)).join("  ")) : null,
-        noted.length ? row("AGENTS.md", c.grey(`${noted.join(", ")} — how an unfamiliar agent finds nacre`)) : null,
+        noted.length ? row("AGENTS.md", c.grey(`${noted.join(", ")} — how an unfamiliar agent finds repertory`)) : null,
         hooked.length ? row("hook", c.grey("Claude Code loads the memory at session start, unasked")) : null,
         blank(),
         needsPush
-          ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .nacre.yml in ${fresh.join(", ")}`) : ""}`)
+          ? next(`commit and push ${c.bold(tilde(r.dir))}${fresh.length ? c.grey(`, then .repertory.yml in ${fresh.join(", ")}`) : ""}`)
           : fresh.length
-            ? next(`commit ${c.bold(".nacre.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
-            : next(`nacre ${c.bold("add")} ${r.project} <repo-dir>`),
+            ? next(`commit ${c.bold(".repertory.yml")} in ${fresh.join(", ")} ${c.grey("— teammates then need nothing")}`)
+            : next(`repertory ${c.bold("add")} ${r.project} <repo-dir>`),
         needsPush ? `  ${c.grey("until the memory is pushed, a teammate's clone finds nothing behind it")}` : null,
         blank());
     }
@@ -405,17 +405,17 @@ async function main() {
     }
 
     // The read door that needs no skill, no MCP client, and no prior knowledge
-    // of nacre. An agent that has never heard of this project can be told one
+    // of repertory. An agent that has never heard of this project can be told one
     // shell command and get the same briefing everything else reads.
     if (command === "brief" || command === "load") {
       const binding = await resolveBinding();
       const project = arg ?? binding?.project;
 
       // --hook is how a SessionStart hook calls this, and it has two rules a
-      // person invoking `nacre brief` does not want.
+      // person invoking `repertory brief` does not want.
       //
       // It never fails. A hook that errors interrupts a session that had
-      // nothing to do with nacre, and the memory is not important enough to
+      // nothing to do with repertory, and the memory is not important enough to
       // stand between someone and their editor.
       //
       // It says nothing when there is nothing worth saying. A brief injected
@@ -437,7 +437,7 @@ async function main() {
       }
 
       if (!project) {
-        fail("no project here · run nacre add <project> . in this repo, or nacre brief <project>");
+        fail("no project here · run repertory add <project> . in this repo, or repertory brief <project>");
       }
       const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
       // Fetch it, never tell a teammate to `init`. Running init on a bound repo
@@ -457,7 +457,7 @@ async function main() {
     // gives a teammate nothing until they are on it. It used to live entirely
     // in a browser, which is why it sat between "clone the repo" and "warm".
     if (command === "invite") {
-      if (!arg) fail("missing argument: nacre invite <github-username>");
+      if (!arg) fail("missing argument: repertory invite <github-username>");
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store ?? null);
       const remote = binding?.store ?? (await storeRemote(memory));
@@ -465,13 +465,13 @@ async function main() {
       if (r.ok) {
         return out(
           `ok: invited ${arg} — write access to ${remote}`,
-          `next: tell them to clone any repo in the project and run: npx -y nacre-cli brief`,
+          `next: tell them to clone any repo in the project and run: npx -y repertory brief`,
         );
       }
       return out(
         `not invited: ${r.reason}`,
         r.url ? `next: add them here — ${r.url}` : null,
-        r.url ? "help[]: gh auth login, then nacre invite <github-username>" : null,
+        r.url ? "help[]: gh auth login, then repertory invite <github-username>" : null,
       );
     }
 
@@ -483,27 +483,27 @@ async function main() {
       if (!have.ok) fail(have.reason);
       const [newest] = await readLogs(memory, arg ?? binding?.project);
       if (!newest) {
-        return out("no logs yet — nothing to announce", "next: nacre-publish at the end of a session");
+        return out("no logs yet — nothing to announce", "next: rtr-p at the end of a session");
       }
       const text = announcement(newest, await issueTemplate(memory));
       if (o["dry-run"]) return out(text, "", "dry run — nothing sent");
       const r = await notify(text);
       return out(
         r.sent ? `ok: announced ${newest.rel}` : `not sent: ${r.reason}`,
-        r.unset ? "help[]: export NACRE_NOTIFY_URL=<your Slack/Discord webhook>" : null,
+        r.unset ? "help[]: export REPERTORY_NOTIFY_URL=<your Slack/Discord webhook>" : null,
       );
     }
 
     if (command === "search") {
       const term = positionals.slice(1).join(" ");
-      if (!term) fail("missing argument: nacre search <term>");
+      if (!term) fail("missing argument: repertory search <term>");
       const binding = await resolveBinding();
       const memory = await resolveStoreDir(memoryPath, binding?.store);
       await ensureMemory(memory, binding?.store);
       const hits = await searchMemory(memory, term, { project: binding?.project, all: o.all });
       if (!hits.length) {
         return out(`no hits for "${term}"${binding?.project && !o.all ? ` in ${binding.project}` : ""}`,
-          "help[]: nacre search <term> --all");
+          "help[]: repertory search <term> --all");
       }
       // Ranking is the engine's; truncation is this adapter's. Breadth beats depth inside a token ceiling. One thorough log can match
       // six times and crowd out every other session that mentioned the same
@@ -519,8 +519,8 @@ async function main() {
         const n = Number(process.env[name]);
         return Number.isInteger(n) && n > 0 ? n : fallback;
       };
-      const perSession = envInt("NACRE_SEARCH_PER_SESSION", 2);
-      const limit = envInt("NACRE_SEARCH_LIMIT", 12);
+      const perSession = envInt("REPERTORY_SEARCH_PER_SESSION", 2);
+      const limit = envInt("REPERTORY_SEARCH_LIMIT", 12);
       const perLog = new Map<string, number>();
       const spread = hits.filter((h) => {
         const n = (perLog.get(h.id) ?? 0) + 1;
@@ -536,9 +536,9 @@ async function main() {
         ...shown.map((h) => `${h.date},${h.who},${h.project},${h.line.slice(0, 90)}`),
         hidden > 0
           ? `(showing ${shown.length} of ${hits.length}, ${hidden} hidden — at most ${perSession} per session;`
-            + ` raise NACRE_SEARCH_PER_SESSION / NACRE_SEARCH_LIMIT, narrow the term, or nacre serve for all)`
+            + ` raise REPERTORY_SEARCH_PER_SESSION / REPERTORY_SEARCH_LIMIT, narrow the term, or repertory serve for all)`
           : null,
-        "help[]: nacre serve · nacre search <term> --all");
+        "help[]: repertory serve · repertory search <term> --all");
       return;
     }
 
@@ -551,7 +551,7 @@ async function main() {
       out(
         `issues[${findings.length}]{file,message}:`,
         ...findings.map((f) => `${f.file} — ${f.message}`),
-        "help[]: fix these, or nacre sleep for the full bedtime pass",
+        "help[]: fix these, or repertory sleep for the full bedtime pass",
       );
       return;
     }
@@ -568,7 +568,7 @@ async function main() {
           ? `consolidate[${report.consolidation.length}] (${CONSOLIDATE_THRESHOLD}+ logs — distil into a lesson):`
           : "consolidate: nothing large enough yet",
         ...report.consolidation.map((c) => `  ${c.project} · ${c.logs} logs`),
-        // The honest boundary: nacre keeps every log because the brief reads
+        // The honest boundary: repertory keeps every log because the brief reads
         // every decided-against and risk from all of them. Sleep never sweeps.
         "note: sleep reports only — it never archives; every log stays in recall by design",
       ];
@@ -576,7 +576,7 @@ async function main() {
       return;
     }
 
-    fail(`unknown command: ${command} · try: nacre --help`, 2);
+    fail(`unknown command: ${command} · try: repertory --help`, 2);
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   }

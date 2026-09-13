@@ -1,5 +1,5 @@
 ---
-type: nacre-lesson
+type: repertory-lesson
 topic: "[Insert kebab-case slug]"
 ---
 

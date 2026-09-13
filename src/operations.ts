@@ -61,7 +61,7 @@ export interface LinkInput {
 }
 export interface LinkResult {
   dir: string; name: string; file: string; wrote: boolean;
-  /** Whether AGENTS.md gained or refreshed the nacre block. */
+  /** Whether AGENTS.md gained or refreshed the repertory block. */
   noted: boolean;
   /** Whether the Claude Code SessionStart hook was written. */
   hooked: boolean;
@@ -146,10 +146,10 @@ export async function initStore({ store, storePath: pathFlag, who, force, allowP
 
 /** Add a project to the store. Optionally link repos in the same motion. */
 export async function addProject({ project, title, team, repos, storePath: pathFlag, store, who }: AddInput) {
-  if (!project) throw new Error("missing required argument: nacre add <project>");
+  if (!project) throw new Error("missing required argument: repertory add <project>");
   const dir = await resolveStoreDir(pathFlag, store ?? (await resolveBinding())?.store);
   if (!(await exists(join(dir, "_company.md")))) {
-    throw new Error(`no memory at ${dir} · run: nacre init <git-url>`);
+    throw new Error(`no memory at ${dir} · run: repertory init <git-url>`);
   }
 
   const author = who ?? (await gitSlug());
@@ -197,7 +197,7 @@ export async function addProject({ project, title, team, repos, storePath: pathF
 /**
  * Bind one code repo to a project — writing BOTH records.
  *
- * `.nacre.yml` answers "which project am I, and where is the store"; the
+ * `.repertory.yml` answers "which project am I, and where is the store"; the
  * project roster answers "which repos make up this project". They deliberately
  * answer different questions, so neither is a copy of the other — but a link
  * that updated only one of them would leave the company-level answer silently
@@ -223,7 +223,7 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
   }
   if (!project) throw new Error("missing required flag: --project <name>");
 
-  const file = join(dir, ".nacre.yml");
+  const file = join(dir, ".repertory.yml");
   let wrote = false;
   if (await exists(file)) {
     const current = frontmatter(`---\n${await readFile(file, "utf8")}\n---`);
@@ -245,12 +245,12 @@ export async function linkRepo({ repo, project, store, storePath: pathFlag, skip
   return { dir, name, file, wrote, noted, hooked, project: project as string, store: remote as string, roster };
 }
 
-const HOOK_COMMAND = "npx -y nacre-cli brief --hook";
+const HOOK_COMMAND = "npx -y repertory brief --hook";
 
 /**
  * Load the memory without anyone having to remember to.
  *
- * The AGENTS.md note *asks* an agent to run `nacre brief`. Asking is discipline,
+ * The AGENTS.md note *asks* an agent to run `repertory brief`. Asking is discipline,
  * and discipline is the thing this project exists to stop relying on — a step
  * someone must remember is the 6pm problem wearing a different hat. A
  * SessionStart hook is delivery: it fires whether or not anyone thought of it,
@@ -258,7 +258,7 @@ const HOOK_COMMAND = "npx -y nacre-cli brief --hook";
  *
  * Written into the project's `.claude/settings.json` because that file is
  * committed, so a teammate inherits it with the repo. That makes this the first
- * thing nacre writes that changes *behaviour* rather than leaving a signpost —
+ * thing repertory writes that changes *behaviour* rather than leaving a signpost —
  * so it is one recognisable line, reported in the output, and deleting it is
  * enough to be rid of it.
  *
@@ -266,7 +266,7 @@ const HOOK_COMMAND = "npx -y nacre-cli brief --hook";
  * have the AGENTS.md note.
  *
  * Merged, never overwritten: a project's own hooks and settings are none of
- * nacre's business.
+ * repertory's business.
  */
 async function writeSessionHook(dir: string): Promise<boolean> {
   const file = join(dir, ".claude", "settings.json");
@@ -284,7 +284,7 @@ async function writeSessionHook(dir: string): Promise<boolean> {
   const hooks = (settings.hooks ??= {});
   const starts: any[] = (hooks.SessionStart ??= []);
   const already = starts.some((group: any) =>
-    (group?.hooks ?? []).some((h: any) => typeof h?.command === "string" && h.command.includes("nacre-cli brief")),
+    (group?.hooks ?? []).some((h: any) => typeof h?.command === "string" && h.command.includes("repertory brief")),
   );
   if (already) return false;
 
@@ -298,11 +298,11 @@ async function writeSessionHook(dir: string): Promise<boolean> {
   return true;
 }
 
-const NOTE_START = "<!-- nacre:start -->";
-const NOTE_END = "<!-- nacre:end -->";
+const NOTE_START = "<!-- repertory:start -->";
+const NOTE_END = "<!-- repertory:end -->";
 
 /**
- * Tell any agent, including one that has never heard of nacre, what to run.
+ * Tell any agent, including one that has never heard of repertory, what to run.
  *
  * A skill only fires for an agent that already knows the skill exists, and an
  * MCP tool only for a client someone configured. `AGENTS.md` is the one file
@@ -325,23 +325,23 @@ async function writeAgentsNote(dir: string, project: string): Promise<boolean> {
     "**At the start of a session, run this and read the output:**",
     "",
     "```sh",
-    // npx, not a bare `nacre`. Whoever set this project up has nacre installed;
+    // npx, not a bare `repertory`. Whoever set this project up has repertory installed;
     // the teammate who just cloned this repo does not, and telling their agent
     // to run a command that is not there fails at the exact moment the memory
     // was supposed to help. `npx` needs no install and resolves to the global
     // one when it exists.
-    "npx -y nacre-cli brief",
+    "npx -y repertory brief",
     "```",
     "",
     "It reports the project's rules, what was **decided against**, open risks, and the",
     "newest session logs from every teammate. Plain file reads — no model call.",
     "",
     "If it says you have no access, the memory is private and nobody has added you",
-    "yet: ask whoever set it up to run `nacre invite <your-github-username>`.",
+    "yet: ask whoever set it up to run `repertory invite <your-github-username>`.",
     "",
-    "Installed globally (`npm i -g nacre-cli`), the same command is just `nacre brief`,",
-    "and `nacre search <term>` looks through the same memory. To record what this",
-    "session decided, run the `nacre-publish` skill; a person confirms before anything",
+    "Installed globally (`npm i -g repertory`), the same command is just `repertory brief`,",
+    "and `repertory search <term>` looks through the same memory. To record what this",
+    "session decided, run the `rtr-p` skill; a person confirms before anything",
     "is pushed.",
     NOTE_END,
     "",
@@ -351,7 +351,7 @@ async function writeAgentsNote(dir: string, project: string): Promise<boolean> {
   const from = text.indexOf(NOTE_START);
   const to = text.indexOf(NOTE_END);
   if (from !== -1 && to > from) {
-    // Replace in place. Re-running `nacre add` is normal — adding a repo later is
+    // Replace in place. Re-running `repertory add` is normal — adding a repo later is
     // the same command — and each run appending another copy would grow the file
     // that every session pays for.
     const next = text.slice(0, from) + block.trimEnd() + text.slice(to + NOTE_END.length);
@@ -385,7 +385,7 @@ export type Status =
 /** A binding that has been checked to actually name a project. */
 export type BoundBinding = Binding & { project: string };
 
-/** Live state for the bare `nacre` command. Read-only, no side effects. */
+/** Live state for the bare `repertory` command. Read-only, no side effects. */
 export async function status({ storePath: pathFlag }: { storePath?: string } = {}): Promise<Status> {
   const binding = await resolveBinding();
   const dir = await resolveStoreDir(pathFlag, binding?.store);
