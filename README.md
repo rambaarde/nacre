@@ -486,12 +486,12 @@ seeing it first.
 
 ## Why plain files
 
-> **repertory** *(n.)* /ˈneɪkər/ — mother-of-pearl. A mollusc lays it down one
-> microscopic layer at a time, aragonite platelet onto organic matrix, and never
-> takes one back. The layering is not decoration: it is what makes repertory both
-> iridescent and hard to break. Slice a shell and the growth bands read like tree
-> rings — a season each, thousands of them, the oldest still exactly where it was
-> laid.
+> **repertory** *(n.)* /ˈrɛpərtɔːri/ — a **repository**: a storehouse where a
+> stock of things is kept, and the whole collection held in it. From Latin
+> *repertorium*, "an inventory; a place where things are found" — the same root
+> as *repository*. A repertory grows by addition: each session lays down another
+> entry, and the ones already there stay exactly where they were put, findable
+> for whoever needs them next.
 
 **One layer per session. Nothing overwritten.**
 
