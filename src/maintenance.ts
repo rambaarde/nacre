@@ -1,5 +1,5 @@
 /**
- * Store hygiene and the bedtime pass — nacre's take on create-ai-memory's
+ * Store hygiene and the bedtime pass — repertory's take on create-ai-memory's
  * `ai-mem-lint` and `ai-mem-sleep`.
  *
  * `lint` reports what has rotted: templates left unfilled, lessons with no
@@ -9,10 +9,10 @@
  * `sleep` is the bedtime pass: it runs the lint and flags projects whose logs
  * have grown enough to be worth consolidating. It deliberately does NOT archive
  * or delete anything. create-ai-memory can archive old logs because its durable
- * layer is `_lessons/`; nacre's durable layer is the logs themselves — the
+ * layer is `_lessons/`; repertory's durable layer is the logs themselves — the
  * brief surfaces every decided-against and open risk from every log, forever —
  * so moving a log out of the tree would silently drop it from recall. Decay in
- * nacre is a consolidation the human approves, never a sweep that runs itself.
+ * repertory is a consolidation the human approves, never a sweep that runs itself.
  */
 
 import { readdir, readFile } from "node:fs/promises";

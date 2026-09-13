@@ -7,10 +7,10 @@ import { join } from "node:path";
 import { lint, sleep } from "../src/maintenance.js";
 
 async function store(): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-maint-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-maint-")));
   await writeFile(
     join(dir, "_company.md"),
-    `---\ntype: nacre-company\ncompany: Acme\n---\n\n# Snapshot\n\n* **What we build:** invoicing.\n`,
+    `---\ntype: repertory-company\ncompany: Acme\n---\n\n# Snapshot\n\n* **What we build:** invoicing.\n`,
   );
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(
@@ -33,7 +33,7 @@ test("lint flags an unfilled lesson and a who/folder mismatch", async () => {
   await mkdir(join(dir, "_lessons"), { recursive: true });
   await writeFile(
     join(dir, "_lessons", "stub.md"),
-    `---\ntype: nacre-lesson\ntopic: "stub"\n---\n\n# stub\n\n## 2026-09-12 · atlas\n\n### Problem\n[symptom]\n\n### Solution\n[fix]\n`,
+    `---\ntype: repertory-lesson\ntopic: "stub"\n---\n\n# stub\n\n## 2026-09-12 · atlas\n\n### Problem\n[symptom]\n\n### Solution\n[fix]\n`,
   );
   await writeFile(
     join(dir, "atlas", "devs", "alice", "atlas-2026-08-02_09-14-03.md"),

@@ -1,6 +1,6 @@
 {
-  "name": "nacre-cli",
-  "version": "0.8.0",
+  "name": "repertory",
+  "version": "0.9.0",
   "description": "One shared memory for your whole company — plain Markdown in git that your agent loads at session start and your team reads in a browser.",
   "keywords": [
     "ai-memory",
@@ -14,13 +14,13 @@
     "monorepo",
     "cross-repo"
   ],
-  "homepage": "https://github.com/rambaarde/nacre#readme",
+  "homepage": "https://github.com/rambaarde/repertory#readme",
   "bugs": {
-    "url": "https://github.com/rambaarde/nacre/issues"
+    "url": "https://github.com/rambaarde/repertory/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rambaarde/nacre.git"
+    "url": "git+https://github.com/rambaarde/repertory.git"
   },
   "license": "Apache-2.0",
   "author": "rambaarde",
@@ -29,8 +29,8 @@
     "node": ">=20"
   },
   "bin": {
-    "nacre": "dist/bin/nacre.js",
-    "nac": "dist/bin/nacre.js"
+    "repertory": "dist/bin/repertory.js",
+    "rtr": "dist/bin/repertory.js"
   },
   "files": [
     "dist/bin",

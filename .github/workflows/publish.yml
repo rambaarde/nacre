@@ -15,8 +15,8 @@
 # tokens that were the only other way to publish unattended.
 #
 # One-time setup on npmjs.com, which cannot be done from here:
-#   nacre-cli → Settings → Trusted Publisher → GitHub Actions
-#   repository: rambaarde/nacre   workflow: publish.yml
+#   repertory → Settings → Trusted Publisher → GitHub Actions
+#   repository: rambaarde/repertory   workflow: publish.yml
 name: publish
 
 on:
@@ -91,9 +91,9 @@ jobs:
             const files = meta.files.map((f) => f.path);
             const fail = (msg) => { console.error(msg); process.exitCode = 1; };
             for (const required of [
-              "dist/bin/nacre.js",
-              "skills/nacre-load/SKILL.md",
-              "skills/nacre-publish/SKILL.md",
+              "dist/bin/repertory.js",
+              "skills/rtr-l/SKILL.md",
+              "skills/rtr-p/SKILL.md",
               "store-template/_company.md",
               "README.md",
             ]) if (!files.includes(required)) fail("missing from tarball: " + required);
@@ -113,17 +113,17 @@ jobs:
         run: |
           VERSION='${{ needs.release-please.outputs.version }}'
           for i in 1 2 3 4 5 6; do
-            npm view "nacre-cli@$VERSION" version >/dev/null 2>&1 && break
+            npm view "repertory@$VERSION" version >/dev/null 2>&1 && break
             echo "waiting for the registry to serve $VERSION ($i)"; sleep 10
           done
           WORK=$(mktemp -d)
           cd "$WORK"
           npm init -y >/dev/null
-          npm install "nacre-cli@$VERSION" --prefer-online
+          npm install "repertory@$VERSION" --prefer-online
           # --version shipped broken once while working perfectly in the repo,
           # because bin/ and dist/bin/ are different layouts. Run the installed
           # binary, which is the only place that bug could ever appear.
-          GOT=$(./node_modules/.bin/nacre --version)
+          GOT=$(./node_modules/.bin/repertory --version)
           [ "$GOT" = "$VERSION" ] || { echo "installed binary reports $GOT, expected $VERSION"; exit 1; }
-          ./node_modules/.bin/nac --version >/dev/null
-          echo "ok: nacre-cli@$VERSION installs and runs"
+          ./node_modules/.bin/rtr --version >/dev/null
+          echo "ok: repertory@$VERSION installs and runs"

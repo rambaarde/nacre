@@ -12,10 +12,10 @@ import { resolveStoreDir } from "../src/store.js";
 
 /** A memory with two projects, one shared constraint, one decided-against. */
 async function memory(): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-mcp-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-mcp-")));
   await writeFile(
     join(dir, "_company.md"),
-    `---\ntype: nacre-company\ncompany: Acme\n---\n\n<!-- a comment that must not survive -->\n# Shared Infrastructure\n\n* **Redis:** one instance, shared by atlas and beacon.\n`,
+    `---\ntype: repertory-company\ncompany: Acme\n---\n\n<!-- a comment that must not survive -->\n# Shared Infrastructure\n\n* **Redis:** one instance, shared by atlas and beacon.\n`,
   );
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(
@@ -39,7 +39,7 @@ test("initialize echoes a protocol version the client asked for", async () => {
   const r = await handle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05" } });
   const result = r?.result as { protocolVersion: string; capabilities: unknown; serverInfo: { name: string } };
   assert.equal(result.protocolVersion, "2024-11-05");
-  assert.equal(result.serverInfo.name, "nacre");
+  assert.equal(result.serverInfo.name, "repertory");
   assert.ok(result.capabilities);
 });
 
@@ -57,7 +57,7 @@ test("notifications are never answered", async () => {
 test("tools/list advertises read-only tools, and nothing that writes", async () => {
   const r = await handle({ jsonrpc: "2.0", id: 1, method: "tools/list" });
   const names = (r?.result as { tools: { name: string }[] }).tools.map((t) => t.name);
-  assert.deepEqual(names, ["nacre_brief", "nacre_search"]);
+  assert.deepEqual(names, ["repertory_brief", "repertory_search"]);
   // The gate that makes publishing safe cannot be enforced from here, so no
   // tool may ever write. This test is the guard on that.
   assert.ok(!names.some((n) => /publish|write|add|init|commit|push/.test(n)));
@@ -77,7 +77,7 @@ test("an unknown method is a JSON-RPC error, not a crash", async () => {
 });
 
 test("an unknown tool is rejected", async () => {
-  const r = await call("nacre_publish");
+  const r = await call("repertory_publish");
   assert.equal((r?.error as { code: number }).code, -32602);
 });
 
@@ -105,7 +105,7 @@ test("brief surfaces cross-project lessons, ahead of the logs", async () => {
   await mkdir(join(dir, "_lessons"), { recursive: true });
   await writeFile(
     join(dir, "_lessons", "gui-app-has-no-shell-path.md"),
-    `---\ntype: nacre-lesson\ntopic: "gui-app-has-no-shell-path"\n---\n\n# gui-app-has-no-shell-path\n\n## 2026-09-12 \u00b7 mnelia\n\n### Problem\nA macOS GUI app could not find ffmpeg on PATH.\n\n### Solution\nResolve binaries from the common install dirs, not just PATH.\n`,
+    `---\ntype: repertory-lesson\ntopic: "gui-app-has-no-shell-path"\n---\n\n# gui-app-has-no-shell-path\n\n## 2026-09-12 \u00b7 mnelia\n\n### Problem\nA macOS GUI app could not find ffmpeg on PATH.\n\n### Solution\nResolve binaries from the common install dirs, not just PATH.\n`,
   );
   const out = await brief(dir, "atlas");
   assert.match(out, /Lessons/);
@@ -122,7 +122,7 @@ test("an unfilled lesson template never leaks into the brief", async () => {
   await mkdir(join(dir, "_lessons"), { recursive: true });
   await writeFile(
     join(dir, "_lessons", "_lesson-template.md"),
-    `---\ntype: nacre-lesson\ntopic: "[Insert kebab-case slug]"\n---\n\n# [Insert slug]\n\n## [Date] \u00b7 [Project]\n\n### Problem\n[symptom]\n\n### Solution\n[fix]\n`,
+    `---\ntype: repertory-lesson\ntopic: "[Insert kebab-case slug]"\n---\n\n# [Insert slug]\n\n## [Date] \u00b7 [Project]\n\n### Problem\n[symptom]\n\n### Solution\n[fix]\n`,
   );
   const out = await brief(dir, "atlas");
   assert.ok(!out.includes("Insert slug"), "template leaked into the brief");
@@ -149,7 +149,7 @@ test("brief stays inside its token budget", async () => {
 test("constraints shorten before any of them disappears", async () => {
   // 60 long decided-against entries do not fit at full length. The failure worth
   // preventing is not the loss of detail — it is the loss of *existence*: a
-  // session cannot `nacre search` for a constraint it was never shown, because
+  // session cannot `repertory search` for a constraint it was never shown, because
   // it does not know beacon exists. Every entry must still be on the page.
   const dir = await memory();
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
@@ -227,17 +227,17 @@ test("search says so when nothing matches, and what to try", async () => {
 });
 
 test("a traversing project name is refused", async () => {
-  const r = await call("nacre_brief", { project: "../../etc" });
+  const r = await call("repertory_brief", { project: "../../etc" });
   assert.equal((r?.result as { isError: boolean }).isError, true);
   assert.match(text(r), /Invalid project name/);
 });
 
 test("a failure is content the model can read, not a vanished call", async () => {
-  // Run somewhere with no .nacre.yml above it and no project given.
+  // Run somewhere with no .repertory.yml above it and no project given.
   const cwd = process.cwd();
-  process.chdir(await realpath(await mkdtemp(join(tmpdir(), "nacre-nowhere-"))));
+  process.chdir(await realpath(await mkdtemp(join(tmpdir(), "repertory-nowhere-"))));
   try {
-    const r = await call("nacre_brief");
+    const r = await call("repertory_brief");
     assert.equal((r?.result as { isError: boolean }).isError, true);
     assert.match(text(r), /No project given/);
   } finally {
@@ -267,8 +267,8 @@ test("the handoff section is absent when no live log carries a Next", async () =
   // handoff = the newest live log with a `## Next`. A project whose logs never
   // wrote one must not sprout an empty `## Handoff` heading — an empty section
   // reads as a handoff that said nothing, which is not the same as no handoff.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-noh-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nShared nothing.\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-noh-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nShared nothing.\n");
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -280,8 +280,8 @@ test("the handoff section is absent when no live log carries a Next", async () =
 });
 
 test("a project with a roster but no logs says so, rather than rendering blank", async () => {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-empty-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nShared nothing.\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-empty-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nShared nothing.\n");
   await mkdir(join(dir, "atlas"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -305,8 +305,8 @@ test("three developers on one project all appear in one brief, newest handoff wi
   // one brief and sees what all three before them decided, not just the last
   // one's. Each decided-against is a different person's, and only the newest
   // Next — regardless of who wrote it — is the live handoff.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-team-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nOne Redis, shared.\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-team-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nOne Redis, shared.\n");
   await mkdir(join(dir, "atlas"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api, atlas-web]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -343,7 +343,7 @@ test("the server speaks JSON-RPC on stdio and writes nothing else", async () => 
   // spawn, not execFile: promisified execFile has no `input` option (that is
   // execFileSync), so the child's stdin never closes, the read loop never ends,
   // and the test hangs rather than fails.
-  const child = spawn(process.execPath, [fileURLToPath(new URL("../bin/nacre.js", import.meta.url)), "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [fileURLToPath(new URL("../bin/repertory.js", import.meta.url)), "mcp"], { stdio: ["pipe", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");
@@ -377,7 +377,7 @@ test("a company-wide hit names its file rather than an empty date and author", a
   assert.ok(!/^\s*·\s+·/m.test(out), `row rendered with empty date/who:\n${out}`);
 });
 
-test("a local memory path in .nacre.yml is used directly, not re-derived", async () => {
+test("a local memory path in .repertory.yml is used directly, not re-derived", async () => {
   // The failure this guards: resolution derived ~/<name> from the path's last
   // segment and tried to clone into it, reporting "no projects yet" while
   // pointing at a directory full of them. Every store without a remote hit it.
@@ -399,7 +399,7 @@ test("a week-one constraint survives twenty newer logs", async () => {
   // ranked lower, gone — while the session still reports it loaded team context.
   // A teammate silently missing week one's constraint reads as "they didn't find
   // it useful", and the pilot gets misread.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-window-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-window-")));
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -427,7 +427,7 @@ test("past the floor it drops the newest, keeps the oldest, and says so", async 
   // truth does not depend on, and the oldest are the ones no recent summary
   // repeats and nobody remembers. Cutting the tail — the default a length cap
   // gives you free — drops exactly those, which is the bug a recency window had.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-cut-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-cut-")));
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -445,8 +445,12 @@ test("past the floor it drops the newest, keeps the oldest, and says so", async 
 
   assert.match(out, /OLDEST/, "the oldest constraint is the one that must survive");
   assert.doesNotMatch(out, /NEWEST/, "the newest is what a full brief gives up first");
-  assert.match(out, /are NOT shown/, "a drop this size must be stated, not implied");
-  assert.match(out, /nacre search/);
+  // The drop must be STATED — either as dropped decided-against entries
+  // ("N are NOT shown"), or, when the whole brief also trips the char cap, that
+  // cap's own notice. A longer product name shifts which one fires first; both
+  // announce the cut, which is the guarantee this test exists to hold.
+  assert.match(out, /are NOT shown|more characters exist/, "a drop this size must be stated, not implied");
+  assert.match(out, /repertory search/);
   assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
 });
 
@@ -454,11 +458,11 @@ test("a section written as one long paragraph is not reduced to its heading", as
   // cap() backed up to the last newline unconditionally. Markdown paragraphs are
   // routinely a single line, so a long _standards.md rendered as its heading and
   // nothing else — the newline it retreated to was the one after the heading.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-oneline-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\n# Snapshot\n\nWe ship on Fridays.\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-oneline-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\n# Snapshot\n\nWe ship on Fridays.\n");
   await writeFile(
     join(dir, "_standards.md"),
-    `---\ntype: nacre-standards\n---\n\n# Standards\n\nMARKER ${"every rule on one line ".repeat(500)}\n`,
+    `---\ntype: repertory-standards\n---\n\n# Standards\n\nMARKER ${"every rule on one line ".repeat(500)}\n`,
   );
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
@@ -470,7 +474,7 @@ test("a section written as one long paragraph is not reduced to its heading", as
 });
 
 test("a log with no summary section does not report a heading as its summary", async () => {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-nosum-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-nosum-")));
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");

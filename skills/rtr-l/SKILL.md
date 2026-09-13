@@ -1,21 +1,21 @@
 ---
-name: nacre-load
+name: rtr-l
 description: >
   Read the company context store at session start so you begin warm: what the
   project decided against, its open risks, and its newest session logs. Use at
-  the beginning of any session in a repo carrying a .nacre.yml, and when the
-  user says "nacre load", "nac load", "/nacre-load", "load context", "what did
+  the beginning of any session in a repo carrying a .repertory.yml, and when the
+  user says "repertory load", "rtr load", "/rtr-l", "load context", "what did
   the team decide", or asks what happened on this project before now.
 ---
 
-# nacre-load
+# rtr-l
 
 Read the store. Report what the team already decided. **Zero LLM calls** — this
 is file reads, not analysis.
 
 ## 1. Resolve scope
 
-Walk up from the working directory for `.nacre.yml`:
+Walk up from the working directory for `.repertory.yml`:
 
 ```yaml
 project: atlas
@@ -23,7 +23,7 @@ memory: git@github.com:acme/acme-context.git
 ```
 
 - `--project <name>` overrides.
-- **No `.nacre.yml` found → stop.** Say so, list the projects that exist in the
+- **No `.repertory.yml` found → stop.** Say so, list the projects that exist in the
   store if one is already cloned, and do nothing else. Never guess a project,
   and never fall back to a default store: a wrong guess writes one company's
   context into another company's session.
@@ -105,7 +105,7 @@ risks[1]{what,who}:
   old header still read in atlas-web,bob
 
 next: remove the old header path in atlas-web before the next release
-help[]: nacre-publish · nacre serve (the same memory, for a person)
+help[]: rtr-p · repertory serve (the same memory, for a person)
 ```
 
 **Explicit empty state.** A project with no logs yet gets a definite line and the
@@ -113,7 +113,7 @@ next step — never silent output, which cannot be told apart from failure:
 
 ```text
 project: atlas · no logs yet
-next: run nacre-publish at the end of this session to write the first one
+next: run rtr-p at the end of this session to write the first one
 ```
 
 ## Rules

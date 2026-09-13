@@ -1,5 +1,5 @@
 ---
-type: nacre-decision
+type: repertory-decision
 status: proposed        # proposed | accepted | superseded
 date: [Insert Date]
 deciders: [Insert Who]

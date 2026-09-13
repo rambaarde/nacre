@@ -405,7 +405,7 @@ svg.filtering .gnode.match{opacity:1}
  * search, which is the one thing that genuinely needs the server.
  */
 const CLIENT_JS = String.raw`(function(){
-var r=document.documentElement,K="nacre-theme";
+var r=document.documentElement,K="repertory-theme";
 try{var s=localStorage.getItem(K);if(s)r.setAttribute("data-theme",s)}catch(e){}
 document.addEventListener("click",function(e){
   var b=e.target.closest("[data-tgl]");if(!b)return;
@@ -413,7 +413,7 @@ document.addEventListener("click",function(e){
   var next=cur==="dark"?"light":"dark";r.setAttribute("data-theme",next);
   try{localStorage.setItem(K,next)}catch(e2){}});
 
-var SK="nacre-side";
+var SK="repertory-side";
 try{var sv=localStorage.getItem(SK);if(sv)r.setAttribute("data-side",sv)}catch(e){}
 function side(next){r.setAttribute("data-side",next);try{localStorage.setItem(SK,next)}catch(e){}}
 function toggleSide(){side(r.getAttribute("data-side")==="off"?"on":"off")}
@@ -767,7 +767,7 @@ if(G){(function(){
 
 const page = (title: string, body: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escape(title)} · nacre</title><style>${CSS}</style></head><body>${body}<script>${CLIENT_JS}</script></body></html>`;
+<title>${escape(title)} · repertory</title><style>${CSS}</style></head><body>${body}<script>${CLIENT_JS}</script></body></html>`;
 
 const link = (href: string, text: string): string => `<a href="${escape(href)}">${escape(text)}</a>`;
 
@@ -1058,7 +1058,7 @@ const shell = (
   <header class="top">
     <button class="sidetgl" data-side-tgl type="button" title="Show or hide the sidebar (⌘B)"
       aria-label="Toggle sidebar"><span class="bar"></span></button>
-    <a class="brand" href="/">nacre</a>
+    <a class="brand" href="/">repertory</a>
     <span class="sep">/</span>
     <span class="repo">${escape(basename(memory))} · pulled ${escape(clone)}</span>
     <span class="grow"></span>
@@ -1149,7 +1149,7 @@ const logRows = (logs: Log[], showProject = false): string => logs.length
       <td class="r">${escape(showProject ? l.project : (l.repos[0] ?? ""))}</td>
       <td class="sum"><a href="/log/${escape(encodeURIComponent(l.rel))}">${firstLine(l)}</a></td>
     </tr>`).join("")}</table></div>`
-  : `<p class="empty">No logs yet — run <code>nacre-publish</code> at the end of a session.</p>`;
+  : `<p class="empty">No logs yet — run <code>rtr-p</code> at the end of a session.</p>`;
 
 /** Rendered page plus the headings its on-this-page rail should point at. */
 interface Rendered { html: string; anchors: Anchor[] }
@@ -1419,7 +1419,7 @@ export async function serve({ memory, port = 4173, host = "127.0.0.1" }: ServeOp
             ? `<div class="scroll"><table>${names.map((n) => `<tr>
                 <td class="sum"><a href="/p/${escape(encodeURIComponent(n))}">${escape(n)}</a></td>
                 <td class="d">${idx.projects[n]} log${idx.projects[n] === 1 ? "" : "s"}</td></tr>`).join("")}</table></div>`
-            : `<p class="empty">No projects yet — run <code>nacre add &lt;project&gt; &lt;repo-dir&gt;</code>.</p>`)}`));
+            : `<p class="empty">No projects yet — run <code>repertory add &lt;project&gt; &lt;repo-dir&gt;</code>.</p>`)}`));
       }
 
       send(shell(memory, clone, idx, {}, "not found", '<p class="empty">not found</p>'), 404);
