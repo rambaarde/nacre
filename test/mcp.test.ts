@@ -445,7 +445,11 @@ test("past the floor it drops the newest, keeps the oldest, and says so", async 
 
   assert.match(out, /OLDEST/, "the oldest constraint is the one that must survive");
   assert.doesNotMatch(out, /NEWEST/, "the newest is what a full brief gives up first");
-  assert.match(out, /are NOT shown/, "a drop this size must be stated, not implied");
+  // The drop must be STATED — either as dropped decided-against entries
+  // ("N are NOT shown"), or, when the whole brief also trips the char cap, that
+  // cap's own notice. A longer product name shifts which one fires first; both
+  // announce the cut, which is the guarantee this test exists to hold.
+  assert.match(out, /are NOT shown|more characters exist/, "a drop this size must be stated, not implied");
   assert.match(out, /repertory search/);
   assert.ok(out.length <= 8_400, `brief was ${out.length} chars`);
 });
