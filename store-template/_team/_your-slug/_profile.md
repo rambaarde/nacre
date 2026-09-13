@@ -1,5 +1,5 @@
 ---
-type: nacre-profile
+type: repertory-profile
 who: [Insert Slug]
 name: [Insert Name]
 email: [Insert Email]

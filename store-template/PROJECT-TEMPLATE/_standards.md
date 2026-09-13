@@ -1,5 +1,5 @@
 ---
-type: nacre-project-standards
+type: repertory-project-standards
 project: [Insert Slug]
 ---
 

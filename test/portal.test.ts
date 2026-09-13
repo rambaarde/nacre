@@ -63,11 +63,11 @@ export async function drop(dir: string): Promise<void> {
 }
 
 async function fixture(): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-portal-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-portal-")));
   // Same isolation as store.test: nothing above the repo may influence a read.
   process.chdir(dir);
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
-  await writeFile(join(dir, "_standards.md"), "---\ntype: nacre-standards\n---\n\nMigrations are raw SQL.\n");
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nThe cache instance is shared by atlas and beacon.\n");
+  await writeFile(join(dir, "_standards.md"), "---\ntype: repertory-standards\n---\n\nMigrations are raw SQL.\n");
   const PROJECTS: Array<[string, string]> = [["atlas", "Atlas"], ["beacon", "Beacon"]];
   for (const [p, title] of PROJECTS) {
     await mkdir(join(dir, p), { recursive: true });
@@ -168,8 +168,8 @@ test("the graph renders on a degenerate store: one node, and none", async () => 
   // barely any edges, the case where a spring/charge layout most easily divides
   // by zero. And an empty store has zero nodes, where every max/sqrt guard has
   // to hold. Both must return a page, not a stack trace.
-  const one = await realpath(await mkdtemp(join(tmpdir(), "nacre-one-")));
-  await writeFile(join(one, "_company.md"), "---\ntype: nacre-company\n---\n\nx\n");
+  const one = await realpath(await mkdtemp(join(tmpdir(), "repertory-one-")));
+  await writeFile(join(one, "_company.md"), "---\ntype: repertory-company\n---\n\nx\n");
   await mkdir(join(one, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(join(one, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -182,8 +182,8 @@ test("the graph renders on a degenerate store: one node, and none", async () => 
     assert.doesNotMatch(await r.text(), /NaN/, "one-node layout produced NaN");
   } finally { s1.server.close(); await drop(one); }
 
-  const none = await realpath(await mkdtemp(join(tmpdir(), "nacre-none-")));
-  await writeFile(join(none, "_company.md"), "---\ntype: nacre-company\n---\n\nx\n");
+  const none = await realpath(await mkdtemp(join(tmpdir(), "repertory-none-")));
+  await writeFile(join(none, "_company.md"), "---\ntype: repertory-company\n---\n\nx\n");
   const s2 = await serve({ memory: none, port: 0 });
   try {
     const r = await fetch(`${s2.url}/graph`);
@@ -303,7 +303,7 @@ test("the CLI and the portal rank a query identically", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/repertory.js", import.meta.url));
 
   const engine = await search(dir, "cache", { all: true });
   const { stdout } = await run(process.execPath,
@@ -329,14 +329,14 @@ test("company-wide reads sort by time, not by project name", async () => {
   await drop(dir);
 });
 
-test("nacre search and nacre serve work as commands, not just as functions", async () => {
+test("repertory search and repertory serve work as commands, not just as functions", async () => {
   // Everything else exercises the operations directly. These two reach the user
   // only through the CLI, so the wiring between them needs its own check.
   const dir = await fixture();
   const { execFile, spawn } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/repertory.js", import.meta.url));
 
   const { stdout } = await run(process.execPath, [bin, "search", "cache", "--all", "--memory", dir]);
   assert.match(stdout, /^hits\[\d+\]\{date,who,project,line\}:/m, "AXI shape on stdout");
@@ -365,7 +365,7 @@ test("--port 0 asks for any free port, and is not swallowed", async () => {
   // to ask the OS for a free port, and it is what a second instance needs.
   const dir = await fixture();
   const { spawn } = await import("node:child_process");
-  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/repertory.js", import.meta.url));
   const child = spawn(process.execPath, [bin, "serve", "--memory", dir, "--port", "0"]);
   try {
     const line: string = await new Promise<string>((resolve, reject) => {
@@ -423,7 +423,7 @@ test("a project can carry its own standards, and they stay scoped to it", async 
   // a Node project's test runner.
   const dir = await fixture();
   await writeFile(join(dir, "atlas", "_standards.md"),
-    "---\ntype: nacre-project-standards\nproject: atlas\n---\n\n# Atlas — Standards\n\n* **Stack:** Node 20, Postgres.\n");
+    "---\ntype: repertory-project-standards\nproject: atlas\n---\n\n# Atlas — Standards\n\n* **Stack:** Node 20, Postgres.\n");
 
   const { projectStandards, projectView } = await import("../src/portal.js");
 
@@ -607,7 +607,7 @@ test("a project name is one directory name, never a path", async () => {
   // _standards.md from outside the memory entirely, and /p/ did the same with
   // _project.md. Guarding the two routes would have left the next route to
   // rediscover it, so the check lives where a name becomes a file.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-trav-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-trav-")));
   const outside = join(dir, "outside");
   const memory = join(dir, "memory");
   await mkdir(outside, { recursive: true });
@@ -637,7 +637,7 @@ test("a search page stays readable when the memory is real-sized", async () => {
   // Breadth before depth, as the CLI already did: cap each session first, so one
   // thorough log cannot crowd out every other session that discussed the same
   // thing.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-scale-")));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-scale-")));
   await mkdir(join(dir, "ledger", "devs", "dana"), { recursive: true });
   await writeFile(join(dir, "ledger", "_project.md"), "---\nproject: ledger\nrepos: [ledger-api]\n---\n");
   for (let i = 0; i < 60; i++) {
@@ -729,10 +729,10 @@ test("the CLI search caps are env-tunable and a bad value falls back", async () 
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const bin = fileURLToPath(new URL("../bin/nacre.js", import.meta.url));
+  const bin = fileURLToPath(new URL("../bin/repertory.js", import.meta.url));
 
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-cap-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nnothing to match here\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-cap-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nnothing to match here\n");
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -751,12 +751,12 @@ test("the CLI search caps are env-tunable and a bad value falls back", async () 
     const def = await search({});
     assert.match(def, /hits\[16\]/, "all sixteen matches are counted");
     assert.match(def, /8 hidden/, "the default cap hides eight and says so");
-    assert.match(def, /NACRE_SEARCH_PER_SESSION/, "the notice names the knob to raise");
+    assert.match(def, /REPERTORY_SEARCH_PER_SESSION/, "the notice names the knob to raise");
 
-    const raised = await search({ NACRE_SEARCH_PER_SESSION: "9", NACRE_SEARCH_LIMIT: "40" });
+    const raised = await search({ REPERTORY_SEARCH_PER_SESSION: "9", REPERTORY_SEARCH_LIMIT: "40" });
     assert.doesNotMatch(raised, /hidden/, "raising the caps past the count shows everything");
 
-    const bad = await search({ NACRE_SEARCH_PER_SESSION: "0", NACRE_SEARCH_LIMIT: "-3" });
+    const bad = await search({ REPERTORY_SEARCH_PER_SESSION: "0", REPERTORY_SEARCH_LIMIT: "-3" });
     assert.match(bad, /hits\[16\]/, "a bad cap must not crash or empty the result");
     assert.match(bad, /8 hidden/, "a bad cap falls back to the default of two per session");
   } finally {
@@ -769,8 +769,8 @@ test("readLogs interleaves three developers' logs by time, not by folder", async
   // the whole team, so a bob log from Wednesday must sit between two alice logs
   // from Tuesday and Thursday — ordering by stamp, never by which folder holds
   // the file. This is what keeps "what happened last" honest on a shared store.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-order-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nx\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-order-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nx\n");
   await mkdir(join(dir, "atlas"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -802,8 +802,8 @@ test("the seam graph counts three developers and the repo they share", async () 
   // must show three who-nodes, a repo whose session count is the sum across the
   // developers who touched it, and one cross-repo seam from the single session
   // that named two repos — never one seam per developer.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-team-graph-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nx\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-team-graph-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nx\n");
   await mkdir(join(dir, "atlas"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),
     "---\nproject: atlas\nrepos: [atlas-api, atlas-web]\nteams: [devs]\n---\n\n# Atlas\n");
@@ -843,8 +843,8 @@ test("a developer can supersede another developer's log", async () => {
   // one. Supersession keys on the log id, not the writer, and the retired log's
   // constraints must both leave the live view and be counted so the absence is
   // announced rather than silent.
-  const dir = await realpath(await mkdtemp(join(tmpdir(), "nacre-super-")));
-  await writeFile(join(dir, "_company.md"), "---\ntype: nacre-company\n---\n\nx\n");
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "repertory-super-")));
+  await writeFile(join(dir, "_company.md"), "---\ntype: repertory-company\n---\n\nx\n");
   await mkdir(join(dir, "atlas", "devs", "alice"), { recursive: true });
   await mkdir(join(dir, "atlas", "devs", "bob"), { recursive: true });
   await writeFile(join(dir, "atlas", "_project.md"),

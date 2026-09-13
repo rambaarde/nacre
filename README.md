@@ -1,17 +1,17 @@
 <div align="center">
 
-# nacre
+# repertory
 
 **One context memory for your whole company — every project, every repo, every
 person. Agents and people read the same files.**
 
-Your agent remembers a session. Your team remembers nothing. nacre gives a
+Your agent remembers a session. Your team remembers nothing. repertory gives a
 company one shared memory: plain Markdown in a private git repo that an agent
 loads at session start and a person browses in a portal, with no database in
 between.
 
 Most tools scope memory to a repository. A product is rarely one repository, and
-the knowledge that matters most lives in the seam between them. nacre's unit is
+the knowledge that matters most lives in the seam between them. repertory's unit is
 the **product**, and above it the **company**.
 
 No vectors. No API key. No service to run. Markdown you can read in a pull request.
@@ -23,8 +23,8 @@ No vectors. No API key. No service to run. Markdown you can read in a pull reque
      mis-typed code rather than as something to paste. -->
 
 ```sh
-npm i -g nacre-cli
-nacre init git@github.com:acme/acme-context.git
+npm i -g repertory
+repertory init git@github.com:acme/acme-context.git
 ```
 
 <div align="center">
@@ -33,7 +33,7 @@ nacre init git@github.com:acme/acme-context.git
 [create-ai-memory](https://github.com/rambaarde/create-ai-memory) instead —
 same idea, one person, no shared repo to set up.
 
-[![npm](https://img.shields.io/npm/v/nacre-cli)](https://www.npmjs.com/package/nacre-cli)
+[![npm](https://img.shields.io/npm/v/repertory)](https://www.npmjs.com/package/repertory)
 ![tests](https://img.shields.io/badge/tests-140%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
@@ -46,20 +46,20 @@ same idea, one person, no shared repo to set up.
 ## The two commands
 
 <div align="center">
-  <img src="demo/session-nacre.gif" width="100%" alt="One real Claude Code session. Bob types /nacre-load and the team's memory arrives: what is active, what was rejected, the open risks, and the newest logs. He asks what alice left open and gets her handoff, dated, with who it blocks and why. He makes a decision about a session-expiry status code, then types /nacre-publish; the agent composes the log, strips private blocks, scans for secrets, shows him the exact file and stops. It flags one of its own calls — it had tagged the log to a single repo — and bob corrects it to both, so the diff updates repos to atlas-api and atlas-web before the push.">
+  <img src="demo/session-repertory.gif" width="100%" alt="One real Claude Code session. Bob types /rtr-l and the team's memory arrives: what is active, what was rejected, the open risks, and the newest logs. He asks what alice left open and gets her handoff, dated, with who it blocks and why. He makes a decision about a session-expiry status code, then types /rtr-p; the agent composes the log, strips private blocks, scans for secrets, shows him the exact file and stops. It flags one of its own calls — it had tagged the log to a single repo — and bob corrects it to both, so the diff updates repos to atlas-api and atlas-web before the push.">
 </div>
 
-<p align="center"><em>One real session, in order: <code>/nacre-load</code> at the start, <code>/nacre-publish</code> at the end.</em></p>
+<p align="center"><em>One real session, in order: <code>/rtr-l</code> at the start, <code>/rtr-p</code> at the end.</em></p>
 
 Two developers on one project. **Bob** is the one in the recording. **Alice** left
 a note days earlier and never spoke to him.
 
-### At the start: `/nacre-load`
+### At the start: `/rtr-l`
 
 A fresh Claude Code session starts blind. The previous chat is gone, and nothing
 about it carries over on its own.
 
-`/nacre-load` is what fills that in. It reads the team's memory: the project's
+`/rtr-l` is what fills that in. It reads the team's memory: the project's
 rules, everything **decided against**, the open risks, and the newest session logs
 — Bob's own and everyone else's.
 
@@ -77,7 +77,7 @@ Bob never searched. He never opened a portal. He never learned Alice existed —
 her thread came back anyway, with the ordering constraint attached: **deploy
 `atlas-web` after `atlas-api`, not before.**
 
-### At the end: `/nacre-publish`
+### At the end: `/rtr-p`
 
 Bob decides the expiry response stays **419** rather than reverting to 401, because
 mobile already ships against it.
@@ -90,7 +90,7 @@ that's the only repo the session actually touched. Bob replies *"both repos, the
 push"* — one line of typing, and the diff updates to `repos: [atlas-api,
 atlas-web]` before it lands.
 
-That decision is now what the next `/nacre-load` on this project surfaces, before
+That decision is now what the next `/rtr-l` on this project surfaces, before
 anyone proposes 401 a third time.
 
 ### And the part no single repo can tell him
@@ -104,7 +104,7 @@ The same memory carries a constraint neither repo owns:
 
 Beacon is a different product, with a different team, in a different repo. Bob has
 never worked on it. That constraint belongs to two products and lives in neither's
-code — which is the whole reason nacre's unit is the company and not the repo.
+code — which is the whole reason repertory's unit is the company and not the repo.
 
 ---
 
@@ -127,20 +127,20 @@ changed at once.
    — and at 6pm, nobody does. The agent that produced the reasoning can write the
    log. The tax that killed the idea is gone.
 
-nacre is what you do about the third one.
+repertory is what you do about the third one.
 
 ---
 
 ## Before and after
 
-| | Before | With nacre |
+| | Before | With repertory |
 |---|---|---|
 | where reasoning lives | a chat thread that scrolls away | a file in a repo your team already clones |
 | a new session | starts blind, re-derives what is known | opens knowing what was decided, and why |
 | a rejected approach | rediscovered — sometimes re-shipped, re-broken | recorded, dated, attributed, never struck through |
 | a constraint owned by two repos | someone's head, or a Slack thread | the project's memory, which is above both |
 | who writes it down | nobody, honestly | the agent, at the end of the session |
-| reading it as a person | ask whoever remembers | `nacre serve` — the same files, in a browser |
+| reading it as a person | ask whoever remembers | `repertory serve` — the same files, in a browser |
 | the day someone leaves | it goes with them | it is in the history, on every clone |
 
 ---
@@ -153,7 +153,7 @@ over MCP by anything else. People read the same bytes in a local portal — no
 login, no database, no build step.
 
 <div align="center">
-  <img src="demo/portal-nacre.gif" width="100%" alt="The nacre portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
+  <img src="demo/portal-repertory.gif" width="100%" alt="The repertory portal: a project page, the Search tab filtering that project's logs in place, opening a session log, and the command palette jumping to another project.">
 </div>
 
 `⌘K` jumps anywhere in the memory. Underneath, it is markdown you can read in a
@@ -206,10 +206,10 @@ who were on leave. Nobody left reconstructing what the team already knew.
 ```mermaid
 flowchart LR
     A["open Claude Code"]
-    B["/nacre-load"]
+    B["/rtr-l"]
     C["you see what the team decided"]
     D["you work: decide, change code"]
-    E["/nacre-publish"]
+    E["/rtr-p"]
     F["the team's memory"]
 
     A --> B --> C --> D --> E --> F
@@ -220,14 +220,14 @@ That is the whole product. Five steps you type, one of which is optional on any
 given day.
 
 1. **Open Claude Code.** Nothing special — no flags, no wrapper.
-2. **`/nacre-load`.** Pulls the team's memory into the session.
+2. **`/rtr-l`.** Pulls the team's memory into the session.
 3. **You see what the team decided** — and what they decided *against*, which is
    the part that usually goes missing.
-4. **You work.** Decide things, change code. nacre is not involved.
-5. **`/nacre-publish`.** The session writes itself down, you approve it, it lands
+4. **You work.** Decide things, change code. repertory is not involved.
+5. **`/rtr-p`.** The session writes itself down, you approve it, it lands
    in the shared repo.
 
-Then the dotted arrow: the next person to run `/nacre-load` on that project —
+Then the dotted arrow: the next person to run `/rtr-l` on that project —
 including you, tomorrow, with a fresh session — starts from what you just wrote.
 
 Nobody has to remember to tell anybody.
@@ -246,8 +246,8 @@ acme-context/          ← all memory. One repo. Separate from your code.
     devs/dana/               one file per session, never overwritten
   billing/                 another one
 
-atlas-web/.nacre.yml      ← project: atlas · memory: git@…/acme-context.git
-atlas-api/.nacre.yml      ← the same two lines
+atlas-web/.repertory.yml      ← project: atlas · memory: git@…/acme-context.git
+atlas-api/.repertory.yml      ← the same two lines
 ```
 
 **Agents** read it through two skills — one loads what the team decided at
@@ -262,16 +262,16 @@ sequenceDiagram
     actor Dev as you
     participant CC as Claude Code
     participant Git as acme-context · git
-    participant Web as nacre serve
+    participant Web as repertory serve
 
-    Dev->>CC: /nacre-load
+    Dev->>CC: /rtr-l
     CC->>Git: git pull
     Git-->>CC: _company.md, _project.md, newest logs
     CC-->>Dev: decided against, open risks, handoffs
 
     Note over Dev,CC: the session's work happens here
 
-    Dev->>CC: /nacre-publish
+    Dev->>CC: /rtr-p
     CC->>CC: compose the log, strip private blocks, scan for secrets
     CC-->>Dev: the exact file, before anything moves
     Dev->>CC: push
@@ -279,7 +279,7 @@ sequenceDiagram
 
     Note over Git: nothing is overwritten, ever
 
-    Dev->>Web: nacre serve
+    Dev->>Web: repertory serve
     Web->>Git: read the same bytes
 ```
 
@@ -299,21 +299,21 @@ portal reads the files your agent just read.
 Install once, then two commands, run by whoever sets things up.
 
 ```sh
-npm i -g nacre-cli                              # the package; the commands are nacre and nac
+npm i -g repertory                              # the package; the commands are repertory and rtr
 
-nacre init git@github.com:acme/acme-context.git  # once, per company
-nacre add atlas ../atlas-web ../atlas-api        # once, per project
+repertory init git@github.com:acme/acme-context.git  # once, per company
+repertory add atlas ../atlas-web ../atlas-api        # once, per project
 ```
 
-Trying it without installing works too — `npx nacre-cli init <git-url>`.
+Trying it without installing works too — `npx repertory init <git-url>`.
 
 Adding a repo later is the same command again:
 
 ```sh
-nacre add atlas ../atlas-worker
+repertory add atlas ../atlas-worker
 ```
 
-`nacre add` also drops a **`SessionStart` hook** into the repo's
+`repertory add` also drops a **`SessionStart` hook** into the repo's
 `.claude/settings.json`, so Claude Code loads the memory at the start of every
 session without anyone remembering to ask. It stays silent while the store is
 thin — an empty briefing injected into every session costs context and teaches
@@ -324,42 +324,42 @@ Then give each teammate access to the memory — **the one step nothing can do f
 you**, because a private repo gives them nothing until they are on it:
 
 ```sh
-nacre invite dana                                # write access to the memory
+repertory invite dana                                # write access to the memory
 ```
 
 **Everyone after that installs nothing.** They clone a repo that already carries
-`.nacre.yml` and an `AGENTS.md` note, and their agent reads the memory with
-`npx nacre-cli brief` — no global install, no setup, nothing to remember. A global
-`npm i -g nacre-cli` only makes the command shorter.
+`.repertory.yml` and an `AGENTS.md` note, and their agent reads the memory with
+`npx repertory brief` — no global install, no setup, nothing to remember. A global
+`npm i -g repertory` only makes the command shorter.
 
-If they run it before being invited, nacre says so and names the fix rather than
+If they run it before being invited, repertory says so and names the fix rather than
 printing a git error: *the memory is private and you are not on it yet.*
 
-Unsure where you are? Run `nacre` with no arguments — it reports live state and
+Unsure where you are? Run `repertory` with no arguments — it reports live state and
 names the one command that applies next.
 
 ```
-$ nacre
+$ repertory
 project: atlas · repos[3]: atlas-api, atlas-web, atlas-worker · logs: 47
 memory: ~/acme-context · you are in: atlas-web
-next: nacre-load at session start · nacre-publish at the end
+next: rtr-l at session start · rtr-p at the end
 ```
 
-Every command also works as **`nac`**.
+Every command also works as **`rtr`**.
 
 ## Read it
 
 ```sh
-nacre brief            # what the team already decided, before you start
-nacre search 419       # the same search the portal uses, same ranking
-nacre serve            # the portal, from your own clone. No login.
+repertory brief            # what the team already decided, before you start
+repertory search 419       # the same search the portal uses, same ranking
+repertory serve            # the portal, from your own clone. No login.
 ```
 
-**`nacre brief` is the door that needs no setup at all.** No skill, no MCP client,
-no prior knowledge of nacre — any agent that can run a shell command can be told
-one line and get the same briefing everything else reads. `nacre add` also leaves
+**`repertory brief` is the door that needs no setup at all.** No skill, no MCP client,
+no prior knowledge of repertory — any agent that can run a shell command can be told
+one line and get the same briefing everything else reads. `repertory add` also leaves
 a short note in the repo's `AGENTS.md` saying exactly that, so an agent that has
-never heard of nacre still finds it.
+never heard of repertory still finds it.
 
 Three ways in — **project · person · time** — over one store. The project page
 leads with the **handoff**: the next step from the most recent session that named
@@ -378,7 +378,7 @@ nothing else keeps.
 
 ### Whatever your teammates use
 
-A memory only one agent can read is not a team memory, so `nacre add` installs the
+A memory only one agent can read is not a team memory, so `repertory add` installs the
 two commands **for every agent it finds on the machine** — no flag, nothing to
 choose:
 
@@ -397,28 +397,28 @@ For anything not in that table, or an editor you'd rather wire up yourself, the
 memory is also an **MCP server**:
 
 ```sh
-nacre mcp     # stdio JSON-RPC. The client starts this; you never run it yourself.
+repertory mcp     # stdio JSON-RPC. The client starts this; you never run it yourself.
 ```
 
 Register it once:
 
 ```sh
-claude mcp add nacre -- nacre mcp
+claude mcp add repertory -- repertory mcp
 ```
 
 ```jsonc
 // Cursor, Windsurf, Zed, Codex — .mcp.json / mcp.json
-{ "mcpServers": { "nacre": { "command": "nacre", "args": ["mcp"] } } }
+{ "mcpServers": { "repertory": { "command": "repertory", "args": ["mcp"] } } }
 ```
 
 Two tools, and **both only read**:
 
 | | |
 |---|---|
-| `nacre_brief` | the project's briefing — company facts, standards, the handoff, what was decided against, open risks, newest sessions |
-| `nacre_search` | the same search and the same ranking as the portal |
+| `repertory_brief` | the project's briefing — company facts, standards, the handoff, what was decided against, open risks, newest sessions |
+| `repertory_search` | the same search and the same ranking as the portal |
 
-**Nothing writes.** `/nacre-publish` is safe because a person sees the log and
+**Nothing writes.** `/rtr-p` is safe because a person sees the log and
 says yes before it is pushed — and no server can guarantee its client stopped for
 a human first. Exposing publishing here would either weaken *nothing is shared by
 omission* or fake a gate in a loop this process does not control. Writing stays
@@ -426,7 +426,7 @@ human-invoked, through the skill or the CLI, where the gate is real.
 
 ## Integrations
 
-Two of them, both **one-way and after the fact**. nacre announces what a person
+Two of them, both **one-way and after the fact**. repertory announces what a person
 already published; nothing reads from a vendor, and nothing writes into the
 memory without someone present.
 
@@ -434,10 +434,10 @@ memory without someone present.
 incoming webhook:
 
 ```sh
-export NACRE_NOTIFY_URL=https://hooks.slack.com/services/...
+export REPERTORY_NOTIFY_URL=https://hooks.slack.com/services/...
 ```
 
-`nacre-publish` posts one line after the push — or run `nacre notify` yourself:
+`rtr-p` posts one line after the push — or run `repertory notify` yourself:
 
 ```
 bob logged atlas — kept the 419 expiry response; api deploys before web
@@ -463,12 +463,12 @@ announcement. Linear, Jira, Shortcut, GitHub: it is a URL template, not an
 integration, so there is no token, no API, and nothing to break when a vendor
 changes theirs.
 
-### What nacre will not do
+### What repertory will not do
 
 **Pull issues in.** It needs a service running, it writes to the memory with
 nobody present — breaking *nothing is shared by omission* — and it buries the
 reasoning trail under ticket churn. The trail is the part nothing else keeps;
-your tracker is already a better tracker than nacre will ever be.
+your tracker is already a better tracker than repertory will ever be.
 
 ## Write it
 
@@ -486,9 +486,9 @@ seeing it first.
 
 ## Why plain files
 
-> **nacre** *(n.)* /ˈneɪkər/ — mother-of-pearl. A mollusc lays it down one
+> **repertory** *(n.)* /ˈneɪkər/ — mother-of-pearl. A mollusc lays it down one
 > microscopic layer at a time, aragonite platelet onto organic matrix, and never
-> takes one back. The layering is not decoration: it is what makes nacre both
+> takes one back. The layering is not decoration: it is what makes repertory both
 > iridescent and hard to break. Slice a shell and the growth bands read like tree
 > rings — a season each, thousands of them, the oldest still exactly where it was
 > laid.
@@ -499,7 +499,7 @@ Everything else in this space builds **agent memory** — a database the agent
 queries. SQLite, vectors, a graph, an extraction pipeline. A human reads it, if
 at all, through a debug viewer.
 
-nacre builds **team memory** — a document humans and agents share.
+repertory builds **team memory** — a document humans and agents share.
 
 The distinction underneath: **the reasoning trail is episodic, not
 encyclopedic.** What a system *is* can be documented and kept current. What
@@ -508,7 +508,7 @@ dated, attributed entries, and it is not an encyclopedia. Plenty of tools are
 building the encyclopedia. The trail is the part nobody keeps, and it is the part
 that stops a decision being made twice.
 
-It is also why nacre composes rather than competes: if you keep a per-repo
+It is also why repertory composes rather than competes: if you keep a per-repo
 architecture wiki, keep it. This is the layer above it.
 
 | | |
@@ -517,10 +517,10 @@ architecture wiki, keep it. This is the layer above it.
 | **Nothing captured silently** | a person publishes, or it stays local |
 | **Zero inference on reads** | reading is file reads; one model call, and only when you write |
 | **Company-wide scope** | company → projects → teams → people, and projects → repos |
-| **Integrations are one-way** | nacre announces what a person published; nothing writes in unattended |
+| **Integrations are one-way** | repertory announces what a person published; nothing writes in unattended |
 | **Append, never reconcile** | new files only; a correction is a new layer, not an edit |
 
-Uninstall nacre and you are left with a git repo of readable Markdown and its
+Uninstall repertory and you are left with a git repo of readable Markdown and its
 full history. That is the test this design has to keep passing.
 
 ## If you are working alone
@@ -530,13 +530,13 @@ Use **[create-ai-memory](https://github.com/rambaarde/create-ai-memory)**
 database, memory that outlives the chat thread — scoped to one person and one
 machine.
 
-nacre exists for the part that only shows up with other people: a memory a
+repertory exists for the part that only shows up with other people: a memory a
 teammate reads, a decision that has to survive the person who made it, and a
 fact that belongs to two repositories and neither. If nobody else is going to
-read it, everything nacre adds is cost — a shared repo to create, a publish step
+read it, everything repertory adds is cost — a shared repo to create, a publish step
 to remember, a portal nobody opens.
 
-|  | create-ai-memory | nacre |
+|  | create-ai-memory | repertory |
 |---|---|---|
 | scope | you | your company |
 | memory lives | a vault on your machine | a private git repo the team clones |
@@ -571,18 +571,18 @@ issue to see what's in flight).
 
 **Setup & tests:**
 ```bash
-git clone https://github.com/rambaarde/nacre.git && cd nacre
+git clone https://github.com/rambaarde/repertory.git && cd repertory
 npm test              # builds, then runs every suite; needs Node >= 20. No other deps.
 ```
 
 **How the code is organized:**
-- `bin/nacre.ts` — the CLI. Argument parsing and stdout only; no logic lives here.
+- `bin/repertory.ts` — the CLI. Argument parsing and stdout only; no logic lives here.
 - `src/*.ts` — `store.ts` (paths, git, safety), `operations.ts` (init/add/search),
   `portal.ts` (reads the store into plain data), `serve.ts` (the portal — one file,
   hand-written HTML/CSS/JS, no framework), `render.ts` + `markdown.ts` (output).
-- `skills/nacre-load`, `skills/nacre-publish` — the *behavior*. These are prompts,
+- `skills/rtr-l`, `skills/rtr-p` — the *behavior*. These are prompts,
   not code, and they are where the product mostly lives.
-- `store-template/` — what `nacre init` scaffolds into a new memory.
+- `store-template/` — what `repertory init` scaffolds into a new memory.
 
 **Ground rules (please keep these true):**
 - **Zero runtime dependencies.** Dev dependencies are TypeScript and nothing else.
